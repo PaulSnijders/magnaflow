@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>specs</title>
+<link rel="icon" href="assets/magnaflow-logo.ico">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<header class="cockpit-header">
+  <img class="logo" src="assets/magnaflow-logo.png" alt="">
+  <h1 id="breadcrumb"></h1>
+  <nav>
+    <a href="index.html">Overview</a>
+    <a id="project-link" href="#">Project</a>
+    <a id="config-link" href="#">Config</a>
+    <a id="scratchpad-link" href="#">Scratchpad</a>
+    <a id="chat-link" href="#" style="display:none;">Chat</a>
+    <span id="live" class="badge-live"></span>
+  </nav>
+</header>
+<main>
+  <div class="card">
+    <h2 id="breadcrumbs">docs/specs</h2>
+    <div id="specs-view">Loading…</div>
+  </div>
+</main>
+<script src="assets/app.js"></script>
+<script src="assets/md.js"></script>
+<script>
+  const project = Cockpit.qs("p");
+  document.title = "specs · " + project;
+  Cockpit.renderBreadcrumb(document.getElementById("breadcrumb"), [
+    { label: "mf-cockpit", href: "index.html" },
+    { label: project, href: "project.html?p=" + encodeURIComponent(project) },
+    { label: "specs" },
+  ]);
+  Cockpit.wireNav(project);
+  const bar = Cockpit.summaryBar(project);
+  // Specs aren't watched (docs/specs, not docs/prompts), but the top bar still reflects lane/watch
+  // changes; the live helper drives the connection marker (ontwerp-v0.5.md items 1–2).
+  Cockpit.live({
+    project,
+    badge: bar.marker,
+    handlers: [
+      { kind: "lane", refetch: bar.refresh },
+      { kind: "watch", refetch: bar.refresh },
+    ],
+  });
+
+  function currentPath() {
+    return Cockpit.qs("path") || "";
+  }
+
+  function pathUrl(path) {
+    return `specs.html?p=${encodeURIComponent(project)}${path ? "&path=" + encodeURIComponent(path) : ""}`;
+  }
+
+  function renderBreadcrumbs(path) {
+    const parts = path.split("/").filter(Boolean);
+    const crumbs = [`<a href="${pathUrl("")}">docs/specs</a>`];
+    let acc = "";
+    for (const part of parts) {
+      acc = acc ? acc + "/" + part : part;
+      crumbs.push(`<a href="${pathUrl(acc)}">${Cockpit.escapeHtml(part)}</a>`);
+    }
+    document.getElementById("breadcrumbs").innerHTML = crumbs.join(" / ");
+  }
+
+  async function load() {
+    const path = currentPath();
+    renderBreadcrumbs(path);
+    const url = `/api/projects/${encodeURIComponent(project)}/specs` + (path ? "/" + path.split("/").map(encodeURIComponent).join("/") : "");
+    const view = document.getElementById("specs-view");
+    try {
+      const result = await Cockpit.api(url);
+      if (result.type === "dir") {
+        if (!result.entries.length) {
+          view.innerHTML = '<span class="muted">(empty)</span>';
+          return;
+        }
+        view.innerHTML = "<ul class=\"specs-tree\">" + result.entries.map((e) => {
+          const childPath = path ? path + "/" + e.name : e.name;
+          const label = e.isDirectory ? "📁 " + Cockpit.escapeHtml(e.name) : "📄 " + Cockpit.escapeHtml(e.name);
+          return `<li><a href="${pathUrl(childPath)}">${label}</a></li>`;
+        }).join("") + "</ul>";
+      } else {
+        view.innerHTML = renderMarkdown(result.content);
+      }
+    } catch (err) {
+      view.innerHTML = `<span class="muted">${Cockpit.escapeHtml(err.message)}</span>`;
+    }
+  }
+
+  load();
+</script>
+</body>
+</html>

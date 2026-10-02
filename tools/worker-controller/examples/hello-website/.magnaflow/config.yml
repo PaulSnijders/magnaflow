@@ -1,0 +1,23 @@
+# Project configuration for the hello-website example.
+# Commands run through the platform shell (cmd.exe on Windows, /bin/sh elsewhere).
+
+build:
+  # A static site has no real build step; any command that exits 0 works.
+  command: echo static site - nothing to build
+
+test:
+  # "Tests" = does the page exist? Windows (cmd.exe) syntax:
+  command: if exist src\index.html (exit 0) else (exit 1)
+  # Linux/macOS equivalent:
+  # command: test -f src/index.html
+
+defaults:
+  max_attempts: 3
+  command_timeout_minutes: 15
+
+agent:
+  command: claude
+  # Uncomment to let the agent work fully unattended on YOUR OWN machine.
+  # This skips Claude Code's per-action permission prompts — a deliberate opt-in.
+  # args: [--dangerously-skip-permissions]
+  args: []

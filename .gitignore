@@ -1,0 +1,24 @@
+# .NET
+bin/
+obj/
+*.user
+.vs/
+
+# IDE
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Claude Code local (personal) settings — shared config in .claude/ is committed
+.claude/settings.local.json
+
+# NOTE: *.log is deliberately NOT ignored — per the constitution (Observable
+# Over Magical), execution logs are committed.
+docs/old-spec-kit-for-reference/
+.gstack/
+
+# mf-run local runtime state (PID files + service logs) — never the <id>/ run
+# evidence elsewhere under .magnaflow/, which is committed bookkeeping.
+.magnaflow/run/

@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>chat</title>
+<link rel="icon" href="assets/magnaflow-logo.ico">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<header class="cockpit-header">
+  <img class="logo" src="assets/magnaflow-logo.png" alt="">
+  <h1 id="breadcrumb"></h1>
+  <nav>
+    <a href="index.html">Overview</a>
+    <a id="project-link" href="#">Project</a>
+    <a id="specs-link" href="#">Specs</a>
+    <a id="config-link" href="#">Config</a>
+    <a id="scratchpad-link" href="#">Scratchpad</a>
+    <span id="live" class="badge-live"></span>
+  </nav>
+</header>
+<main>
+  <div id="busy-banner" class="busy-banner" style="display:none;">
+    A command is currently running in this project — the chat shares the machine with it.
+  </div>
+
+  <div class="card">
+    <h2>Chat (read-only)</h2>
+    <div class="chat-log" id="chat-log"></div>
+    <form id="chat-form" class="row">
+      <textarea id="chat-input" rows="2" placeholder="Ask about this project…" required></textarea>
+      <div>
+        <button type="submit" id="send-btn">Send</button>
+        <button type="button" id="escalate-btn" class="secondary" disabled>Make this a command</button>
+      </div>
+    </form>
+  </div>
+</main>
+<script src="assets/app.js"></script>
+<script src="assets/md.js"></script>
+<script>
+  const project = Cockpit.qs("p");
+  document.title = "chat · " + project;
+  Cockpit.renderBreadcrumb(document.getElementById("breadcrumb"), [
+    { label: "mf-cockpit", href: "index.html" },
+    { label: project, href: "project.html?p=" + encodeURIComponent(project) },
+    { label: "chat" },
+  ]);
+  Cockpit.wireNav(project);
+  // Live marker + refresh the "a command is running" busy banner on lane changes (ontwerp-v0.5.md
+  // item 1); the 15s interval below stays as a belt-and-braces fallback.
+  Cockpit.live({
+    project,
+    badge: document.getElementById("live"),
+    handlers: [{ kind: "lane", refetch: () => checkBusy() }],
+  });
+
+  const chatIdKey = "mf-cockpit-chat-" + project;
+  let chatId = sessionStorage.getItem(chatIdKey) || null;
+  let lastAgentText = "";
+
+  const log = document.getElementById("chat-log");
+  function appendMessage(role, text) {
+    const div = document.createElement("div");
+    div.className = "chat-msg " + role;
+    div.textContent = text;
+    log.appendChild(div);
+    log.scrollTop = log.scrollHeight;
+    return div;
+  }
+
+  // Every raw stream-json line (system/tool-call/assistant/result events) reaches the client as
+  // its own "line" frame; only the assistant's own text is worth a live preview while streaming.
+  function extractAssistantPreview(obj) {
+    if (obj && obj.type === "assistant" && Array.isArray(obj.message?.content)) {
+      const text = obj.message.content.filter((c) => c.type === "text").map((c) => c.text).join("\n");
+      return text || null;
+    }
+    return null;
+  }
+
+  async function checkBusy() {
+    try {
+      const summary = await Cockpit.api(`/api/projects/${encodeURIComponent(project)}`);
+      document.getElementById("busy-banner").style.display = summary.counts.running > 0 ? "" : "none";
+    } catch { /* non-fatal */ }
+  }
+
+  // Ctrl+Enter sends (ontwerp-v0.5.md item 9).
+  Cockpit.submitOnCtrlEnter(document.getElementById("chat-input"), () => document.getElementById("chat-form").requestSubmit());
+  document.getElementById("send-btn").title = "Ctrl+Enter to send";
+
+  document.getElementById("chat-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const input = document.getElementById("chat-input");
+    const message = input.value.trim();
+    if (!message) return;
+    input.value = "";
+
+    appendMessage("user", message);
+    const agentDiv = appendMessage("agent", "");
+    document.getElementById("send-btn").disabled = true;
+    document.getElementById("escalate-btn").disabled = true;
+    lastAgentText = "";
+
+    try {
+      const res = await fetch(`/api/projects/${encodeURIComponent(project)}/chat`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message, chatId }),
+      });
+      if (!res.ok || !res.body) throw new Error(`${res.status} ${res.statusText}`);
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+
+        let sep;
+        while ((sep = buffer.indexOf("\n\n")) >= 0) {
+          const frame = buffer.slice(0, sep);
+          buffer = buffer.slice(sep + 2);
+          const dataLine = frame.split("\n").find((l) => l.startsWith("data: "));
+          if (!dataLine) continue;
+          const payload = JSON.parse(dataLine.slice("data: ".length));
+
+          if (payload.type === "start") {
+            chatId = payload.chatId;
+            sessionStorage.setItem(chatIdKey, chatId);
+          } else if (payload.type === "line") {
+            let obj = null;
+            try { obj = JSON.parse(payload.text); } catch { /* not a JSON line; nothing to preview */ }
+            const preview = extractAssistantPreview(obj);
+            if (preview) {
+              agentDiv.textContent = preview; // still streaming — plain text, replaced by rendered markdown once "done" arrives
+              log.scrollTop = log.scrollHeight;
+            }
+          } else if (payload.type === "done") {
+            lastAgentText = payload.finalText || "";
+            if (payload.finalText) {
+              agentDiv.innerHTML = renderMarkdown(payload.finalText);
+            } else if (!agentDiv.textContent) {
+              agentDiv.textContent = payload.timedOut ? "(timed out — no response)" : "(no response)";
+            }
+            if (payload.timedOut) {
+              const note = document.createElement("div");
+              note.className = "muted";
+              note.textContent = "[timed out]";
+              agentDiv.appendChild(note);
+            }
+            document.getElementById("escalate-btn").disabled = !lastAgentText;
+            log.scrollTop = log.scrollHeight;
+          }
+        }
+      }
+    } catch (err) {
+      agentDiv.textContent = "error: " + err.message;
+    } finally {
+      document.getElementById("send-btn").disabled = false;
+      checkBusy();
+    }
+  });
+
+  document.getElementById("escalate-btn").addEventListener("click", async () => {
+    const title = prompt("Title for the new draft command:");
+    if (!title) return;
+    try {
+      const result = await Cockpit.api(`/api/projects/${encodeURIComponent(project)}/commands`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title, body: lastAgentText }),
+      });
+      location.href = `command.html?p=${encodeURIComponent(project)}&id=${encodeURIComponent(result.id)}`;
+    } catch (err) {
+      alert(err.message);
+    }
+  });
+
+  checkBusy();
+  setInterval(checkBusy, 15000);
+</script>
+</body>
+</html>

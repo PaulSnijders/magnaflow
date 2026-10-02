@@ -1,0 +1,638 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>project</title>
+<link rel="icon" href="assets/magnaflow-logo.ico">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<header class="cockpit-header">
+  <img class="logo" src="assets/magnaflow-logo.png" alt="">
+  <h1 id="breadcrumb"></h1>
+  <nav>
+    <a href="index.html">Overview</a>
+    <a id="specs-link" href="#">Specs</a>
+    <a id="config-link" href="#">Config</a>
+    <a id="scratchpad-link" href="#">Scratchpad</a>
+    <a id="chat-link" href="#" style="display:none;">Chat</a>
+    <span id="live" class="badge-live"></span>
+  </nav>
+</header>
+<main>
+  <!-- Action row (docs/prompts/0012): the one control pressed often enough that scrolling to the
+       Watcher card at the bottom for it was the wrong trade. No card chrome — it is a row of
+       buttons, not a section of the page. Start/Stop stayed in the card. -->
+  <div class="action-row">
+    <button id="watch-check-now" class="secondary" title="Write .magnaflow/mf-watch.wake — a running watcher polls now instead of finishing its backed-off sleep" disabled>Check now</button>
+    <span id="check-now-error" class="muted"></span>
+  </div>
+
+  <div class="card" id="run-card" style="display:none;">
+    <h2>
+      Run
+      <span class="row-inline">
+        <button id="run-start-all" class="secondary">Start all</button>
+        <button id="run-stop-all" class="secondary">Stop all</button>
+      </span>
+    </h2>
+    <div id="run-error" class="muted"></div>
+    <div id="run-services"></div>
+  </div>
+
+  <!-- Card order is the reading order of the page: what is running, then the lane it is running
+       from, then the way to add to that lane, and only then git and the watcher. -->
+  <div class="card">
+    <h2>Lane</h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Id</th><th>Title</th><th>Status</th><th>Attempts</th><th>Duration</th><th>Branch</th><th></th></tr></thead>
+        <tbody id="lane-body"><tr><td colspan="7" class="muted">Loading…</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>New draft command</h2>
+    <form id="draft-form">
+      <div class="field">
+        <label for="draft-title">Title</label>
+        <input type="text" id="draft-title" required>
+      </div>
+      <div class="field">
+        <label for="draft-body">Body</label>
+        <textarea id="draft-body" rows="5" placeholder="## Goal&#10;..."></textarea>
+      </div>
+      <button type="submit">Create draft</button>
+      <span id="draft-error" class="muted"></span>
+    </form>
+  </div>
+
+  <div class="card">
+    <h2>
+      Git
+      <span class="row-inline">
+        <select id="branch-select" title="Branches in this working copy"></select>
+        <button id="branch-switch-btn" class="secondary">Switch</button>
+        <button id="branch-refresh-btn" class="secondary" title="git fetch, then reload the list — the only control here that reaches the network. Needed to see a branch another machine pushed.">&#8635;</button>
+        <button id="git-pull-btn" class="secondary" title="git pull --ff-only (Ctrl+Enter on the message field commits)">Pull</button>
+      </span>
+    </h2>
+    <div id="git-info" class="muted">Loading…</div>
+    <div id="switch-result" class="run-result muted"></div>
+    <div id="pull-result" class="run-result muted"></div>
+    <form id="commit-all-form" class="row" style="margin-top:0.75rem;">
+      <input type="text" id="commit-message" placeholder="commit message" required>
+      <button type="submit" id="commit-all-btn" disabled>Commit all</button>
+    </form>
+    <span id="commit-error" class="muted"></span>
+  </div>
+
+  <div class="card">
+    <h2>
+      Watcher
+      <span class="row-inline">
+        <button id="watch-toggle" class="secondary">…</button>
+      </span>
+    </h2>
+    <div id="watch-lock" class="muted"></div>
+    <div id="watch-error" class="muted"></div>
+    <pre class="log-tail" id="watch-log"></pre>
+    <button id="watch-log-more" class="secondary" style="display:none;">load all</button>
+  </div>
+</main>
+<script src="assets/app.js"></script>
+<script>
+  const project = Cockpit.qs("p");
+  // Status first, so a background tab answers "is it still working?" without being opened; kept in
+  // step with the lane by the summary bar's own refresh (docs/prompts/0010's rst, "Follow-up").
+  document.title = project || "?";
+  Cockpit.renderBreadcrumb(document.getElementById("breadcrumb"), [
+    { label: "mf-cockpit", href: "index.html" },
+    { label: project || "?" },
+  ]);
+  Cockpit.wireNav(project);
+  const bar = Cockpit.summaryBar(project, (summary) => {
+    document.title = Cockpit.projectTitle(summary, project || "?");
+  });
+
+  // Ctrl+Enter submits (ontwerp-v0.5.md item 9): create draft + commit-all.
+  Cockpit.submitOnCtrlEnter(document.getElementById("draft-title"), () => document.getElementById("draft-form").requestSubmit());
+  Cockpit.submitOnCtrlEnter(document.getElementById("draft-body"), () => document.getElementById("draft-form").requestSubmit());
+  Cockpit.submitOnCtrlEnter(document.getElementById("commit-message"), () => document.getElementById("commit-all-form").requestSubmit());
+  document.querySelector("#draft-form button[type=submit]").title = "Ctrl+Enter to create";
+  document.getElementById("commit-all-btn").title = "Commit everything and push (Ctrl+Enter)";
+
+  // The slow half (ontwerp-v0.1.md — at least one `git` subprocess spawn, seconds on a repo with
+  // a large untracked tree): loaded on its own, separately from the fast lane/watcher data below,
+  // so it never delays them and a git error never blocks the rest of the page.
+  async function loadGit() {
+    const el = document.getElementById("git-info");
+    try {
+      const info = await Cockpit.api(`/api/projects/${encodeURIComponent(project)}/git`);
+      if (!info.available) { el.textContent = "git not available for this project"; return; }
+      const header = `branch <strong>${Cockpit.escapeHtml(info.branch || "-")}</strong>` +
+        (info.dirty ? ' <span class="pill aborted">dirty</span>' : ' <span class="pill done">clean</span>');
+      const commits = (info.commits || []).map((c) => `
+        <li><code>${Cockpit.escapeHtml(c.hash.slice(0, 7))}</code> ${Cockpit.escapeHtml(c.message)}
+          <span class="muted">— ${Cockpit.escapeHtml(c.author)}, ${Cockpit.formatDate(c.date)}</span></li>`).join("");
+      el.innerHTML = header + (commits ? `<ul class="specs-tree">${commits}</ul>` : "");
+
+      document.getElementById("commit-message").value = info.defaultCommitMessage || "";
+      document.getElementById("commit-all-btn").disabled = !info.dirty;
+      gitDirty = !!info.dirty;
+      updateSwitchControls();
+    } catch (err) {
+      el.textContent = err.message;
+    }
+  }
+
+  // Write #10 (docs/prompts/0014): switch the working copy to another branch from the Git card.
+  // The lane is *branch* state — the worker's bookkeeping commits land on the invoking branch — so
+  // moving a machine from `werk-fase-1` to `werk-fase-2` is a checkout, nothing more. On the desktop
+  // you would type it; on the Linux worker there is no terminal in that flow, only this page.
+  //
+  // Everything below reads state the page already holds — gitDirty from loadGit, laneRunning from
+  // loadLane, watcherAlive from loadWatch, servicesRunning from loadRun — so neither the disabled
+  // state nor the post-switch warning costs a request of its own.
+  let gitDirty = false;
+  let laneRunning = false;
+  let watcherAlive = false;
+  let servicesRunning = false;
+  let branchList = [];
+
+  function updateSwitchControls() {
+    const btn = document.getElementById("branch-switch-btn");
+    // The server enforces both of these too (409); saying so up front, in `title`, is what makes the
+    // button explain itself before it is pressed — the same thing "Commit all" already does by
+    // greying out on a clean tree.
+    const reason = gitDirty
+      ? "the working tree is dirty — commit or discard first (\"Commit all\"), then switch"
+      : (laneRunning ? "a command is running — switching would swap the tree under it" : "");
+    btn.disabled = !!reason || branchList.length === 0;
+    btn.title = reason || "git switch <branch> — the lane lives on the branch, not on the project";
+  }
+
+  // One local ref read (no `git status`, no `git log`), so it is not on the GET .../git TTL cache
+  // and not on the live refresh either: branches change when a human changes them. `fetchFirst`
+  // is the refresh control, and the only thing in this card that reaches the network.
+  async function loadBranches(fetchFirst) {
+    const sel = document.getElementById("branch-select");
+    const resultEl = document.getElementById("switch-result");
+    try {
+      const data = await Cockpit.api(`/api/projects/${encodeURIComponent(project)}/git/branches${fetchFirst ? "?fetch=true" : ""}`);
+      branchList = data.branches || [];
+      sel.innerHTML = branchList.map((b) =>
+        `<option value="${Cockpit.escapeHtml(b.name)}"${b.name === data.current ? " selected" : ""}>` +
+        `${Cockpit.escapeHtml(b.name)}${b.remoteOnly ? " (remote)" : ""}</option>`).join("");
+      if (data.fetchError) {
+        // The list beside it is still the truth about this working copy; only the network half failed.
+        resultEl.textContent = `fetch: ${data.fetchError}`;
+        resultEl.className = "run-result run-error";
+      } else if (fetchFirst) {
+        resultEl.textContent = "fetched";
+        resultEl.className = "run-result muted";
+      }
+    } catch (err) {
+      resultEl.textContent = err.message;
+      resultEl.className = "run-result run-error";
+    }
+    updateSwitchControls();
+  }
+
+  // Announce terminal transitions over this project's full lane (ontwerp-sound-cues.md). Silent on
+  // the first render; at most one cue per refetch, priority aborted > questions > done.
+  const cues = Cockpit.cueTracker();
+
+  // Newest-first, 10 at a time (docs/prompts/0008 item 1). The server's ordinal id order
+  // (0005 < 0005B < 0006) is kept and reversed at render time only — the *full* list is what
+  // cues.observe() sees, so a command that is currently hidden below the fold still chimes when it
+  // finishes. laneExpanded survives a Cockpit.live refetch for the same reason expandedRunLogs
+  // does: re-rendering must not collapse a list the human just opened.
+  // Reversing also flips where a follow-up's parent sits: 0006B now renders *above* 0006, so the
+  // marker is &#8625; (up, tip rightwards — shaft rising from the parent below), not the &#8618;
+  // that pointed at a parent above. Flip it back if the lane ever renders oldest-first again.
+  const LANE_VISIBLE = 10;
+  let laneExpanded = false;
+  let laneCommands = [];
+
+  async function loadLane() {
+    laneCommands = await Cockpit.api(`/api/projects/${encodeURIComponent(project)}/commands`);
+    cues.observe(laneCommands.map((c) => ({ project, id: c.id, status: c.status })));
+    laneRunning = laneCommands.some((c) => c.status === "running");
+    updateSwitchControls();
+    renderLane();
+  }
+
+  // m:ss under an hour (0:23, 5:07), h:mm:ss above; null renders an empty cell.
+  function formatDuration(seconds) {
+    if (seconds == null) return "";
+    const pad = (n) => String(n).padStart(2, "0");
+    const h = Math.floor(seconds / 3600), m = Math.floor(seconds % 3600 / 60), s = seconds % 60;
+    return h ? `${h}:${pad(m)}:${pad(s)}` : `${m}:${pad(s)}`;
+  }
+
+  function renderLane() {
+    const body = document.getElementById("lane-body");
+    if (!laneCommands.length) {
+      body.innerHTML = '<tr><td colspan="7" class="muted">No commands yet.</td></tr>';
+      return;
+    }
+    const newestFirst = laneCommands.slice().reverse();
+    const hidden = laneExpanded ? 0 : Math.max(0, newestFirst.length - LANE_VISIBLE);
+    const shown = hidden ? newestFirst.slice(0, LANE_VISIBLE) : newestFirst;
+
+    body.innerHTML = shown.map((c) => `
+      <tr class="${c.isFollowUp ? "followup-row" : ""}">
+        <td>${c.isFollowUp ? '<span class="muted followup-marker" title="follow-up — its parent is the row below">&#8625;&nbsp;</span>' : ""}<a href="command.html?p=${encodeURIComponent(project)}&id=${encodeURIComponent(c.id)}">${Cockpit.escapeHtml(c.id)}</a></td>
+        <td>${Cockpit.escapeHtml(c.title)}${c.summary ? `<div class="lane-summary" title="${Cockpit.escapeHtml(c.summary)}">${Cockpit.escapeHtml(c.summary)}</div>` : ""}</td>
+        <td>${Cockpit.statusPill(c.malformed ? "malformed" : c.status)}</td>
+        <td>${c.attempts}${c.maxAttempts ? "/" + c.maxAttempts : ""}</td>
+        <td class="muted">${formatDuration(c.durationSeconds)}</td>
+        <td class="muted">${Cockpit.escapeHtml(c.branch || "-")}</td>
+        <td>${c.status === "draft" ? `<button data-id="${Cockpit.escapeHtml(c.id)}" class="ready-btn secondary">Make ready</button>` : ""}</td>
+      </tr>`).join("") + (hidden
+      ? `<tr><td colspan="7"><button id="lane-more" class="secondary">+ ${hidden} older</button></td></tr>`
+      : "");
+
+    const more = document.getElementById("lane-more");
+    if (more) more.addEventListener("click", () => { laneExpanded = true; renderLane(); });
+
+    body.querySelectorAll(".ready-btn").forEach((btn) => btn.addEventListener("click", async () => {
+      btn.disabled = true;
+      try {
+        await Cockpit.api(`/api/projects/${encodeURIComponent(project)}/commands/${encodeURIComponent(btn.dataset.id)}/ready`, { method: "POST" });
+        await loadLane();
+      } catch (err) {
+        alert(err.message);
+        btn.disabled = false;
+      }
+    }));
+  }
+
+  // The Run card (ontwerp-v0.3.md "The Run card"): every status read and every button below is a
+  // fetch to an endpoint that itself shells out to mf-run — nothing here tracks process state.
+  // expandedRunLogs survives across loadRun() calls: an SSE "run" event (fired continuously while
+  // a service is actively writing to its log) re-renders the whole card, and without this an
+  // expanded log tail would silently collapse itself moments after the human opened it.
+  const expandedRunLogs = new Set();
+
+  async function loadRun() {
+    const card = document.getElementById("run-card");
+    const errorEl = document.getElementById("run-error");
+    try {
+      const status = await Cockpit.api(`/api/projects/${encodeURIComponent(project)}/run`);
+      if (!status.configured || !status.services.length) {
+        card.style.display = "none";
+        return;
+      }
+      card.style.display = "";
+      errorEl.textContent = status.error || "";
+      // Anything still up is a process of the *old* tree — the warning after a switch, nothing more.
+      servicesRunning = status.services.some((s) => s.running || s.portListening === true);
+      renderRunServices(status.services);
+    } catch (err) {
+      card.style.display = "";
+      errorEl.textContent = err.message;
+    }
+  }
+
+  // Combines mf-run's two independent status facts — tracked (running) and port_listening — into
+  // the four card states (docs/prompts/0003 "Cockpit Run card shows the combination"). Neither
+  // fact alone tells the whole story: a service started outside mf-run has no pid file (untracked)
+  // but may well be answering its port, and a tracked process can still leave its port silent.
+  function runState(s) {
+    const listening = s.portListening; // true | false | null/undefined (no url to probe)
+    if (s.running) {
+      return listening === false
+        ? { dot: "warning", text: "process up, port not answering" + (s.pid ? " (pid " + s.pid + ")" : "") }
+        : { dot: "running", text: "running" + (s.pid ? " (pid " + s.pid + ")" : "") };
+    }
+    return listening === true
+      ? { dot: "running", text: "running (not started by mf-run)" }
+      : { dot: "", text: "stopped" };
+  }
+
+  function renderRunServices(services) {
+    const body = document.getElementById("run-services");
+    body.innerHTML = services.map((s) => {
+      const expanded = expandedRunLogs.has(s.name);
+      const state = runState(s);
+      const stateText = state.text + (s.reason ? ` — ${s.reason}` : "");
+      return `
+      <div class="run-service" data-service="${Cockpit.escapeHtml(s.name)}">
+        <div class="run-service-header">
+          <span class="run-dot ${state.dot}" title="${Cockpit.escapeHtml(stateText)}"></span>
+          <strong>${Cockpit.escapeHtml(s.name)}</strong>
+          <span class="muted">${Cockpit.escapeHtml(stateText)}</span>
+          ${s.url ? (() => { const shown = Cockpit.displayUrl(s.url); return `<a href="${Cockpit.escapeHtml(shown)}" title="configured: ${Cockpit.escapeHtml(s.url)}" target="_blank" rel="noopener noreferrer">${Cockpit.escapeHtml(shown)}</a>`; })() : ""}
+          <span class="row-inline" style="margin-left:auto;">
+            <button class="secondary run-log-toggle" data-service="${Cockpit.escapeHtml(s.name)}">${expanded ? "Hide log" : "Log"}</button>
+            <button class="secondary run-btn" data-action="start" data-service="${Cockpit.escapeHtml(s.name)}">Start</button>
+            <button class="secondary run-btn" data-action="stop" data-service="${Cockpit.escapeHtml(s.name)}">Stop</button>
+            <button class="secondary run-btn" data-action="restart" data-service="${Cockpit.escapeHtml(s.name)}">Restart</button>
+          </span>
+        </div>
+        <pre class="log-tail run-log" style="display:${expanded ? "" : "none"};"></pre>
+        <div class="run-result muted"></div>
+      </div>`;
+    }).join("");
+
+    body.querySelectorAll(".run-btn").forEach((btn) => btn.addEventListener("click", () => runAction(btn.dataset.service, btn.dataset.action, btn)));
+    body.querySelectorAll(".run-log-toggle").forEach((btn) => btn.addEventListener("click", () => toggleRunLog(btn)));
+    expandedRunLogs.forEach((name) => refreshRunLog(name));
+  }
+
+  async function runAction(service, action, btn) {
+    const row = btn.closest(".run-service");
+    const resultEl = row.querySelector(".run-result");
+    btn.disabled = true;
+    resultEl.className = "run-result muted";
+    resultEl.textContent = `${action}ing…`;
+    try {
+      const result = await Cockpit.api(`/api/projects/${encodeURIComponent(project)}/run/${encodeURIComponent(service)}/${action}`, { method: "POST" });
+      resultEl.textContent = `${action}: exit ${result.exitCode}${result.timedOut ? " (timed out)" : ""} — ${result.output || "(no output)"}`;
+      resultEl.className = "run-result " + (result.success ? "muted" : "run-error");
+      await loadRun();
+    } catch (err) {
+      resultEl.textContent = err.message;
+      resultEl.className = "run-result run-error";
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  function toggleRunLog(btn) {
+    const service = btn.dataset.service;
+    if (expandedRunLogs.has(service)) {
+      expandedRunLogs.delete(service);
+      btn.closest(".run-service").querySelector(".run-log").style.display = "none";
+      btn.textContent = "Log";
+      return;
+    }
+    expandedRunLogs.add(service);
+    btn.textContent = "Hide log";
+    const pre = btn.closest(".run-service").querySelector(".run-log");
+    pre.style.display = "";
+    pre.textContent = "Loading…";
+    refreshRunLog(service);
+  }
+
+  async function refreshRunLog(service) {
+    const row = document.querySelector(`.run-service[data-service="${CSS.escape(service)}"]`);
+    const pre = row && row.querySelector(".run-log");
+    if (!pre) return;
+    try {
+      const tail = await Cockpit.api(`/api/projects/${encodeURIComponent(project)}/run/${encodeURIComponent(service)}/log?tail=100`);
+      pre.textContent = tail.exists ? (tail.lines.join("\n") || "(empty)") : "(no log yet)";
+    } catch (err) {
+      pre.textContent = err.message;
+    }
+  }
+
+  async function runAllAction(action, btn) {
+    btn.disabled = true;
+    const errorEl = document.getElementById("run-error");
+    errorEl.textContent = "";
+    try {
+      const result = await Cockpit.api(`/api/projects/${encodeURIComponent(project)}/run/${action}`, { method: "POST" });
+      if (!result.success) errorEl.textContent = `${action}-all: exit ${result.exitCode}${result.timedOut ? " (timed out)" : ""} — ${result.output || "(no output)"}`;
+      await loadRun();
+    } catch (err) {
+      errorEl.textContent = err.message;
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  document.getElementById("run-start-all").addEventListener("click", (e) => runAllAction("start", e.currentTarget));
+  document.getElementById("run-stop-all").addEventListener("click", (e) => runAllAction("stop", e.currentTarget));
+
+  // The log tail the server already sent, shown last-10-first-visible (docs/prompts/0008 item 2):
+  // chronological order like `tail`, just cropped, so the newest line needs no scrolling. `load all`
+  // reveals lines that were already fetched — GET .../watch is untouched. watchLogExpanded survives
+  // a refetch, same rule as laneExpanded above.
+  const WATCH_LOG_VISIBLE = 10;
+  let watchLogExpanded = false;
+  let watchLogLines = [];
+
+  function renderWatchLog() {
+    const hidden = watchLogExpanded ? 0 : Math.max(0, watchLogLines.length - WATCH_LOG_VISIBLE);
+    const shown = hidden ? watchLogLines.slice(-WATCH_LOG_VISIBLE) : watchLogLines;
+    document.getElementById("watch-log").textContent = shown.join("\n") || "(empty)";
+    const more = document.getElementById("watch-log-more");
+    more.style.display = hidden ? "" : "none";
+    more.textContent = `load all (${hidden} older)`;
+  }
+
+  document.getElementById("watch-log-more").addEventListener("click", () => {
+    watchLogExpanded = true;
+    renderWatchLog();
+  });
+
+  async function loadWatch() {
+    const watch = await Cockpit.api(`/api/projects/${encodeURIComponent(project)}/watch?tail=100`);
+    document.getElementById("watch-lock").textContent = watch.running ? "watcher running on this copy" : "watcher not running";
+    watcherAlive = watch.running;
+    // TailReader splits on '\n', so a log ending in a newline hands us a trailing empty line —
+    // invisible in a 100-line block, but it would eat one of the ten visible slots here.
+    const lines = watch.log.lines.slice();
+    while (lines.length && lines[lines.length - 1] === "") lines.pop();
+    watchLogLines = lines;
+    renderWatchLog();
+    const toggle = document.getElementById("watch-toggle");
+    toggle.textContent = watch.running ? "Stop" : "Start";
+    toggle.dataset.running = watch.running ? "1" : "";
+    // Nothing would consume the wake file with no watcher running, so don't offer it.
+    document.getElementById("watch-check-now").disabled = !watch.running;
+  }
+
+  document.getElementById("watch-toggle").addEventListener("click", async (e) => {
+    const btn = e.currentTarget;
+    const errorEl = document.getElementById("watch-error");
+    const action = btn.dataset.running ? "stop" : "start";
+    errorEl.textContent = "";
+    btn.disabled = true;
+    try {
+      const result = await Cockpit.api(`/api/projects/${encodeURIComponent(project)}/watch/${action}`, { method: "POST" });
+      if (!result.success) errorEl.textContent = result.error || `${action} failed`;
+      await loadWatch();
+    } catch (err) {
+      errorEl.textContent = err.message;
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  // "Check now" (docs/prompts/0008 item 3, moved to the top action row by docs/prompts/0012): one
+  // empty file, consumed by the watcher within a second or so; the fresh poll then shows up in the
+  // log tail like any other. Refetches watch status after the click exactly like Start/Stop do —
+  // loadWatch() re-enables the button as long as it's running, so the row follows Start/Stop and a
+  // live refresh without a request of its own. Its errors moved with it: the Watcher card's
+  // #watch-error is a whole page away from the button now.
+  document.getElementById("watch-check-now").addEventListener("click", async (e) => {
+    const btn = e.currentTarget;
+    const errorEl = document.getElementById("check-now-error");
+    errorEl.textContent = "";
+    btn.disabled = true;
+    try {
+      const result = await Cockpit.api(`/api/projects/${encodeURIComponent(project)}/watch/check-now`, { method: "POST" });
+      if (!result.success) errorEl.textContent = result.error || "check-now failed";
+      await loadWatch();
+      // The wake is consumed a beat *after* the POST returns (mf-watch checks in ~1s slices), so the
+      // refetch above is too early to show its log line — and an append to an already-open
+      // mf-watch.log does not reliably raise a FileSystemWatcher event on Windows, so the SSE
+      // "watch" kind may not cover it either. One late refetch, so the click visibly does something.
+      setTimeout(() => loadWatch().catch(() => {}), 2000);
+    } catch (err) {
+      errorEl.textContent = err.message;
+      btn.disabled = false;
+    }
+  });
+
+  async function loadAll() {
+    // Fast half: awaited, errors surfaced. loadGit() is the slow half, kicked off separately
+    // below so it never delays this and its own errors stay scoped to the Git card.
+    await Promise.all([loadLane(), loadWatch()]);
+  }
+
+  document.getElementById("draft-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const title = document.getElementById("draft-title").value;
+    const bodyText = document.getElementById("draft-body").value;
+    const errorEl = document.getElementById("draft-error");
+    errorEl.textContent = "";
+    try {
+      await Cockpit.api(`/api/projects/${encodeURIComponent(project)}/commands`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title, body: bodyText }),
+      });
+      document.getElementById("draft-title").value = "";
+      document.getElementById("draft-body").value = "";
+      await loadLane();
+    } catch (err) {
+      errorEl.textContent = err.message;
+    }
+  });
+
+  // Write #8: exactly `git pull --ff-only` (ontwerp-v0.5.md item 7). The server refuses a dirty
+  // tree or a running command; git's own exit code and output ("Already up to date.", "not possible
+  // to fast-forward") are shown inline, never swallowed. On success the lane changes on disk, so the
+  // watcher/SSE refreshes the rest of the page; loadGit() refreshes the card's own commit list.
+  document.getElementById("git-pull-btn").addEventListener("click", async (e) => {
+    const btn = e.currentTarget;
+    const resultEl = document.getElementById("pull-result");
+    btn.disabled = true;
+    resultEl.className = "run-result muted";
+    resultEl.textContent = "pulling…";
+    try {
+      const result = await Cockpit.api(`/api/projects/${encodeURIComponent(project)}/git/pull`, { method: "POST" });
+      resultEl.textContent = `pull: exit ${result.exitCode}${result.timedOut ? " (timed out)" : ""} — ${result.output || "(no output)"}`;
+      resultEl.className = "run-result " + (result.success ? "muted" : "run-error");
+      await loadGit();
+    } catch (err) {
+      resultEl.textContent = err.message;
+      resultEl.className = "run-result run-error";
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  document.getElementById("branch-refresh-btn").addEventListener("click", async (e) => {
+    const btn = e.currentTarget;
+    btn.disabled = true;
+    document.getElementById("switch-result").textContent = "fetching…";
+    document.getElementById("switch-result").className = "run-result muted";
+    try { await loadBranches(true); } finally { btn.disabled = false; }
+  });
+
+  // The switch itself. The server refuses a dirty tree, a running command and any branch outside
+  // the list it just handed out; git's own exit code and output — "Switched to branch ...",
+  // "matched multiple (2) remote tracking branches" — are shown inline, never swallowed.
+  document.getElementById("branch-switch-btn").addEventListener("click", async () => {
+    const branch = document.getElementById("branch-select").value;
+    if (!branch) return;
+    const btn = document.getElementById("branch-switch-btn");
+    const resultEl = document.getElementById("switch-result");
+    btn.disabled = true;
+    resultEl.className = "run-result muted";
+    resultEl.textContent = `switching to ${branch}…`;
+    try {
+      const result = await Cockpit.api(`/api/projects/${encodeURIComponent(project)}/git/checkout`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ branch }),
+      });
+      // Warn, never refuse. A watcher poll in flight cannot be detected — .magnaflow/mf-watch.lock
+      // is a process-lifetime lock, not a per-poll one — and refusing while a watcher runs would
+      // disable the button on the one machine it exists for; the run that is actually in progress
+      // is already covered by the server's 409. Services are the old tree's processes, and the Run
+      // card with its Restart button is right here on the same page.
+      const warnings = [];
+      if (watcherAlive) warnings.push("the watcher is running here — it may start a ready command on this branch at any moment");
+      if (servicesRunning) warnings.push("services are still running from the old tree — Restart them in the Run card");
+      const warn = result.success && warnings.length ? " — " + warnings.join("; ") : "";
+      resultEl.textContent = `switch: exit ${result.exitCode}${result.timedOut ? " (timed out)" : ""} — ${result.output || "(no output)"}${warn}`;
+      resultEl.className = "run-result " + (result.success ? (warnings.length ? "run-warning" : "muted") : "run-error");
+      // A checkout rewrites docs/prompts/ and .magnaflow/, so the FileSystemWatcher fires and SSE
+      // refreshes the lane — but the Git card is deliberately not on that fast path, so refetch its
+      // own two reads here exactly as the Pull button does.
+      await Promise.all([loadGit(), loadBranches(false), loadLane(), bar.refresh()]);
+    } catch (err) {
+      resultEl.textContent = err.message;
+      resultEl.className = "run-result run-error";
+    } finally {
+      updateSwitchControls(); // re-enables unless the tree is dirty or a command is running
+    }
+  });
+
+  document.getElementById("commit-all-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const message = document.getElementById("commit-message").value;
+    const errorEl = document.getElementById("commit-error");
+    const btn = document.getElementById("commit-all-btn");
+    errorEl.textContent = "";
+    btn.disabled = true;
+    try {
+      const result = await Cockpit.api(`/api/projects/${encodeURIComponent(project)}/git/commit-all`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message }),
+      });
+      if (!result.committed) errorEl.textContent = "nothing to commit";
+      else if (!result.push) errorEl.textContent = "committed (no remote — not pushed)";
+      else if (!result.push.success) errorEl.textContent =
+        `committed, but push failed: exit ${result.push.exitCode}${result.push.timedOut ? " (timed out)" : ""} — ${result.push.output || "(no output)"}`;
+      else errorEl.textContent = "committed and pushed";
+      await loadGit();
+    } catch (err) {
+      errorEl.textContent = err.message;
+      btn.disabled = false;
+    }
+  });
+
+  // Shared live helper (ontwerp-v0.5.md item 1): lane/watch/run each refetch their own card. The
+  // Git card keeps its own slower path (loadGit, below) — deliberately not on this fast refresh.
+  Cockpit.live({
+    project,
+    badge: bar.marker,
+    handlers: [
+      { kind: "lane", refetch: loadLane },
+      { kind: "lane", refetch: bar.refresh },
+      { kind: "watch", refetch: loadWatch },
+      { kind: "watch", refetch: bar.refresh },
+      { kind: "run", refetch: loadRun },
+    ],
+  });
+
+  loadAll().catch((err) => alert(err.message));
+  loadGit();
+  loadBranches(false); // local ref read only — the fetch stays behind the refresh control
+  // Its own status call spawns a process (same reasoning as the Git card) — kicked off
+  // separately so it never delays the fast lane/watcher data above.
+  loadRun();
+</script>
+</body>
+</html>

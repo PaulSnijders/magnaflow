@@ -1,0 +1,42 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <InvariantGlobalization>true</InvariantGlobalization>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="CliWrap" Version="3.10.2" />
+    <PackageReference Include="YamlDotNet" Version="18.1.0" />
+  </ItemGroup>
+
+  <!-- Sdk.Web only copies wwwroot/** to the output dir on `dotnet publish` by default; this tool
+       (like its siblings) is run straight from `dotnet build`'s bin/ output, so promote the
+       existing implicit wwwroot content items to copy on every build too. -->
+  <ItemGroup>
+    <Content Update="wwwroot\**" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <!-- Default mf-cockpit.yml — always copied next to the binary (CockpitConfig.DefaultPath()),
+       so there's a documented, editable file waiting instead of nothing at all. -->
+  <ItemGroup>
+    <Content Include="mf-cockpit.yml" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <!-- Build-time content files (design doc): copied from docs/images/ into wwwroot/assets/,
+       never read at runtime from docs/. -->
+  <ItemGroup>
+    <Content Include="../../../../docs/images/magnaflow-banner-wide.png" Link="wwwroot/assets/magnaflow-banner-wide.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="../../../../docs/images/magnaflow-logo.png" Link="wwwroot/assets/magnaflow-logo.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="../../../../docs/images/magnaflow-logo.ico" Link="wwwroot/assets/magnaflow-logo.ico">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,10 @@
+# Line endings: LF in the repo and in every working tree, on every OS.
+# Added 2026-09-07 when all tracked text blobs were already LF, so this
+# rewrites no history — it only stops core.autocrlf=true (the Git for
+# Windows default) from checking files out as CRLF, which made the same
+# file differ between a Windows and a Linux clone without anyone editing
+# it. Windows batch files are the one exception: cmd.exe wants CRLF.
+* text=auto eol=lf
+*.cmd text eol=crlf
+*.png binary
+*.ico binary

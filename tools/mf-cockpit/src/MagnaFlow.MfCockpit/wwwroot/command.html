@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>command</title>
+<link rel="icon" href="assets/magnaflow-logo.ico">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<header class="cockpit-header">
+  <img class="logo" src="assets/magnaflow-logo.png" alt="">
+  <h1 id="breadcrumb"></h1>
+  <nav>
+    <a href="index.html">Overview</a>
+    <a id="project-link" href="#">Project</a>
+    <a id="specs-link" href="#">Specs</a>
+    <a id="config-link" href="#">Config</a>
+    <a id="scratchpad-link" href="#">Scratchpad</a>
+    <a id="chat-link" href="#" style="display:none;">Chat</a>
+    <span id="live" class="badge-live"></span>
+  </nav>
+</header>
+<main>
+  <div class="card">
+    <h2 id="cmd-heading">Loading…</h2>
+    <div id="cmd-meta" class="muted"></div>
+    <div id="cmd-summary" class="rst-summary" style="display:none;"></div>
+    <button id="ready-btn" class="secondary" style="display:none;">Make ready</button>
+  </div>
+
+  <div class="card" id="followup-card" style="display:none;">
+    <h2>Continue on this command</h2>
+    <form id="followup-form">
+      <div class="field">
+        <label for="followup-feedback">Feedback</label>
+        <textarea id="followup-feedback" rows="3" placeholder="good, but this line should be different…" required></textarea>
+      </div>
+      <div class="field">
+        <label for="followup-slug">Slug (optional)</label>
+        <input type="text" id="followup-slug" placeholder="defaults to the same name">
+      </div>
+      <button type="submit">Create follow-up draft</button>
+      <span id="followup-error" class="muted"></span>
+    </form>
+  </div>
+
+  <div class="row">
+    <div class="card"><h2>Command</h2><div id="cmd-body"></div></div>
+    <div class="card"><h2>Plan</h2><div id="pln-body" class="muted">none</div></div>
+  </div>
+  <div class="row">
+    <div class="card"><h2>Questions</h2><div id="qa-body" class="muted">none</div></div>
+    <div class="card"><h2>Report</h2><div id="rst-body" class="muted">none</div></div>
+  </div>
+
+  <div class="card">
+    <h2>Evidence</h2>
+    <div id="session-id" class="muted"></div>
+    <h3>claude.log <button type="button" class="log-toggle secondary" id="claude-log-toggle">Raw</button></h3>
+    <div class="log-tail" id="claude-log"></div>
+    <h3>build.log <button type="button" class="log-toggle secondary" id="build-log-toggle">Raw</button></h3>
+    <div class="log-tail" id="build-log"></div>
+    <h3>test.log <button type="button" class="log-toggle secondary" id="test-log-toggle">Raw</button></h3>
+    <div class="log-tail" id="test-log"></div>
+  </div>
+</main>
+<script src="assets/app.js"></script>
+<script src="assets/md.js"></script>
+<script>
+  const project = Cockpit.qs("p");
+  const id = Cockpit.qs("id");
+  document.title = `${id} · ${project}`; // refined with this command's own status icon once loaded
+  Cockpit.renderBreadcrumb(document.getElementById("breadcrumb"), [
+    { label: "mf-cockpit", href: "index.html" },
+    { label: project, href: "project.html?p=" + encodeURIComponent(project) },
+    { label: id },
+  ]);
+  Cockpit.wireNav(project);
+  const bar = Cockpit.summaryBar(project);
+
+  // Ctrl+Enter submits the follow-up draft (ontwerp-v0.5.md item 9).
+  Cockpit.submitOnCtrlEnter(document.getElementById("followup-feedback"), () => document.getElementById("followup-form").requestSubmit());
+  Cockpit.submitOnCtrlEnter(document.getElementById("followup-slug"), () => document.getElementById("followup-form").requestSubmit());
+  document.querySelector("#followup-form button[type=submit]").title = "Ctrl+Enter to create";
+
+  // Frontmatter as a key/value block, body as markdown — never the raw "--- title: … ---" text the
+  // markdown renderer would otherwise make of it. The cmd file arrives body-only (the server
+  // surfaces its frontmatter as structured fields above), pln/qa have none; the rst has all four.
+  function laneFileHtml(file, emptyText) {
+    if (!file.exists) return `<span class="muted">${emptyText}</span>`;
+    const { fields, body } = Cockpit.splitFrontmatter(file.content);
+    return Cockpit.frontmatterHtml(fields) + renderMarkdown(body);
+  }
+
+  function setLaneFileHtml(elId, file, emptyText) {
+    const el = document.getElementById(elId);
+    el.innerHTML = laneFileHtml(file, emptyText);
+    Cockpit.rewriteLaneLinks(el, project);
+  }
+
+  const claudeLogView = Cockpit.logView(document.getElementById("claude-log"), document.getElementById("claude-log-toggle"));
+  const buildLogView = Cockpit.logView(document.getElementById("build-log"), document.getElementById("build-log-toggle"));
+  const testLogView = Cockpit.logView(document.getElementById("test-log"), document.getElementById("test-log-toggle"));
+
+  async function load() {
+    const detail = await Cockpit.api(`/api/projects/${encodeURIComponent(project)}/commands/${encodeURIComponent(id)}`);
+
+    const status = detail.malformed ? "malformed" : detail.status;
+    document.title = `${Cockpit.statusIcon(status)} ${id} · ${project}`.trim();
+
+    document.getElementById("cmd-heading").innerHTML = `${Cockpit.escapeHtml(detail.title)} ${Cockpit.statusPill(status)}`;
+    document.getElementById("cmd-meta").textContent =
+      `${detail.id} · attempts ${detail.attempts}${detail.maxAttempts ? "/" + detail.maxAttempts : ""}` +
+      (detail.branch ? ` · branch ${detail.branch}` : "") +
+      (detail.group ? ` · group ${detail.group}` : "") +
+      (detail.error ? ` · ${detail.error}` : "");
+
+    // The report's own one-line summary, at the top of the page right under the meta line — the
+    // human-sized answer to "what did this command do?" before any of the long files below
+    // (docs/mf-spec/ontwerp-summary-line.md). Plain text by design, never markdown-rendered. It is
+    // not repeated above the report itself: the report's frontmatter block already shows it there.
+    const summaryEl = document.getElementById("cmd-summary");
+    summaryEl.textContent = detail.summary || "";
+    summaryEl.style.display = detail.summary ? "" : "none";
+
+    const readyBtn = document.getElementById("ready-btn");
+    if (detail.status === "draft") {
+      readyBtn.style.display = "";
+      readyBtn.onclick = async () => {
+        readyBtn.disabled = true;
+        try {
+          await Cockpit.api(`/api/projects/${encodeURIComponent(project)}/commands/${encodeURIComponent(id)}/ready`, { method: "POST" });
+          await load();
+        } catch (err) {
+          alert(err.message);
+          readyBtn.disabled = false;
+        }
+      };
+    } else {
+      readyBtn.style.display = "none";
+    }
+
+    // "Continue on this command" is sensible only once the story is over (ontwerp-v0.1.md v0.2).
+    document.getElementById("followup-card").style.display = (detail.status === "done" || detail.status === "aborted") ? "" : "none";
+
+    setLaneFileHtml("cmd-body", detail.cmd, "missing");
+    setLaneFileHtml("pln-body", detail.pln, "no plan file - this command raised no questions");
+    setLaneFileHtml("qa-body", detail.qa, "no questions");
+    setLaneFileHtml("rst-body", detail.rst, "no report yet");
+
+    document.getElementById("session-id").textContent = detail.sessionId ? `session: ${detail.sessionId}` : "no recorded session";
+    claudeLogView.update(detail.claudeLog.lines);
+    buildLogView.update(detail.buildLog.lines);
+    testLogView.update(detail.testLog.lines);
+  }
+
+  document.getElementById("followup-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const feedback = document.getElementById("followup-feedback").value;
+    const slug = document.getElementById("followup-slug").value;
+    const errorEl = document.getElementById("followup-error");
+    errorEl.textContent = "";
+    try {
+      const result = await Cockpit.api(`/api/projects/${encodeURIComponent(project)}/commands/${encodeURIComponent(id)}/follow-up`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ feedback, slug: slug || null }),
+      });
+      if (result.warning) alert(result.warning);
+      location.href = `command.html?p=${encodeURIComponent(project)}&id=${encodeURIComponent(result.id)}`;
+    } catch (err) {
+      errorEl.textContent = err.message;
+    }
+  });
+
+  Cockpit.live({
+    project,
+    badge: bar.marker,
+    handlers: [
+      { kind: "lane", refetch: load },
+      { kind: "lane", refetch: bar.refresh },
+      { kind: "evidence", refetch: load },
+    ],
+  });
+
+  load().catch((err) => { document.getElementById("cmd-heading").textContent = err.message; });
+</script>
+</body>
+</html>

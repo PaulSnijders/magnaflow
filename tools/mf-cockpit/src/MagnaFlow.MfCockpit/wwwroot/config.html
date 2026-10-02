@@ -1,0 +1,257 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>config</title>
+<link rel="icon" href="assets/magnaflow-logo.ico">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<header class="cockpit-header">
+  <img class="logo" src="assets/magnaflow-logo.png" alt="">
+  <h1 id="breadcrumb"></h1>
+  <nav>
+    <a href="index.html">Overview</a>
+    <a id="project-link" href="#">Project</a>
+    <a id="specs-link" href="#">Specs</a>
+    <a id="scratchpad-link" href="#">Scratchpad</a>
+    <a id="chat-link" href="#" style="display:none;">Chat</a>
+    <span id="live" class="badge-live"></span>
+  </nav>
+</header>
+<main>
+  <div class="busy-banner" id="running-banner" style="display:none;">
+    A command in this project is currently <strong>running</strong> — the worker already read
+    the config for this run; a save here takes effect on the <em>next</em> run.
+  </div>
+
+  <div class="card">
+    <h2>Cockpit</h2>
+    <dl class="config-summary" id="cockpit-summary"><dt class="muted">Loading…</dt></dl>
+    <pre class="log-tail" id="cockpit-log"></pre>
+  </div>
+
+  <div class="card">
+    <h2>Summary</h2>
+    <dl class="config-summary" id="config-summary"><dt class="muted">Loading…</dt></dl>
+  </div>
+
+  <div class="card">
+    <h2>.magnaflow/config.yml</h2>
+    <div id="config-warnings" class="muted"></div>
+    <div id="config-disk-note" class="muted" style="display:none;"></div>
+    <textarea id="config-editor" rows="24" spellcheck="false" disabled>Loading…</textarea>
+    <div class="row" style="margin-top:0.75rem; align-items:center;">
+      <button id="config-save-btn" disabled>Save</button>
+      <span id="config-error" class="muted"></span>
+    </div>
+  </div>
+
+  <div class="card danger-zone">
+    <h2>Remove project</h2>
+    <p class="muted" style="margin-top:0;">
+      Unregisters <strong id="remove-name"></strong> from the cockpit. Its working copy, git history
+      and <code>.magnaflow/</code> stay on disk untouched — nothing is deleted. Re-add it later with
+      <em>Add project → Existing</em>.
+    </p>
+    <div id="remove-watch-note" class="muted" style="display:none;"></div>
+    <div class="row" style="align-items:center;">
+      <button id="remove-project-btn" class="danger" style="flex:0 0 auto;">Remove project</button>
+      <span id="remove-error" class="muted"></span>
+    </div>
+  </div>
+</main>
+<script src="assets/app.js"></script>
+<script>
+  const project = Cockpit.qs("p");
+  document.title = "config · " + project;
+  Cockpit.renderBreadcrumb(document.getElementById("breadcrumb"), [
+    { label: "mf-cockpit", href: "index.html" },
+    { label: project, href: "project.html?p=" + encodeURIComponent(project) },
+    { label: "config" },
+  ]);
+  Cockpit.wireNav(project);
+  const bar = Cockpit.summaryBar(project);
+
+  let baseHash = null;
+  let editorDirty = false;
+
+  // The cockpit's own state (docs/prompts/0001-cmd-cockpit-spawn-errors.md "Dashboard
+  // visibility"): which magnaflow.yml it loaded and what it resolved run.command/chat.command to,
+  // so a spawn failure elsewhere on this page ("could not start '...'") is self-explanatory instead
+  // of requiring a shell into the machine running mf-cockpit.
+  async function loadCockpitSummary() {
+    const el = document.getElementById("cockpit-summary");
+    try {
+      const cfg = await Cockpit.api("/api/config");
+      el.innerHTML = `
+        <dt>Config file</dt><dd><code>${Cockpit.escapeHtml(cfg.configPath)}</code></dd>
+        <dt>run.command</dt><dd><code>${Cockpit.escapeHtml(cfg.runCommand)}</code></dd>
+        <dt>chat.command</dt><dd><code>${Cockpit.escapeHtml(cfg.chatCommand)}</code></dd>`;
+    } catch (err) {
+      el.innerHTML = `<dt class="muted">${Cockpit.escapeHtml(err.message)}</dt>`;
+    }
+  }
+
+  async function loadCockpitLog() {
+    const pre = document.getElementById("cockpit-log");
+    try {
+      const tail = await Cockpit.api("/api/cockpit/log?tail=100");
+      pre.textContent = tail.exists ? (tail.lines.join("\n") || "(empty)") : "(no log yet)";
+    } catch (err) {
+      pre.textContent = err.message;
+    }
+  }
+
+  function renderSummary(summary) {
+    const el = document.getElementById("config-summary");
+    const list = (items) => items.length ? items.map(Cockpit.escapeHtml).join("<br>") : '<span class="muted">-</span>';
+    el.innerHTML = `
+      <dt>Build</dt><dd>${list(summary.buildCommands)}</dd>
+      <dt>Test</dt><dd>${list(summary.testCommands)}</dd>
+      <dt>Max attempts</dt><dd>${summary.maxAttempts}</dd>
+      <dt>Run services</dt><dd>${summary.runServices.length ? summary.runServices.map(Cockpit.escapeHtml).join(", ") : '<span class="muted">-</span>'}</dd>`;
+  }
+
+  async function loadConfig() {
+    const errorEl = document.getElementById("config-error");
+    const editor = document.getElementById("config-editor");
+    try {
+      const cfg = await Cockpit.api(`/api/projects/${encodeURIComponent(project)}/config`);
+      baseHash = cfg.hash;
+      editor.value = cfg.content;
+      editor.disabled = false;
+      editorDirty = false;
+      document.getElementById("config-disk-note").style.display = "none";
+      document.getElementById("config-save-btn").disabled = false;
+      renderSummary(cfg.summary);
+    } catch (err) {
+      editor.value = "";
+      editor.placeholder = err.message;
+      errorEl.textContent = err.message;
+      document.getElementById("config-summary").innerHTML = `<dt class="muted">${Cockpit.escapeHtml(err.message)}</dt>`;
+    }
+  }
+
+  async function checkRunningBanner() {
+    try {
+      const commands = await Cockpit.api(`/api/projects/${encodeURIComponent(project)}/commands`);
+      document.getElementById("running-banner").style.display = commands.some((c) => c.status === "running") ? "" : "none";
+    } catch {
+      // informational only — never blocks the editor.
+    }
+  }
+
+  document.getElementById("config-save-btn").addEventListener("click", async () => {
+    const errorEl = document.getElementById("config-error");
+    const warnEl = document.getElementById("config-warnings");
+    const btn = document.getElementById("config-save-btn");
+    errorEl.textContent = "";
+    warnEl.textContent = "";
+    btn.disabled = true;
+    try {
+      const content = document.getElementById("config-editor").value;
+      const result = await Cockpit.api(`/api/projects/${encodeURIComponent(project)}/config`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content, baseHash }),
+      });
+      baseHash = result.hash;
+      if (result.warnings && result.warnings.length) warnEl.textContent = "Warning: " + result.warnings.join("; ");
+      await loadConfig();
+    } catch (err) {
+      errorEl.textContent = err.message;
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  // Remove project — write #7 (ontwerp-v0.5.md item 4). Unregisters only; never deletes. The
+  // confirm dialog says so in those words. If mf-watch is alive on this copy we do NOT block (the
+  // service outlives the cockpit forgetting the project) but the dialog says so and points at the
+  // Watcher card's Stop button.
+  document.getElementById("remove-name").textContent = project;
+
+  async function watcherAliveNote() {
+    try {
+      const watch = await Cockpit.api(`/api/projects/${encodeURIComponent(project)}/watch?tail=1`);
+      const note = document.getElementById("remove-watch-note");
+      if (watch.running) {
+        note.style.display = "";
+        note.textContent = "Note: mf-watch is running for this project. Unregistering here does not stop it — " +
+          "use the Watcher card's Stop button on the project page first if you want it stopped.";
+        return true;
+      }
+      note.style.display = "none";
+      return false;
+    } catch { return false; }
+  }
+  watcherAliveNote();
+
+  document.getElementById("remove-project-btn").addEventListener("click", async () => {
+    const errorEl = document.getElementById("remove-error");
+    const btn = document.getElementById("remove-project-btn");
+    errorEl.textContent = "";
+    const watcherAlive = await watcherAliveNote();
+    let message = `Unregister "${project}" from the cockpit?\n\n` +
+      "This only removes it from magnaflow.yml. The working copy, its git history and its " +
+      ".magnaflow/ stay on disk untouched — nothing is deleted. You can re-add it later via " +
+      "Add project → Existing.";
+    if (watcherAlive) {
+      message += "\n\nmf-watch is still running for this project and will keep running — stop it " +
+        "from the Watcher card first if you want it stopped.";
+    }
+    if (!confirm(message)) return;
+    btn.disabled = true;
+    try {
+      await Cockpit.api(`/api/projects/${encodeURIComponent(project)}`, { method: "DELETE" });
+      location.href = "index.html";
+    } catch (err) {
+      errorEl.textContent = err.message;
+      btn.disabled = false;
+    }
+  });
+
+  // Never clobber unsaved input (ontwerp-v0.5.md item 1): while the editor is dirty, skip reloading
+  // it from disk and show a "changed on disk" notice instead. config.yml changes surface as the
+  // coarse "evidence" kind (it lives under .magnaflow/).
+  const editor = document.getElementById("config-editor");
+  editor.addEventListener("input", () => { editorDirty = true; });
+
+  // Ctrl+Enter / Ctrl+S save (ontwerp-v0.5.md item 9).
+  function saveIfEnabled() {
+    const btn = document.getElementById("config-save-btn");
+    if (!btn.disabled) btn.click();
+  }
+  Cockpit.submitOnCtrlEnter(editor, saveIfEnabled);
+  editor.addEventListener("keydown", (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key === "s") { e.preventDefault(); saveIfEnabled(); }
+  });
+  document.getElementById("config-save-btn").title = "Ctrl+Enter or Ctrl+S to save";
+
+  function reloadEditorIfClean() { return loadConfig(); }
+  function noteChangedOnDisk() {
+    const note = document.getElementById("config-disk-note");
+    note.style.display = "";
+    note.textContent = "config.yml changed on disk — your unsaved edits are kept; Save to overwrite, or reload the page to discard.";
+  }
+
+  Cockpit.live({
+    project,
+    badge: bar.marker,
+    handlers: [
+      { kind: "lane", refetch: () => checkRunningBanner() },
+      { kind: "lane", refetch: bar.refresh },
+      { kind: "watch", refetch: bar.refresh },
+      { kind: "evidence", refetch: reloadEditorIfClean, guard: () => editorDirty, onGuardedSkip: noteChangedOnDisk },
+    ],
+  });
+
+  loadConfig();
+  checkRunningBanner();
+  loadCockpitSummary();
+  loadCockpitLog();
+</script>
+</body>
+</html>

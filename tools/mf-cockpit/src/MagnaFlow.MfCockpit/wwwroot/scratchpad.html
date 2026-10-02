@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>scratchpad</title>
+<link rel="icon" href="assets/magnaflow-logo.ico">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<header class="cockpit-header">
+  <img class="logo" src="assets/magnaflow-logo.png" alt="">
+  <h1 id="breadcrumb"></h1>
+  <nav>
+    <a href="index.html">Overview</a>
+    <a id="project-link" href="#">Project</a>
+    <a id="specs-link" href="#">Specs</a>
+    <a id="config-link" href="#">Config</a>
+    <a id="chat-link" href="#" style="display:none;">Chat</a>
+    <span id="live" class="badge-live"></span>
+  </nav>
+</header>
+<main>
+  <div class="card">
+    <h2>
+      Scratchpad
+      <span class="muted" id="scratch-status" style="text-transform:none; letter-spacing:normal; font-weight:normal;"></span>
+    </h2>
+    <p class="muted" style="margin-top:0;">
+      A shared notepad for this project, kept on the cockpit host — the same note from every machine
+      that opens this dashboard. Not in git, never read by any tool. Autosaves; Ctrl+S or Ctrl+Enter
+      saves now.
+    </p>
+    <textarea id="scratch-editor" rows="24" spellcheck="false" disabled placeholder="Loading…"></textarea>
+  </div>
+</main>
+<script src="assets/app.js"></script>
+<script>
+  const project = Cockpit.qs("p");
+  document.title = "scratchpad · " + project;
+  Cockpit.renderBreadcrumb(document.getElementById("breadcrumb"), [
+    { label: "mf-cockpit", href: "index.html" },
+    { label: project, href: "project.html?p=" + encodeURIComponent(project) },
+    { label: "scratchpad" },
+  ]);
+  Cockpit.wireNav(project);
+  const bar = Cockpit.summaryBar(project);
+
+  const editor = document.getElementById("scratch-editor");
+  const statusEl = document.getElementById("scratch-status");
+  let baseHash = null;
+  let savedAt = null;
+  let dirty = false;
+  let saving = false;
+  let saveTimer = null;
+
+  function clockOf(iso) {
+    try { return new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }); } catch { return ""; }
+  }
+
+  function renderStatus(state, extra) {
+    if (state === "saving") { statusEl.textContent = "· saving…"; statusEl.className = "muted"; }
+    else if (state === "unsaved") { statusEl.textContent = "· unsaved"; statusEl.className = ""; }
+    else if (state === "error") { statusEl.textContent = "· " + (extra || "save failed"); statusEl.className = "run-error"; }
+    else { statusEl.textContent = savedAt ? "· saved " + clockOf(savedAt) : "· empty"; statusEl.className = "muted"; }
+  }
+
+  async function loadScratchpad() {
+    try {
+      const data = await Cockpit.api(`/api/projects/${encodeURIComponent(project)}/scratchpad`);
+      baseHash = data.hash;
+      savedAt = data.savedAt;
+      editor.value = data.content;
+      editor.disabled = false;
+      dirty = false;
+      renderStatus("saved");
+    } catch (err) {
+      editor.placeholder = err.message;
+      renderStatus("error", err.message);
+    }
+  }
+
+  // The whole safety model is the hash check (ontwerp-v0.5.md item 8): the file lives outside every
+  // watched directory, so there is no SSE push — concurrency is handled entirely here on PUT.
+  async function save(force) {
+    if (saving) return;
+    if (!dirty && !force) return;
+    saving = true;
+    renderStatus("saving");
+    try {
+      const res = await Cockpit.api(`/api/projects/${encodeURIComponent(project)}/scratchpad`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content: editor.value, baseHash }),
+      });
+      baseHash = res.hash;
+      savedAt = res.savedAt;
+      dirty = false;
+      renderStatus("saved");
+    } catch (err) {
+      if (err.message.startsWith("409")) {
+        await handleConflict();
+      } else {
+        renderStatus("error", err.message);
+      }
+    } finally {
+      saving = false;
+    }
+  }
+
+  // A newer version on the server (someone edited from another machine): offer reload-theirs vs
+  // keep-mine, never silent loss.
+  async function handleConflict() {
+    const keepMine = !confirm(
+      "A newer version of this scratchpad is on the server.\n\n" +
+      "OK = load the server's version (discard your unsaved changes)\n" +
+      "Cancel = keep your version (overwrite the server's)");
+    if (!keepMine) {
+      await loadScratchpad();
+      return;
+    }
+    // Overwrite: adopt the server's current hash, then save my content over it.
+    try {
+      const server = await Cockpit.api(`/api/projects/${encodeURIComponent(project)}/scratchpad`);
+      baseHash = server.hash;
+      dirty = true;
+      await save(true);
+    } catch (err) {
+      renderStatus("error", err.message);
+    }
+  }
+
+  editor.addEventListener("input", () => {
+    dirty = true;
+    renderStatus("unsaved");
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(() => save(), 1500);
+  });
+
+  editor.addEventListener("blur", () => save());
+
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "hidden") save();
+  });
+
+  // Ctrl+Enter via the shared helper (ontwerp-v0.5.md item 9); Ctrl+S is the editor-save convention.
+  Cockpit.submitOnCtrlEnter(editor, () => { clearTimeout(saveTimer); save(true); });
+  editor.addEventListener("keydown", (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key === "s") {
+      e.preventDefault();
+      clearTimeout(saveTimer);
+      save(true);
+    }
+  });
+
+  // The scratchpad file lives outside every watched directory, so no SSE fires for it; concurrency
+  // is the hash check on save. The top bar still reflects this project's lane/watch changes
+  // (ontwerp-v0.5.md items 1–2).
+  Cockpit.live({
+    project,
+    badge: bar.marker,
+    handlers: [
+      { kind: "lane", refetch: bar.refresh },
+      { kind: "watch", refetch: bar.refresh },
+    ],
+  });
+
+  loadScratchpad();
+</script>
+</body>
+</html>

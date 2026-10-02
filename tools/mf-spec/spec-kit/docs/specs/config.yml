@@ -1,0 +1,27 @@
+# Surface declarations: where users or systems touch the product.
+# Each surface maps a spec subtree (docs/specs/<name>/) to a code root
+# and a route-discovery glob. The glob is all the deterministic tooling
+# needs; `adapter` and `slug` are prose hints for the AI.
+#
+# Example for a project with an app frontend and a static site:
+#
+# surfaces:
+#   app:
+#     adapter: nextjs-app-router
+#     root: frontend
+#     routes: app/**/page.tsx
+#     slug: "route path without app/ prefix and /page.tsx suffix"
+#     help: true            # Help sections shown in-app
+#     help_language: en     # canonical language of Help sections (default en)
+#     languages: [en, nl]   # translations generated for the others
+#   web:
+#     adapter: static-pages
+#     root: site
+#     routes: "**/*.html"
+#     slug: "path without extension; index.html -> index"
+#     help: false
+
+# Derived from the repo by the adopt prompt (0001-adopt-spec-system.md)
+# and confirmed by the user — do not ship a project with this
+# placeholder still in place.
+surfaces: {}

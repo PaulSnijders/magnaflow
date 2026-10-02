@@ -1,0 +1,18 @@
+# mf-cockpit config — every field is optional and shown here at its default value, so this file
+# is something to edit rather than a blank page. Lives next to the binary (AppContext.BaseDirectory)
+# or wherever --config points. See README.md for the full reference.
+
+port: 5210
+bind: localhost
+
+# One entry per MagnaFlow project this cockpit should render, e.g.:
+# projects:
+#   - name: my-project
+#     path: C:/GIT/my-project
+projects: []
+
+chat:
+  enabled: true
+  command: claude
+  args: []
+  timeout_minutes: 5

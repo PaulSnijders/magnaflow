@@ -1,0 +1,71 @@
+# spec-kit — version 1.1
+
+A self-contained copy of the spec system: one markdown spec per page,
+grouped per surface; `concepts/` for cross-cutting logic; a `# Technical`
+split between user help and developer notes; the spec-first rule; a
+drift audit (`/spec-drift`) with a format lint (Node, no dependencies);
+the prompt lane (`docs/prompts/`) and two record genres
+(`docs/decisions/`, `docs/context/`). Design rationale lives in the
+magnaflow repo under `docs/mf-spec/`.
+
+To adopt: copy this folder into the target repo as `docs/spec-kit/` and
+run `0001-adopt-spec-system.md` as a prompt with Claude Code there (it
+derives the surface config from the repo). To update an already-adopted
+repo: copy the folder again and run `0002-update-spec-system.md`. Delete
+the copy when done — the master lives in the magnaflow repo
+(`tools/mf-spec/spec-kit/`); improvements flow back there.
+
+The version is also stamped in `docs/specs/README.md`; the update prompt
+reads that stamp. Repos on any 0.x or 1.0 version are brought to 1.1 in
+one run of `0002-update-spec-system.md`.
+
+1.1: context is managed, not only appended — one conversation is one
+file, corrections and cleanup are expected, substance stays (see
+`docs/context/README.md`). The earlier "never updated; new information
+is a new file" rule scattered one conversation over many fragments and
+kept mistakes standing.
+
+The kit is tool-neutral: it installs the spec system and nothing else.
+The MagnaFlow hooks (`.magnaflow/config.yml` for the worker, its
+gitignore lines) are one optional question in the adopt and update
+prompts. Coexists with GitHub Spec Kit: we own `docs/specs/` and
+`/spec*`, they own `specs/` and `/speckit.*`.
+
+## Contents
+
+| Kit file | Goes to | Owner after adoption |
+|---|---|---|
+| `docs/specs/README.md` | `docs/specs/README.md` | kit (overwritten on update) |
+| `docs/specs/config.yml` | `docs/specs/config.yml` | project (derived once) |
+| `commands/spec.md`, `commands/spec-drift.md` | `.claude/commands/` | kit |
+| `skills/specs/SKILL.md` | `.claude/skills/specs/SKILL.md` | kit |
+| `scripts/spec_lint.mjs` | `scripts/spec_lint.mjs` | kit |
+| `docs/CLAUDE.md` | `docs/CLAUDE.md` | kit (merged if customised) |
+| `docs/decisions/README.md`, `docs/context/README.md` | same paths | project once created |
+| `CLAUDE-section.md` | merged into `CLAUDE.md` | re-merged on update |
+
+## Deliberately not in the kit
+
+Considered and rejected, so the next adopter does not re-derive them.
+The common thread: each guards something that only starts to matter at
+dozens of files or in a real PR workflow, and until then costs more than
+it returns. Every check is also something that can fail for the wrong
+reason.
+
+| Rejected | Why |
+|---|---|
+| A docs CI gate (`.github/workflows/docs.yml`) | Pays off only with a team and a PR flow. The lint runs locally through `/spec-drift`; the STATUS.md date says when nobody ran it. |
+| `naming-lint` as a CI check | Guards a mistake that happens once or twice a year; the folder README catches it cheaper. |
+| `docs-root-allowlist` | The genre table already keeps the `docs/` root small. A linter here adds a failure mode without adding a rule. |
+| `spec-missing` as a CI check | `/spec-drift` already reports it, and a missing spec needs a judgement call — a person, not a red build. |
+| `spec-stale-in-pr`, and its pre-commit variant | Assumes a PR workflow with a reviewer. In a repo that commits straight to `main` it is friction you switch off within two weeks. The STATUS.md expiry replaces it. |
+| Commit-message rules with a `Spec:` trailer | Pays off only through the check above, which is not there. |
+| Audit-state frontmatter in STATUS.md (`audited_at`, `unaudited_commits`, `freshness`) and `ACCEPTED.md` | Sha bookkeeping in every report to make "stale" precise. A 14-day date on the `Generated:` line catches the same neglect, and re-running on a quiet repo is seconds. Accepting a finding hid an enforcement gap instead of fixing it. |
+| A mandatory `Date`/`Topic`/`Status` header on records | At a handful of files per folder, grep on the content works; the frontmatter the READMEs ask for is the minimum for that grep. |
+| An index README per folder | `ls` is the index until a folder passes roughly fifteen files. |
+| A `TEMPLATE.md` per genre | The folder README is a dozen lines — the agent writes the file from it. |
+| A `/decision` command | Creating one file with a sequence number does not need a command. |
+| A `/spec-fold-in` command | Folding a delta into the specs is ordinary spec-first work with the diff in front of you; a command only made it look like a separate phase. |
+| `HANDOVER.md` | Overlaps almost entirely with CLAUDE.md; the cadence belongs there. |
+| Year subfolders in `context/` | Below about three years they add a level without adding findability. |
+| Optional "layers" of the kit (core + magnaflow) | The MagnaFlow coupling is one question in two prompts; a layer structure around it is more machinery than what it isolates. |

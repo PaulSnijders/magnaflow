@@ -1,0 +1,49 @@
+# MagnaFlow machine config (fase 7) — one file per machine.
+# Lookup order: --config > magnaflow.yml next to the binary >
+# ~/.config/magnaflow/magnaflow.yml. NOTE: this file here in the repo is only
+# the TEMPLATE — no tool reads it from tools/install/. install.sh copies it
+# (or whatever --config points at) to ~/.config/magnaflow/magnaflow.yml,
+# which is where the tools actually find it. After editing here, re-run
+# install.sh (or copy it over by hand).
+#
+# This is the worker-machine variant: git working copies are pulled fresh
+# rather than hand-edited, so mf-watch syncs before each poll, and the
+# cockpit binds every interface so it's reachable from other machines on the
+# network (put it behind your own firewall/VPN — MagnaFlow has no auth).
+# Compare docs/prompts/0005-cmd-linux-install-script.md and the Windows
+# desktop variant, tools/install/README.md.
+#
+# Paths below use /home/magnaflow/tools/magnaflow as a placeholder for the
+# tool install directory. You do NOT need to hand-edit
+# watch.worker.command / cockpit.run.command: install.sh substitutes this
+# placeholder for your actual --install-dir (default $HOME/tools/magnaflow)
+# when it seeds ~/.config/magnaflow/magnaflow.yml. The cockpit.projects entry
+# below IS a real example you should replace (or just leave/remove it and use
+# the cockpit's own "Add project" button after install instead). Unlike the
+# shell, the tools' YAML loader does NOT expand `~`, so any path you do
+# hand-write here must be written out in full.
+
+watch:
+  git_sync: true
+  # interval_min / interval_max / idle_grace: defaults are fine.
+  worker:
+    command: /home/magnaflow/tools/magnaflow/mf-worker/mf-worker
+  # Optional desktop-notification hook, e.g. via `notify-send` (libnotify):
+  # notify_command: notify-send "{title}" "{message}"
+
+cockpit:
+  port: 5210
+  bind: 0.0.0.0            # reachable from other machines on the network; localhost on a desktop dev box
+  projects:
+    - name: wozzol
+      path: /home/magnaflow/GIT/wozzol2
+  chat:
+    enabled: true
+    command: claude
+  run:
+    command: /home/magnaflow/tools/magnaflow/mf-run/mf-run
+
+# One systemd --user instance watches one project: after install.sh has
+# generated the mf-watch@.service template, enable a watcher per project
+# listed above with e.g.
+#   systemctl --user enable --now mf-watch@$(systemd-escape /home/magnaflow/GIT/wozzol2).service

@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/MagnaFlow.MfCockpit/MagnaFlow.MfCockpit.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/MagnaFlow.MfCockpit.Tests/MagnaFlow.MfCockpit.Tests.csproj" />
+  </Folder>
+</Solution>

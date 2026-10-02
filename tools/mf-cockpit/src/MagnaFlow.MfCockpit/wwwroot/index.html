@@ -1,0 +1,315 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>mf-cockpit</title>
+<link rel="icon" href="assets/magnaflow-logo.ico">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<header class="cockpit-header">
+  <img class="logo" src="assets/magnaflow-logo.png" alt="">
+  <h1>mf-cockpit</h1>
+  <nav><span id="live" class="badge-live"></span></nav>
+</header>
+<main>
+  <div class="card">
+    <h2>Attention</h2>
+    <ul class="attention-list" id="attention-list"><li class="muted">Loading…</li></ul>
+  </div>
+  <div class="card">
+    <h2>
+      Projects
+      <span class="row-inline"><button id="add-project-btn" class="secondary">+ Add project</button></span>
+    </h2>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Project</th><th>Branch</th><th>Draft</th><th>Ready</th><th>Running</th>
+            <th>Questions</th><th>Done</th><th>Aborted</th><th>Watcher</th><th>Run</th><th>Latest</th>
+          </tr>
+        </thead>
+        <tbody id="projects-body"></tbody>
+      </table>
+    </div>
+  </div>
+</main>
+
+<dialog id="add-project-dialog">
+  <form id="add-project-form">
+    <div class="dialog-header">
+      <h2>Add project</h2>
+      <button type="button" id="add-project-close" class="icon-btn" aria-label="Close">&times;</button>
+    </div>
+
+    <div class="segmented" role="tablist">
+      <button type="button" class="segmented-btn tab-btn" data-tab="existing" aria-pressed="true">Existing</button>
+      <button type="button" class="segmented-btn tab-btn" data-tab="new" aria-pressed="false">New</button>
+    </div>
+
+    <div id="tab-existing" class="add-project-tab">
+      <div class="field"><label for="existing-name">Name</label><input type="text" id="existing-name" placeholder="my-project"></div>
+      <div class="field">
+        <label for="existing-path">Path</label>
+        <input type="text" id="existing-path" placeholder="absolute, or relative to new_project.root">
+      </div>
+    </div>
+
+    <div id="tab-new" class="add-project-tab" style="display:none;">
+      <div id="new-project-hint" class="muted" style="display:none;"></div>
+      <div id="new-project-fields">
+        <div class="field"><label for="new-name">Name</label><input type="text" id="new-name" placeholder="my-project"></div>
+        <div class="field">
+          <label for="new-template">Template</label>
+          <select id="new-template"><option value="">(empty)</option></select>
+        </div>
+        <div class="field">
+          <label>Target path</label>
+          <div class="muted target-preview" id="new-target-preview">-</div>
+        </div>
+      </div>
+    </div>
+
+    <div id="add-project-error" class="dialog-error"></div>
+    <div class="dialog-footer">
+      <button type="button" id="add-project-cancel" class="secondary">Cancel</button>
+      <button type="submit" id="add-project-submit">Add project</button>
+    </div>
+  </form>
+</dialog>
+
+<script src="assets/app.js"></script>
+<script>
+  // Index header sound toggle (ontwerp-sound-cues.md); the project pages get theirs from the
+  // summary bar. Placed before the live badge.
+  document.querySelector("header.cockpit-header nav")
+    .insertAdjacentElement("afterbegin", Cockpit.soundToggle());
+
+  // Announce terminal transitions of each project's newest command (the `latest` field, v0.5 item
+  // 6). The tracker is silent on the first load and only chimes on an observed change.
+  const cues = Cockpit.cueTracker();
+  function announce(projects) {
+    cues.observe(projects
+      .filter((p) => p.latest)
+      .map((p) => ({ project: p.name, id: p.latest.id, status: p.latest.status })));
+  }
+
+  async function load() {
+    const projects = await Cockpit.api("/api/projects");
+    renderProjects(projects);
+    renderAttention(projects);
+    announce(projects);
+  }
+
+  function renderProjects(projects) {
+    const body = document.getElementById("projects-body");
+    if (!projects.length) {
+      body.innerHTML = '<tr><td colspan="11" class="muted">No projects yet — <button type="button" id="add-project-empty-btn" class="secondary">+ Add project</button></td></tr>';
+      const btn = document.getElementById("add-project-empty-btn");
+      if (btn) btn.addEventListener("click", openAddProjectDialog);
+      return;
+    }
+    body.innerHTML = projects.map((p) => `
+      <tr>
+        <td><a href="project.html?p=${encodeURIComponent(p.name)}">${Cockpit.escapeHtml(p.name)}</a>${p.exists ? "" : ' <span class="muted">(path missing)</span>'}</td>
+        <td class="muted" data-branch-for="${Cockpit.escapeHtml(p.name)}">…</td>
+        <td>${p.counts.draft}</td>
+        <td>${p.counts.ready}</td>
+        <td>${p.counts.running}</td>
+        <td>${p.counts.questions}</td>
+        <td>${p.counts.done}</td>
+        <td>${p.counts.aborted}</td>
+        <td>${p.watcherAlive ? '<span class="pill ready">alive</span>' : '<span class="muted">-</span>'}</td>
+        <td class="muted" data-run-for="${Cockpit.escapeHtml(p.name)}">…</td>
+        <td>${latestCell(p.name, p.latest)}</td>
+      </tr>`).join("");
+
+    // Slow half, fetched separately per project so a project with an expensive `git status` (or
+    // an mf-run status spawn) never delays the fast counts/attention data above from rendering.
+    projects.forEach((p) => {
+      loadGitBranch(p.name);
+      loadRunChip(p.name);
+    });
+  }
+
+  // The highest-id lane command (ontwerp-v0.5.md item 6): id · truncated title · status pill.
+  function latestCell(name, latest) {
+    if (!latest) return '<span class="muted">-</span>';
+    const title = latest.title.length > 32 ? latest.title.slice(0, 31) + "…" : latest.title;
+    return `<a href="command.html?p=${encodeURIComponent(name)}&id=${encodeURIComponent(latest.id)}">${Cockpit.escapeHtml(latest.id)}</a>` +
+      ` <span class="muted">${Cockpit.escapeHtml(title)}</span> ${Cockpit.statusPill(latest.status)}`;
+  }
+
+  async function loadGitBranch(name) {
+    const cell = document.querySelector(`[data-branch-for="${CSS.escape(name)}"]`);
+    if (!cell) return;
+    try {
+      const info = await Cockpit.api(`/api/projects/${encodeURIComponent(name)}/git`);
+      cell.textContent = (info.branch || "-") + (info.dirty ? " *" : "");
+    } catch {
+      cell.textContent = "?";
+    }
+  }
+
+  async function loadRunChip(name) {
+    const cell = document.querySelector(`[data-run-for="${CSS.escape(name)}"]`);
+    if (!cell) return;
+    try {
+      const status = await Cockpit.api(`/api/projects/${encodeURIComponent(name)}/run`);
+      if (!status.configured || !status.services.length) {
+        cell.textContent = "-";
+        return;
+      }
+      const running = status.services.filter((s) => s.running).length;
+      cell.textContent = `${running}/${status.services.length}`;
+      cell.className = running === status.services.length ? "" : "muted";
+      // Reachable URLs, host-rewritten (ontwerp-v0.5.md item 3) — a hover hint from the index so
+      // localhost-bound services still show the address that works from this browser.
+      const urls = status.services.filter((s) => s.url).map((s) => `${s.name}: ${Cockpit.displayUrl(s.url)}`);
+      if (urls.length) cell.title = urls.join("\n");
+    } catch {
+      cell.textContent = "?";
+    }
+  }
+
+  function renderAttention(projects) {
+    const list = document.getElementById("attention-list");
+    const items = projects.flatMap((p) => p.attention.map((a) => ({ ...a, project: p.name })));
+    if (!items.length) {
+      list.innerHTML = '<li class="muted">Nothing needs attention.</li>';
+      return;
+    }
+    list.innerHTML = items.map((a) => `
+      <li>
+        ${Cockpit.statusPill(a.status)}
+        <a href="command.html?p=${encodeURIComponent(a.project)}&id=${encodeURIComponent(a.id)}">${Cockpit.escapeHtml(a.project)} / ${Cockpit.escapeHtml(a.title)}</a>
+        <span class="muted">${Cockpit.escapeHtml(a.reason)}</span>
+      </li>`).join("");
+  }
+
+  // "+" Add project (ontwerp-v0.4.md "The dialog") — write #6. With zero projects the empty
+  // state's own button (rendered in renderProjects above) opens the same dialog.
+  let newProjectInfo = null; // cached GET /api/new-project — {root, templates, specKit}
+
+  function sanitizeDirName(name) {
+    const stripped = (name || "").trim().replace(/[<>:"/\\|?*\x00-\x1f]/g, "");
+    return stripped.replace(/\s+/g, "-").replace(/-{2,}/g, "-").replace(/^-+|-+$/g, "");
+  }
+
+  function switchAddProjectTab(tab) {
+    document.querySelectorAll(".tab-btn").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.tab === tab)));
+    document.getElementById("tab-existing").style.display = tab === "existing" ? "" : "none";
+    document.getElementById("tab-new").style.display = tab === "new" ? "" : "none";
+  }
+
+  document.querySelectorAll(".tab-btn").forEach((b) => b.addEventListener("click", () => switchAddProjectTab(b.dataset.tab)));
+
+  function updateTargetPreview() {
+    const preview = document.getElementById("new-target-preview");
+    if (!newProjectInfo || !newProjectInfo.root) { preview.textContent = "-"; return; }
+    const dirName = sanitizeDirName(document.getElementById("new-name").value);
+    preview.textContent = dirName ? `${newProjectInfo.root}\\${dirName}` : "-";
+  }
+
+  document.getElementById("new-name").addEventListener("input", updateTargetPreview);
+
+  async function loadNewProjectInfo() {
+    const hint = document.getElementById("new-project-hint");
+    const fields = document.getElementById("new-project-fields");
+    try {
+      newProjectInfo = await Cockpit.api("/api/new-project");
+      if (!newProjectInfo.root) {
+        hint.style.display = "";
+        hint.textContent = "Add cockpit.new_project.root to magnaflow.yml to create new projects here.";
+        fields.style.display = "none";
+        return;
+      }
+      hint.style.display = "none";
+      fields.style.display = "";
+      const select = document.getElementById("new-template");
+      select.innerHTML = '<option value="">(empty)</option>' +
+        newProjectInfo.templates.map((t) => `<option value="${Cockpit.escapeHtml(t)}">${Cockpit.escapeHtml(t)}</option>`).join("");
+      updateTargetPreview();
+    } catch (err) {
+      hint.style.display = "";
+      hint.textContent = err.message;
+      fields.style.display = "none";
+    }
+  }
+
+  function openAddProjectDialog() {
+    document.getElementById("add-project-error").textContent = "";
+    document.getElementById("existing-name").value = "";
+    document.getElementById("existing-path").value = "";
+    document.getElementById("new-name").value = "";
+    switchAddProjectTab("existing");
+    document.getElementById("add-project-dialog").showModal();
+    loadNewProjectInfo();
+  }
+
+  document.getElementById("add-project-btn").addEventListener("click", openAddProjectDialog);
+  document.getElementById("add-project-cancel").addEventListener("click", () => document.getElementById("add-project-dialog").close());
+  document.getElementById("add-project-close").addEventListener("click", () => document.getElementById("add-project-dialog").close());
+
+  // Ctrl+Enter submits the Add-project dialog (ontwerp-v0.5.md item 9); the native <dialog> already
+  // closes on Esc.
+  ["existing-name", "existing-path", "new-name"].forEach((id) =>
+    Cockpit.submitOnCtrlEnter(document.getElementById(id), () => document.getElementById("add-project-form").requestSubmit()));
+  document.getElementById("add-project-submit").title = "Ctrl+Enter to add";
+
+  document.getElementById("add-project-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const errorEl = document.getElementById("add-project-error");
+    const submitBtn = document.getElementById("add-project-submit");
+    errorEl.textContent = "";
+    const activeTab = document.querySelector('.tab-btn[aria-pressed="true"]').dataset.tab;
+
+    let body;
+    if (activeTab === "existing") {
+      const name = document.getElementById("existing-name").value.trim();
+      const path = document.getElementById("existing-path").value.trim();
+      if (!name || !path) { errorEl.textContent = "name and path are required"; return; }
+      body = { mode: "existing", name, path };
+    } else {
+      const name = document.getElementById("new-name").value.trim();
+      if (!name) { errorEl.textContent = "name is required"; return; }
+      const template = document.getElementById("new-template").value;
+      body = { mode: "new", name, template: template || null };
+    }
+
+    submitBtn.disabled = true;
+    try {
+      const result = await Cockpit.api("/api/projects", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      document.getElementById("add-project-dialog").close();
+      location.href = "project.html?p=" + encodeURIComponent(result.name);
+    } catch (err) {
+      errorEl.textContent = err.message;
+    } finally {
+      submitBtn.disabled = false;
+    }
+  });
+
+  // index.html re-fetches the whole project list on any project-affecting event (cheap, no payloads
+  // over SSE either way). project: null → no per-project filtering; the shared helper (ontwerp-
+  // v0.5.md item 1) owns heartbeat/backoff/polling/visibility and the live marker.
+  const loadSafely = () => load().catch(() => {});
+  Cockpit.live({
+    project: null,
+    badge: document.getElementById("live"),
+    handlers: [
+      { kind: "lane", refetch: loadSafely },
+      { kind: "projects", refetch: loadSafely },
+      { kind: "watch", refetch: loadSafely },
+      { kind: "run", refetch: loadSafely },
+    ],
+  });
+  load().catch((err) => { document.getElementById("attention-list").innerHTML = `<li class="muted">${Cockpit.escapeHtml(err.message)}</li>`; });
+</script>
+</body>
+</html>

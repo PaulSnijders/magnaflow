@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/MagnaFlow.WorkerController/MagnaFlow.WorkerController.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/MagnaFlow.WorkerController.Tests/MagnaFlow.WorkerController.Tests.csproj" />
+  </Folder>
+</Solution>
