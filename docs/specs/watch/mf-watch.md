@@ -164,11 +164,15 @@ Ctrl+C again to abort it`. A second Ctrl+C logs `second Ctrl+C:
 aborting` and ends mf-watch hard. The lock file stays behind with stale
 content, and mf-watch does not kill the worker itself.
 
-BUG: in a terminal, Ctrl+C goes to the whole foreground process group
-(on Windows: every process on the console), so mf-worker and its agent
-receive it too. A worker started from a foreground mf-watch still dies
-on the first Ctrl+C and leaves its command `running`. Under systemd,
-where there is no terminal, this does not arise.
+Accepted limitation: in a terminal, Ctrl+C goes to the whole foreground
+process group (on Windows: every process on the console), so mf-worker
+and its agent receive it too. A worker started from a foreground
+mf-watch still dies on the first Ctrl+C and leaves its command
+`running`. Under systemd, where there is no terminal, this does not
+arise. Detaching the worker from the console (`setsid` /
+`CREATE_NEW_PROCESS_GROUP`) was considered and rejected as more spawn
+machinery than the case is worth; with a worker running in a terminal,
+wait for it or set its command back by hand.
 
 ## Exit codes
 
