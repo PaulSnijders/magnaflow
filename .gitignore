@@ -22,3 +22,6 @@ docs/old-spec-kit-for-reference/
 # files, worker <id>/ logs and session.yml); only the project config travels.
 .magnaflow/*
 !.magnaflow/config.yml
+
+# Scratch notes (brainstorm skill): temporary, never part of the record
+.scratch/

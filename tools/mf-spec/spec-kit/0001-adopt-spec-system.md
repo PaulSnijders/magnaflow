@@ -33,6 +33,14 @@ Steps:
    - `spec-kit/docs/specs/config.yml` → `docs/specs/config.yml`
    - `spec-kit/commands/*` → `.claude/commands/`
    - `spec-kit/skills/specs/SKILL.md` → `.claude/skills/specs/SKILL.md`
+   - `spec-kit/skills/brainstorm/`, `skills/architect/` and
+     `skills/cc-review/` (`SKILL.md` each) → `.claude/skills/<name>/` —
+     idea sparring before design (`/brainstorm`, writes only to the
+     git-ignored `.scratch/brainstorm/`; add `.scratch/` to
+     `.gitignore`), the design role (`/architect`) and the review of an
+     executed cmd. Starting points:
+     tune them to the project (its constraints, where the app runs, how
+     to exercise it); after that they belong to the project.
    - `spec-kit/scripts/spec_lint.mjs` → `scripts/spec_lint.mjs` (Node,
      no dependencies; `/spec-drift` runs it for the "Format problems"
      section)

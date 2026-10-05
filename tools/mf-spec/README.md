@@ -22,7 +22,8 @@ Two ways in:
   2. Run `0001-adopt-spec-system.md` as a prompt in Claude Code. It
      analyzes the repo and proposes the surface config (you confirm
      names, `help` / `help_language`), places the files (conventions,
-     commands, skill, `scripts/spec_lint.mjs`, record-folder READMEs),
+     commands, skills (specs, brainstorm, architect, cc-review),
+     `scripts/spec_lint.mjs`, record-folder READMEs),
      merges the CLAUDE section, pins line endings in `.gitattributes`,
      asks once whether the project runs with MagnaFlow (if yes: worker
      config + the runtime ignore lines `.magnaflow/mf-watch.log`,

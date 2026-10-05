@@ -31,6 +31,10 @@ changes nothing the second time.
      may have been adapted to the project and its files are history:
      leave everything in it alone, including an old `TEMPLATE.md` —
      except the one README repair in "From 1.0 to 1.1" below.
+   - `.claude/skills/brainstorm/`, `architect/` and `cc-review/`
+     (`SKILL.md` each) from `spec-kit/skills/<name>/`, and a `.scratch/`
+     line in `.gitignore` for the brainstorm notes.
+     Once present they are the project's (adapted to it): leave them alone.
    - `docs/prompts/` with a `.gitkeep`, and no `.gitignore` rule that
      excludes it, `.claude/` or `docs/specs/`.
    - `.gitattributes` with `*.md text eol=lf`, `*.mjs text eol=lf`,

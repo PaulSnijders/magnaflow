@@ -39,6 +39,7 @@ prompts. Coexists with GitHub Spec Kit: we own `docs/specs/` and
 | `docs/specs/config.yml` | `docs/specs/config.yml` | project (derived once) |
 | `commands/spec.md`, `commands/spec-drift.md` | `.claude/commands/` | kit |
 | `skills/specs/SKILL.md` | `.claude/skills/specs/SKILL.md` | kit |
+| `skills/brainstorm/SKILL.md`, `skills/architect/SKILL.md`, `skills/cc-review/SKILL.md` | `.claude/skills/<name>/SKILL.md` | project (starting point, adapt to the project) |
 | `scripts/spec_lint.mjs` | `scripts/spec_lint.mjs` | kit |
 | `docs/CLAUDE.md` | `docs/CLAUDE.md` | kit (merged if customised) |
 | `docs/decisions/README.md`, `docs/context/README.md` | same paths | project once created |
