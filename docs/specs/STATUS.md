@@ -24,7 +24,9 @@ none
 
 ## Open prompts
 
-none
+- 0019 watch-bug-fixes — draft
+- 0020 worker-bug-fixes — draft
+- 0021 cockpit-bug-fixes — draft
 
 ## Format problems
 
