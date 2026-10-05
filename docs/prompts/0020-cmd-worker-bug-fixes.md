@@ -1,6 +1,6 @@
 ---
-title: "mf-worker: re-ready resets attempts, plan retry keeps the command, CLI follows the specs"
-status: draft
+title: "mf-worker: re-ready resets attempts, plan retry keeps the command, CLI follows the specs, one question stays one question"
+status: ready
 created: 2026-10-05
 ---
 
@@ -52,12 +52,35 @@ tests. Read the claim and retry logic in `TaskRunner` before step 1.
    - `run-all`: the closing table shows each command's resulting status,
      read back from its cmd file. Today it maps exit codes, so a
      `questions` pause shows as `done`.
-4. **Tests** in the worker test project, for each step:
+4. **One question in the pln is one question in the qa file**
+   (`docs/specs/concepts/command-lifecycle.md`).
+   - The problem, seen live in 0019: the pln's "Open questions (this
+     round)" held one question, a multi-line top-level bullet with
+     nested options (A) and (B). `PlnFile.ReadOpenQuestions` turns
+     *every* line that starts with `- ` into a question, at any indent,
+     and keeps only that one line (`BulletLine`). The qa file therefore
+     got three "rounds", each a truncated first line: the question, then
+     option (A), then option (B). The human could not answer them
+     without opening the pln.
+   - The fix: a question is a **top-level** bullet together with
+     everything under it: its continuation lines and nested bullets, up
+     to the next top-level bullet or the end of the section. Trailing
+     text after the list (a recommendation paragraph) belongs to the
+     last question. `QaFile.AppendQuestions` writes that block
+     verbatim, so its nested lines stay nested.
+   - Keep the on-disk qa format (`## Question (round N)` +
+     `**Answer**:`) unchanged; cockpit and humans read it.
+5. **Tests** in the worker test project, for each step:
    - step 1: a re-readied exhausted command runs the agent again; a
      resume after questions keeps its count; the abort message when no
      phase ran;
    - step 2: the second agent call carries the command body;
-   - step 3: usage errors exit 2; the run-all status column.
-5. **Spec-first:** remove the BUG lines from `command-lifecycle.md`,
+   - step 3: usage errors exit 2; the run-all status column;
+   - step 4: `ReadOpenQuestions` on the 0019 shape (one multi-line
+     question with nested (A)/(B) options and a trailing recommendation
+     → exactly one question, all text kept); two plain one-line
+     questions → two; the qa file written from the first case.
+6. **Spec-first:** remove the BUG lines from `command-lifecycle.md`,
    `worker-run.md`, `run.md`, `next.md` and `run-all.md`, and describe
-   the new behaviour there.
+   the new behaviour there. In `command-lifecycle.md`, also state what
+   counts as one question in the pln's open-questions section.
