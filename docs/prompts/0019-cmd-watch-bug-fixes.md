@@ -1,6 +1,6 @@
 ---
 title: "mf-watch: Ctrl+C spares the running worker; verify the lock on Linux"
-status: ready
+status: running
 created: 2026-10-05
 attempts: 0
 ---
