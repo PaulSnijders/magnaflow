@@ -24,8 +24,7 @@ none
 
 ## Open prompts
 
-- 0020 worker-bug-fixes — ready
-- 0021 cockpit-bug-fixes — draft
+- 0021 cockpit-bug-fixes — ready
 
 ## Format problems
 

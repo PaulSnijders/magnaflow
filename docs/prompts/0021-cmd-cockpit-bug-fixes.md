@@ -1,6 +1,6 @@
 ---
 title: "mf-cockpit: safe and working links, endpoint guards, config overwrite, Add project fixes, live updates for new projects"
-status: draft
+status: ready
 created: 2026-10-05
 ---
 
@@ -50,8 +50,9 @@ change (front-end JS), verify it live and say so in the rst.
    - Tests for the legacy 400 and for the appender.
 5. **Live updates for a project added at runtime** (`index.md`).
    `ProjectWatchersHostedService` creates file watchers only at
-   startup. Make the watched set follow the registry: start watchers on
-   add and dispose them on remove, in one owning place, with no restart.
+   startup. Removal already disposes the removed project's watcher
+   through `IProjectWatcherRegistry`; add the other half there: Add
+   project starts the new project's watcher at once, with no restart.
    Test through the seam the existing tests use.
 6. **Spec-first:** remove every BUG line in `chat.md`, `specs.md`,
    `command.md`, `config.md`, `index.md` and
