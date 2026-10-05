@@ -1,5 +1,13 @@
 # Worker config for this repo (project-level, travels in git).
 # Monorepo: one .NET solution per tool, run sequentially, first failure stops.
+agent:
+  command: claude
+  # The worker runs claude non-interactively: nobody is there to answer a
+  # permission prompt, so in the default mode every Edit/Write/Bash is
+  # refused and the agent implements nothing (that is what aborted 0019).
+  # bypassPermissions pre-grants everything; the repo is in git, so file
+  # damage is recoverable. Not covered: anything outside the repo.
+  args: ["--permission-mode", "bypassPermissions"]
 build:
   commands:
     - dotnet build tools/worker-controller/WorkerController.slnx
