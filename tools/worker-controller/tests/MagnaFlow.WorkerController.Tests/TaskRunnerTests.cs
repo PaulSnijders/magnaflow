@@ -974,5 +974,90 @@ public class TaskRunnerTests : IDisposable
         Assert.Equal(CmdStatus.Done, cmd!.Status); // written, but uncommitted — exactly what it warns about
     }
 
+    // --- Re-ready after abort: a fresh attempt budget (command-lifecycle.md) ---
+
+    [Fact]
+    public async Task ReReadiedExhaustedCommand_RunsTheAgentAgainWithAFreshBudget()
+    {
+        var scanned = WriteAndScan(TempProject.CmdMarkdown(attempts: 3, maxAttempts: 3));
+        _project.WriteRst("0001-test", "---\ntitle: old\n---\n\n# Report\n\n## What was done\n\nOLD REPORT\n");
+
+        var exit = await CreateRunner().RunAsync(scanned, new AgentSessionState());
+
+        Assert.Equal(ExitCodes.Success, exit);
+        Assert.Equal(2, _agent.Prompts.Count); // plan + implementation, instead of an instant abort
+        var (cmd, _) = CmdFile.Parse(scanned.Cmd!.FilePath, scanned.Id);
+        Assert.Equal(CmdStatus.Done, cmd!.Status);
+        Assert.Equal(1, cmd.Attempts);
+        Assert.Contains("re-run after an earlier `aborted`", _agent.Prompts[1]);
+
+        // The old rst is gone in the claim commit; the fake agent wrote none, so the fallback is fresh.
+        Assert.Contains("docs/prompts/0001-rst-test.md", _git.Commits[0].Paths);
+        var rst = File.ReadAllText(cmd.RstPath);
+        Assert.DoesNotContain("OLD REPORT", rst);
+        var whatWasDone = rst[(rst.IndexOf("## What was done", StringComparison.Ordinal) + "## What was done".Length)..].TrimStart();
+        Assert.StartsWith("Re-run after an earlier `aborted`", whatWasDone);
+    }
+
+    [Fact]
+    public async Task ResumeAfterQuestions_KeepsCountingAttempts()
+    {
+        _processes.ShellResults.Enqueue(new ProcessResult(1, "build broken", "", false));
+        _processes.ShellResults.Enqueue(new ProcessResult(1, "build broken", "", false));
+        var scanned = WriteAndScan(TempProject.CmdMarkdown(attempts: 1, maxAttempts: 3));
+        _project.WriteRst("0001-test", "---\ntitle: kept\n---\n\nKEPT\n");
+
+        var exit = await CreateRunner().RunAsync(scanned, new AgentSessionState());
+
+        Assert.Equal(ExitCodes.TaskFailed, exit);
+        var (cmd, _) = CmdFile.Parse(scanned.Cmd!.FilePath, scanned.Id);
+        Assert.Equal(3, cmd!.Attempts); // 1 carried over + 2 failing builds; no reset
+        Assert.Equal(3, _agent.Prompts.Count); // plan + 2 implementation attempts
+        Assert.DoesNotContain(_agent.Prompts, p => p.Contains("This is a re-run"));
+        Assert.Contains("KEPT", File.ReadAllText(cmd.RstPath));
+    }
+
+    [Fact]
+    public void AbortReason_WhenNoPhaseRan_SaysSoInsteadOfAnEmptyPhase()
+    {
+        var reason = TaskRunner.AbortReason(planGatePassed: false, attemptsUsed: 3, maxAttempts: 3, lastFailingPhase: null);
+
+        Assert.Contains("no phase ran", reason);
+        Assert.DoesNotContain("phase: ", reason);
+        Assert.EndsWith("plan", TaskRunner.AbortReason(false, 2, 2, "plan"));
+        Assert.Equal("build kept failing after 2 attempt(s)", TaskRunner.AbortReason(true, 2, 2, "build"));
+    }
+
+    // --- Retry without a resumable session resends the command (worker-run.md) ---
+
+    [Fact]
+    public async Task PlanCrashWithoutSession_RetryCarriesTheCommandBody()
+    {
+        _agent.Results.Enqueue(new AgentResult(1, null, null, TimedOut: false)); // plan crashes, no session id
+        var scanned = WriteAndScan(TempProject.CmdMarkdown());
+
+        await CreateRunner().RunAsync(scanned, new AgentSessionState());
+
+        Assert.Null(_agent.ResumeIds[1]);
+        var retry = _agent.Prompts[1];
+        Assert.Contains("Do something useful.", retry);            // the command body
+        Assert.Contains("Before making any change, plan.", retry); // the full plan prompt
+        Assert.Contains("failed while planning", retry);          // plus the plan-worded feedback
+        Assert.DoesNotContain("after your changes", retry);
+    }
+
+    [Fact]
+    public async Task PlanCrashWithASession_RetrySendsOnlyTheFeedback()
+    {
+        _agent.Results.Enqueue(new AgentResult(1, "s-crashed", null, TimedOut: false));
+        var scanned = WriteAndScan(TempProject.CmdMarkdown());
+
+        await CreateRunner().RunAsync(scanned, new AgentSessionState());
+
+        Assert.Equal("s-crashed", _agent.ResumeIds[1]);
+        Assert.DoesNotContain("Do something useful.", _agent.Prompts[1]);
+        Assert.Contains("failed while planning", _agent.Prompts[1]);
+    }
+
     public void Dispose() => _project.Dispose();
 }

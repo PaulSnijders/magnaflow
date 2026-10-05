@@ -37,7 +37,7 @@ Subset of [design](../concepts/design.md#shared-conventions):
 |---|---|
 | 0 | `done`, or paused at `questions` (a pause is not a failure) |
 | 1 | ended `aborted` |
-| 2 | config missing or invalid, unknown id, malformed command, missing `specs:` file, unresolvable `resume:`, no base branch |
+| 2 | usage error (unknown option, unknown subcommand, stray or missing argument), config missing or invalid, unknown id, malformed command, missing `specs:` file, unresolvable `resume:`, no base branch |
 | 3 | refused, nothing changed: dirty tree, on a work branch, not `ready`, or `mf-run stop` failed (status reverted to `ready` and committed) |
 | 4 | git or agent unavailable, detached HEAD, or a git failure mid-run (the command may be left `running`, or terminal but uncommitted) |
 
@@ -52,9 +52,13 @@ command layer and the lost-terminal-commit report go to stderr,
 prefixed `mf-worker:`. The run's own precondition refusals currently
 print on stdout. Scripts must use the exit code, not stderr.
 
-BUG: argument parsing is Spectre's default rather than
-[design](../concepts/design.md#shared-conventions). An unknown option is
-silently ignored, and a missing `<cmd-id>` or unknown subcommand exits
-with Spectre's own code (observed 127), not 2.
+## Argument parsing
+
+Strict, per [design](../concepts/design.md#shared-conventions), and the
+same for every subcommand. An unknown option, a stray argument, a missing
+`<cmd-id>` or an unknown subcommand prints `mf-worker: <message>` and the
+usage lines on stderr and exits 2. `--help` / `-h`, on the tool or on a
+subcommand, prints usage and exits 0. The help texts describe commands in
+lane terms (`ready`, id order).
 
 DRAFT: generated from code, not human-reviewed.

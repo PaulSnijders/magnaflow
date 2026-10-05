@@ -165,9 +165,26 @@ public sealed class TaskRunner(
         var evidenceDirectory = CmdFile.EvidenceDirectory(projectRoot, cmd.Id);
         var evidenceDirRelative = RelPath(evidenceDirectory);
 
+        // Setting `ready` on an exhausted command is the human's "try again": a fresh attempt
+        // budget, and a fresh rst (the old one stays in git history). Only an exhausted count
+        // marks a re-run — a resume from questions always has attempts left, so it keeps counting.
+        var maxAttempts = Math.Max(1, cmd.MaxAttempts ?? config.MaxAttempts);
+        var rerun = cmd.Attempts >= maxAttempts;
+        var attemptsUsed = rerun ? 0 : cmd.Attempts;
+
         info($"[{cmd.Id}] {cmd.Title} — starting");
         cmd.WriteStatus(CmdStatus.Running);
+        if (rerun)
+        {
+            info($"[{cmd.Id}] re-run after an earlier abort: attempts reset ({cmd.Attempts}/{maxAttempts} were used)");
+            cmd.WriteAttempts(0);
+        }
         await git.StagePathAsync(cmdPathRelative);
+        if (rerun && File.Exists(cmd.RstPath))
+        {
+            File.Delete(cmd.RstPath);
+            await git.StagePathAsync(RelPath(cmd.RstPath)); // stages the deletion in the claim commit
+        }
         await git.CommitAsync($"mf-worker: {cmd.Id} -> running");
 
         // A branchless run lands as a single commit: this claim commit is amended at the end to
@@ -197,8 +214,6 @@ public sealed class TaskRunner(
                 info($"[{cmd.Id}] resuming this command's own recorded session (self-resume)");
         }
 
-        var maxAttempts = Math.Max(1, cmd.MaxAttempts ?? config.MaxAttempts);
-        var attemptsUsed = cmd.Attempts;
         var conventions = ConventionLoader.Load(projectRoot);
 
         var paused = false;
@@ -223,9 +238,13 @@ public sealed class TaskRunner(
                 var now = DateTimeOffset.Now;
                 claudeLog.WritePhaseHeader("plan", now);
 
+                // A retry that cannot resume a session starts a fresh one, which has never seen
+                // the command: it gets the full plan prompt again, with the feedback appended.
                 var planPrompt = feedbackPhase is null
                     ? PromptBuilder.BuildPlan(cmd, projectRoot, conventions)
-                    : PromptBuilder.BuildFailureFeedback(feedbackPhase, feedbackOutput!);
+                    : resumeSession is null
+                        ? PromptBuilder.BuildPlan(cmd, projectRoot, conventions) + Environment.NewLine + PromptBuilder.BuildFailureFeedback(feedbackPhase, feedbackOutput!)
+                        : PromptBuilder.BuildFailureFeedback(feedbackPhase, feedbackOutput!);
 
                 info($"[{cmd.Id}] planning{(resumeSession is not null ? " (resumed session)" : "")}");
                 var planResult = await agent.RunAsync(planPrompt, resumeSession, projectRoot, claudeLog.WriteLine);
@@ -234,7 +253,7 @@ public sealed class TaskRunner(
                 if (!planResult.Succeeded)
                 {
                     attemptsUsed++;
-                    feedbackPhase = "agent";
+                    feedbackPhase = "plan";
                     feedbackOutput = planResult.TimedOut
                         ? $"the agent run timed out after {config.CommandTimeout.TotalMinutes:0} minutes"
                         : $"the agent process exited with code {planResult.ExitCode}";
@@ -319,8 +338,10 @@ public sealed class TaskRunner(
                         testLog.WriteAttemptHeader(attemptsUsed, maxAttempts, now);
 
                         var prompt = feedbackPhase is null
-                            ? PromptBuilder.BuildInitial(cmd, projectRoot, conventions)
-                            : PromptBuilder.BuildFailureFeedback(feedbackPhase, feedbackOutput!);
+                            ? PromptBuilder.BuildInitial(cmd, projectRoot, conventions, rerun)
+                            : resumeSession is null
+                                ? PromptBuilder.BuildInitial(cmd, projectRoot, conventions, rerun) + Environment.NewLine + PromptBuilder.BuildFailureFeedback(feedbackPhase, feedbackOutput!)
+                                : PromptBuilder.BuildFailureFeedback(feedbackPhase, feedbackOutput!);
 
                         info($"[{cmd.Id}] attempt {attemptsUsed}/{maxAttempts}: agent working{(resumeSession is not null ? " (resumed session)" : "")}");
                         var agentResult = await agent.RunAsync(prompt, resumeSession, projectRoot, claudeLog.WriteLine);
@@ -407,18 +428,14 @@ public sealed class TaskRunner(
         }
 
         // --- Terminal outcome: done (planned + succeeded) or aborted (any other non-success reason) ---
-        string? abortReason = !planGatePassed
-            ? $"planning failed after {attemptsUsed} attempt(s); last failing phase: {feedbackPhase}"
-            : !succeeded
-                ? $"{feedbackPhase} kept failing after {attemptsUsed} attempt(s)"
-                : null;
         var isDone = planGatePassed && succeeded;
+        var abortReason = isDone ? null : AbortReason(planGatePassed, attemptsUsed, maxAttempts, feedbackPhase);
 
         SessionEvidence.Write(evidenceDirectory, resumeSession);
         cmd.WriteAttempts(attemptsUsed);
         cmd.WriteStatus(isDone ? CmdStatus.Done : CmdStatus.Aborted);
         if (!RstFile.Exists(cmd.RstPath)) // FR-017's "MUST ensure" — a safety net, not the agent's normal path
-            RstFile.WriteFallback(cmd.RstPath, isDone, attemptsUsed, abortReason, cmd.Title);
+            RstFile.WriteFallback(cmd.RstPath, isDone, attemptsUsed, abortReason, cmd.Title, rerun);
 
         // Start after any terminal status, done and aborted both — the last successful build may
         // still be perfectly runnable, and looking at it is often how a human diagnoses an aborted
@@ -478,5 +495,18 @@ public sealed class TaskRunner(
 
         info($"[{cmd.Id}] {(isDone ? "done" : "ABORTED")} after {attemptsUsed} attempt(s); work {(cmd.Branch is null ? $"on '{invokingBranch}'" : $"branch: {cmd.Branch}")}");
         return isDone ? ExitCodes.Success : ExitCodes.TaskFailed;
+    }
+
+    /// <summary>
+    /// Why an unsuccessful run aborted. Never names an empty phase: when no phase ran at all (no
+    /// attempt was left to spend), it says so instead.
+    /// </summary>
+    public static string AbortReason(bool planGatePassed, int attemptsUsed, int maxAttempts, string? lastFailingPhase)
+    {
+        if (lastFailingPhase is null)
+            return $"no phase ran: {attemptsUsed} of {maxAttempts} attempt(s) were already used before this run could start one";
+        return planGatePassed
+            ? $"{lastFailingPhase} kept failing after {attemptsUsed} attempt(s)"
+            : $"planning failed after {attemptsUsed} attempt(s); last failing phase: {lastFailingPhase}";
     }
 }

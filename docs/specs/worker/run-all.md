@@ -28,11 +28,13 @@ mf-worker run-all [--project <path>]
 - A `questions` pause counts as success. The batch moves on, and the
   paused command waits for its human.
 
-At the end it prints a table with one row per command run: `done`,
-`aborted`, or `error (exit N)`.
+At the end it prints a table with one row per command run: its id, its
+resulting status read back from its cmd file (`done`, `aborted`,
+`questions`, or `ready` after a refusal; `?` if the file no longer
+parses), and its exit code. A pause and a finished command both exit 0,
+so only the status tells them apart.
 
-BUG: the table maps exit codes, not statuses, so a command that paused
-at `questions` (exit 0) is shown as `done`.
+Argument parsing is strict, as for [`run`](run.md#argument-parsing).
 
 ## Exit codes
 

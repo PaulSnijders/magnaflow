@@ -25,14 +25,19 @@ public sealed class RunAllCommand : AsyncCommand<ProjectSettings>
 
             if (outcomes.Count > 0)
             {
-                var table = new Table().AddColumns("Command", "Outcome");
+                var table = new Table().AddColumns("Command", "Status", "Exit");
                 foreach (var outcome in outcomes)
-                    table.AddRow(outcome.Id, outcome.ExitCode switch
-                    {
-                        ExitCodes.Success => "[green]done[/]",
-                        ExitCodes.TaskFailed => "[red]aborted[/]",
-                        _ => $"[yellow]error (exit {outcome.ExitCode})[/]",
-                    });
+                    table.AddRow(
+                        Markup.Escape(outcome.Id),
+                        outcome.Status switch
+                        {
+                            "done" => "[green]done[/]",
+                            "aborted" => "[red]aborted[/]",
+                            "running" => "[yellow]running[/]",
+                            "questions" => "[cyan]questions[/]",
+                            _ => Markup.Escape(outcome.Status),
+                        },
+                        outcome.ExitCode == ExitCodes.Success ? "0" : $"[yellow]{outcome.ExitCode}[/]");
                 AnsiConsole.Write(table);
             }
 

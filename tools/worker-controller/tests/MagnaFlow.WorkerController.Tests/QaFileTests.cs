@@ -73,5 +73,23 @@ public class QaFileTests : IDisposable
         Assert.Equal("Blue", pair.Answer);
     }
 
+    [Fact]
+    public void AppendQuestions_FromThe0019Shape_WritesOneRoundWithNestedLinesIntact()
+    {
+        var pln = _project.WritePln("0001-test", PlnFileTests.Shape0019);
+        var path = Path.Combine(_project.Root, "docs", "prompts", "0001-qa-test.md");
+
+        QaFile.AppendQuestions(path, PlnFile.ReadOpenQuestions(pln));
+
+        var text = File.ReadAllText(path);
+        Assert.Contains("## Question (round 1)", text);
+        Assert.DoesNotContain("## Question (round 2)", text);
+        Assert.Contains("\n  - (A) Do only the prescribed token separation in this run. Keep a", text.Replace("\r\n", "\n"));
+        Assert.Contains("\n    that means setsid.", text.Replace("\r\n", "\n"));
+        var (question, answer) = Assert.Single(QaFile.ReadLatestAnswers(path));
+        Assert.Contains("Recommendation: (A)", question);
+        Assert.Equal("", answer);
+    }
+
     public void Dispose() => _project.Dispose();
 }

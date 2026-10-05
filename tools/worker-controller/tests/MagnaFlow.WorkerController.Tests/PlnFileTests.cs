@@ -50,5 +50,50 @@ public class PlnFileTests : IDisposable
         Assert.Empty(PlnFile.ReadOpenQuestions(path));
     }
 
+    /// <summary>The shape that split into three qa rounds in 0019: one question, nested options, a trailing recommendation.</summary>
+    internal const string Shape0019 =
+        """
+        # Plan
+
+        Do step 1 and step 2.
+
+        ## Open questions (this round)
+
+        - **How far should step 1 go, given that a terminal Ctrl+C reaches the
+          worker directly through the process group?** Two options:
+          - (A) Do only the prescribed token separation in this run. Keep a
+            narrowed BUG line.
+          - (B) Also detach the worker from the console in this run. On Unix,
+            that means setsid.
+
+        Recommendation: (A), because the watcher runs under systemd.
+        """;
+
+    [Fact]
+    public void ReadOpenQuestions_OneMultiLineQuestionWithNestedOptions_IsOneQuestionWithAllItsText()
+    {
+        var path = _project.WritePln("0001-test", Shape0019);
+
+        var open = PlnFile.ReadOpenQuestions(path);
+
+        var question = Assert.Single(open);
+        Assert.StartsWith("**How far should step 1 go", question);
+        Assert.Contains("  worker directly through the process group?** Two options:", question);
+        Assert.Contains("  - (A) Do only the prescribed token separation in this run. Keep a", question);
+        Assert.Contains("    narrowed BUG line.", question);
+        Assert.Contains("  - (B) Also detach the worker from the console in this run. On Unix,", question);
+        Assert.Contains("    that means setsid.", question);
+        Assert.EndsWith("Recommendation: (A), because the watcher runs under systemd.", question);
+    }
+
+    [Fact]
+    public void ReadOpenQuestions_TwoOneLineQuestions_AreTwoQuestions()
+    {
+        var path = _project.WritePln("0001-test",
+            "# Plan\n\nx\n\n## Open questions (this round)\n\n- First?\n- Second?\n");
+
+        Assert.Equal(["First?", "Second?"], PlnFile.ReadOpenQuestions(path));
+    }
+
     public void Dispose() => _project.Dispose();
 }

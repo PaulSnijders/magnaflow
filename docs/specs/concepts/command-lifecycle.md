@@ -40,7 +40,7 @@ One command is up to four flat files sharing `NNNN-name`, the command id:
 | `branch` / `base` | work branch and its base; `base` without `branch` is malformed. See [worker run](worker-run.md#branches) |
 | `resume` / `group` / `fresh_session` | session continuity; `resume` with `fresh_session: true` is malformed |
 | `specs` | list of repo-relative files; a missing one refuses the run (exit 2) |
-| `attempts` | written by the worker; cumulative across runs |
+| `attempts` | written by the worker; cumulative across runs and pauses, reset by a re-run (below) |
 | `max_attempts` | per-command override of `defaults.max_attempts` |
 
 The worker rewrites only the `status:` and `attempts:` values, in place.
@@ -62,9 +62,18 @@ as a `## Warning` section, never overwriting the report.
 - The pln gate is the heading `## Open questions (this round)`, one
   bullet per question. Any bullet under it pauses the run. A pln without
   that section, or no pln at all, means nothing is open.
+- **One question** is one top-level bullet together with everything
+  under it: its continuation lines, its nested bullets, and any text
+  after the list (a recommendation paragraph belongs to the last
+  question), up to the next top-level bullet or the end of the section.
+  The top level is the indent of the section's first bullet. Text before
+  the first bullet is not a question. A question with nested options
+  (A) and (B) is therefore one question, not three.
 - The qa file grows by `## Question (round N)` blocks, each followed by
-  an `**Answer**:` line the human fills in. Rounds continue numbering
-  across pauses; there is never a second qa file.
+  an `**Answer**:` line the human fills in. Each question lands in its
+  own block verbatim, minus its top-level `- ` marker, so nested lines
+  stay nested. Rounds continue numbering across pauses; there is never a
+  second qa file.
 
 ## Statuses and who moves them
 
@@ -91,11 +100,18 @@ draft ─► ready ─► running ─► done
   human decision.
 - mf-watch only reads statuses and the worker's exit code. It never
   writes one ([watch supervision](watch-supervision.md)).
-- `aborted` is a normal terminal status, not an exception. Re-queueing
-  one means setting `ready` **and** lowering `attempts:` by hand.
-  BUG: a command re-readied with `attempts >= max_attempts` aborts at
-  once without calling the agent, with an empty "last failing phase",
-  and keeps its old rst.
+- `aborted` is a normal terminal status, not an exception. Setting it
+  back to `ready` is the human's "try again". A run that starts from
+  `ready` with `attempts >= max_attempts` resets `attempts:` to 0 and
+  gets the full budget again. Its claim commit deletes the old rst
+  (which stays in git history), so the new run's rst replaces it, and
+  the first line under its "What was done" notes that this is a re-run
+  after an earlier `aborted`.
+- A resume from `questions` → `ready` is not a re-run: it continues the
+  same run and keeps counting. A pause always leaves attempts unspent,
+  so it never meets the reset.
+- An abort reason always names the last failing phase (`plan`, `agent`,
+  `build`, `tests`). If no phase ran at all, it says so.
 
 ## Commits
 

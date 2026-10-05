@@ -149,5 +149,19 @@ public class PromptBuilderTests : IDisposable
         Assert.True(prompt.Length < 25_000);
     }
 
+    [Theory]
+    [InlineData("plan", "failed while planning")]
+    [InlineData("agent", "failed before it finished the implementation")]
+    [InlineData("build", "build step failed after your changes")]
+    [InlineData("tests", "tests step failed after your changes")]
+    public void BuildFailureFeedback_IsWordedPerPhase(string phase, string expected)
+    {
+        var prompt = PromptBuilder.BuildFailureFeedback(phase, "output");
+
+        Assert.Contains(expected, prompt);
+        if (phase is "plan" or "agent")
+            Assert.DoesNotContain("after your changes", prompt);
+    }
+
     public void Dispose() => _project.Dispose();
 }

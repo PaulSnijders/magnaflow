@@ -139,8 +139,12 @@ public static class PromptBuilder
         return prompt.ToString();
     }
 
-    /// <summary>The implementation instruction, sent once the plan/question gate has passed (spec FR-010).</summary>
-    public static string BuildInitial(CmdFile cmd, string projectRoot, string conventions)
+    /// <summary>
+    /// The implementation instruction, sent once the plan/question gate has passed (spec FR-010).
+    /// <paramref name="rerunAfterAbort"/>: a human set an exhausted command back to ready, so the
+    /// report is a new one and says so in its first line.
+    /// </summary>
+    public static string BuildInitial(CmdFile cmd, string projectRoot, string conventions, bool rerunAfterAbort = false)
     {
         var rst = Path.GetFileName(cmd.RstPath);
         var cmdFile = Path.GetFileName(cmd.FilePath);
@@ -177,6 +181,17 @@ public static class PromptBuilder
             do?". Quote the value if it contains a colon. The report body below the frontmatter
             stays exactly what it would otherwise be — do not shorten it.
             """);
+        if (rerunAfterAbort)
+        {
+            prompt.AppendLine();
+            prompt.AppendLine(
+                $"""
+                This is a re-run: an earlier run of this command ended `aborted`, and a human set it
+                back to `ready`. Its report is gone from the working tree (it stays in git history);
+                write `{rst}` from scratch. The first line under its "What was done" heading must
+                note that this is a re-run after an earlier `aborted`.
+                """);
+        }
         prompt.AppendLine();
         prompt.AppendLine(BuildConventionsAndSpecs(cmd, projectRoot, conventions));
         prompt.AppendLine($"# Command: {cmd.Title}");
@@ -186,17 +201,41 @@ public static class PromptBuilder
         return prompt.ToString();
     }
 
-    /// <summary>Follow-up prompt wrapping build/test failure output (v0.1 FR-010), sent into the same session.</summary>
+    /// <summary>
+    /// Follow-up prompt wrapping a failed phase's output (v0.1 FR-010), worded per phase:
+    /// <c>plan</c> (the agent run failed while planning, no changes exist), <c>agent</c> (the
+    /// agent run failed while implementing), or a <c>build</c>/<c>tests</c> failure after the
+    /// agent's changes. Sent alone into a resumed session, or appended to the phase's full
+    /// prompt when the session cannot be resumed.
+    /// </summary>
     public static string BuildFailureFeedback(string phase, string failureOutput)
     {
         var output = failureOutput.Length > MaxFeedbackChars
             ? "[...output truncated...]\n" + failureOutput[^MaxFeedbackChars..]
             : failureOutput;
 
+        var instruction = phase switch
+        {
+            "plan" =>
+                """
+                The previous agent run failed while planning, before any change was made. Plan this
+                command again, following the planning instructions.
+                """,
+            "agent" =>
+                """
+                The previous agent run failed before it finished the implementation. Check what is
+                already in the working tree and complete the implementation.
+                """,
+            _ =>
+                $"""
+                The {phase} step failed after your changes. Analyze the output below, fix the problems,
+                and make the {phase} pass.
+                """,
+        };
+
         return
             $"""
-            The {phase} step failed after your changes. Analyze the output below, fix the problems,
-            and make the {phase} pass. The same rules apply: never touch .magnaflow/ and never run git commands.
+            {instruction.Trim()} The same rules apply: never touch .magnaflow/ and never run git commands.
 
             {phase} output:
             ```

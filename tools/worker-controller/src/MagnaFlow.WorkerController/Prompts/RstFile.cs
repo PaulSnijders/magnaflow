@@ -74,13 +74,17 @@ public static class RstFile
         File.WriteAllText(path, frontmatter.ToString() + Environment.NewLine + body + Environment.NewLine);
     }
 
-    /// <summary>Controller-authored safety net when the agent produced no rst of its own (spec FR-017's "MUST ensure").</summary>
-    public static void WriteFallback(string path, bool succeeded, int attempts, string? abortReason, string? title = null) =>
+    /// <summary>
+    /// Controller-authored safety net when the agent produced no rst of its own (spec FR-017's
+    /// "MUST ensure"). A re-run after an earlier abort says so in the first line of "What was done".
+    /// </summary>
+    public static void WriteFallback(string path, bool succeeded, int attempts, string? abortReason, string? title = null, bool rerunAfterAbort = false) =>
         Write(
             path,
-            succeeded
+            (rerunAfterAbort ? "Re-run after an earlier `aborted`: a human set the command back to `ready`, which reset its attempts.\n\n" : "")
+            + (succeeded
                 ? $"Command completed after {attempts} attempt(s); see claude.log for details."
-                : $"Command aborted after {attempts} attempt(s); see claude.log for details.",
+                : $"Command aborted after {attempts} attempt(s); see claude.log for details."),
             decisions: null,
             abortReason: succeeded ? null : abortReason ?? "unknown",
             title: title,

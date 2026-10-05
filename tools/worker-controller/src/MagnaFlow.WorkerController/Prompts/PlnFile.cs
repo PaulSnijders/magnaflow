@@ -16,7 +16,7 @@ public static class PlnFile
 {
     private static readonly Regex OpenQuestionsSection = new(
         @"^##\s*Open questions.*$(?<body>(?:\r?\n(?!##\s).*)*)", RegexOptions.Multiline);
-    private static readonly Regex BulletLine = new(@"^\s*-\s+(?<text>.+?)\s*$", RegexOptions.Multiline);
+    private static readonly Regex BulletStart = new(@"^(?<indent>[ \t]*)-\s+(?<text>.*)$");
 
     public static void Write(
         string path,
@@ -51,7 +51,15 @@ public static class PlnFile
         File.WriteAllText(path, sb.ToString());
     }
 
-    /// <summary>Extracts the "Open questions (this round)" section as a list of bullet strings; empty when absent or the file doesn't exist.</summary>
+    /// <summary>
+    /// Extracts the "Open questions (this round)" section as a list of questions; empty when
+    /// absent or the file doesn't exist. One question is one top-level bullet together with
+    /// everything under it — continuation lines, nested bullets, and any text after the list,
+    /// which belongs to the last question — up to the next top-level bullet or the end of the
+    /// section. The top level is the indent of the section's first bullet; text before it is
+    /// not a question. Only the top-level bullet marker is dropped: every other line is kept
+    /// verbatim, so nested lines stay nested in the qa file.
+    /// </summary>
     public static IReadOnlyList<string> ReadOpenQuestions(string path)
     {
         if (!File.Exists(path))
@@ -62,6 +70,25 @@ public static class PlnFile
         if (!section.Success)
             return [];
 
-        return [.. BulletLine.Matches(section.Groups["body"].Value).Select(m => m.Groups["text"].Value.Trim())];
+        var questions = new List<List<string>>();
+        int? topIndent = null;
+        foreach (var raw in section.Groups["body"].Value.Split('\n'))
+        {
+            var line = raw.TrimEnd('\r');
+            var bullet = BulletStart.Match(line);
+            if (bullet.Success && (topIndent is null || bullet.Groups["indent"].Length <= topIndent))
+            {
+                topIndent ??= bullet.Groups["indent"].Length;
+                questions.Add([bullet.Groups["text"].Value]);
+            }
+            else if (questions.Count > 0)
+            {
+                questions[^1].Add(line);
+            }
+        }
+
+        return [.. questions
+            .Select(lines => string.Join(Environment.NewLine, lines.Select(l => l.TrimEnd())).Trim())
+            .Where(q => q.Length > 0)];
     }
 }

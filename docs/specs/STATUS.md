@@ -33,6 +33,7 @@ none
 
 ## Recent spec updates
 
+- 2026-10-05 — 0020: mf-worker BUG lines resolved. A re-readied exhausted command resets `attempts:` and replaces its rst (re-run note); a retry without a resumable session resends the full phase prompt, feedback worded per phase; strict CLI parsing (usage errors exit 2 on stderr, help in lane terms); run-all table shows the resulting status; a pln question is a top-level bullet with everything under it. concepts/command-lifecycle.md, concepts/worker-run.md, worker/run.md, worker/next.md, worker/run-all.md updated.
 - 2026-10-05 — 0019: mf-watch Ctrl+C no longer cancels the in-flight worker (second Ctrl+C aborts hard); instance lock exclusive on Linux/macOS (`FileShare.None` → exclusive flock, verified broken before); watch/mf-watch.md and concepts/watch-supervision.md#lock-file updated. One narrowed BUG line remains (terminal Ctrl+C reaches the worker via the process group).
 - 2026-10-05 — mf-watch.md: terminal Ctrl+C reaching the worker is now an accepted limitation, not a BUG (no 0019B).
 - 2026-10-05 — install.ps1 re-run now restarts every watcher that was running (per-project cockpit toggles too), not only start-magnaflow.ps1's -Project; concepts/machine-install.md updated.

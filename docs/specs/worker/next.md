@@ -28,8 +28,7 @@ mf-worker next [--project <path>]
 As [`run`](run.md#exit-codes), plus 0 for "nothing ready". An unknown id
 cannot occur.
 
-BUG: the `--help` description still reads "first pending task in
-folder-name order", which is v0.1 vocabulary. The behaviour is "first
-ready command in id order".
+`--help` describes it as "Execute the first ready command in ID order".
+Argument parsing is strict, as for [`run`](run.md#argument-parsing).
 
 DRAFT: generated from code, not human-reviewed.

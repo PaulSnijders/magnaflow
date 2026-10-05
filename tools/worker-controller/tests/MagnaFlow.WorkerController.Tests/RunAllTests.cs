@@ -117,5 +117,18 @@ public class RunAllTests : IDisposable
         Assert.Equal([null, "session-1", null, "session-3"], _agent.ResumeIds);
     }
 
+    [Fact]
+    public async Task Batch_ReportsEachCommandsResultingStatusNotItsExitCode()
+    {
+        _project.WriteCmd("0001-a", TempProject.CmdMarkdown(branch: "task/0001-a"));
+        _project.WritePln("0001-a", "# Plan\n\n## Open questions (this round)\n\n- Which one?\n");
+        _project.WriteCmd("0002-b", TempProject.CmdMarkdown(branch: "task/0002-b"));
+
+        var (_, outcomes) = await ExecuteBatchAsync();
+
+        Assert.Equal([ExitCodes.Success, ExitCodes.Success], outcomes.Select(o => o.ExitCode));
+        Assert.Equal(["questions", "done"], outcomes.Select(o => o.Status)); // a pause is not shown as done
+    }
+
     public void Dispose() => _project.Dispose();
 }

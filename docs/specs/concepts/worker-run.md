@@ -74,7 +74,9 @@ invoking branch.
 
 - `max_attempts` (per command, else `defaults.max_attempts`, default 3,
   at least 1) bounds the whole run. `attempts:` in the cmd file counts
-  across runs and pauses.
+  across runs and pauses. A run that starts with `attempts >=
+  max_attempts` is a re-run after an abort and resets it to 0 in its
+  claim commit ([command lifecycle](command-lifecycle.md#statuses-and-who-moves-them)).
 - A plan-phase agent crash or timeout costs one attempt. A successful
   plan does not. Each implementation attempt costs one, whether the
   agent, the build or the tests failed.
@@ -82,10 +84,17 @@ invoking branch.
   invocation and to each individual build or test command. A timeout
   counts as a failure of that step. git calls have a fixed 2-minute
   limit. `mf-run stop` and `mf-run start` have none.
-- BUG: when a plan-phase crash yields no session id, the retry sends
-  only the failure-feedback text into a fresh session, without the
-  command. That feedback also reads "the agent step failed after your
-  changes", even though there were no changes.
+- **Retry prompt.** A retry that can resume the failed attempt's
+  session sends only the failure feedback. When there is no session to
+  resume (a crash before any session id was reported), the fresh
+  session gets the full prompt of the phase it retries (plan or
+  implementation) with the feedback appended. That way it always sees the
+  command.
+- **Feedback per phase.** `plan`: the agent run failed while planning,
+  before any change; plan again. `agent`: the agent run failed before
+  finishing the implementation; check the tree and complete it.
+  `build` / `tests`: the step failed after your changes; fix it. Each
+  wraps the failure output (the last 16 000 chars).
 
 ## mf-run around the run
 
