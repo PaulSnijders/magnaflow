@@ -1,7 +1,8 @@
 ---
 title: "mf-cockpit: safe and working links, endpoint guards, config overwrite, Add project fixes, live updates for new projects"
-status: ready
+status: done
 created: 2026-10-05
+attempts: 1
 ---
 
 ## Context

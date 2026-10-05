@@ -82,6 +82,17 @@ public static class CommandsEndpoints
             if (project is null)
                 return Results.NotFound();
 
+            // The endpoint enforces what the card shows: a follow-up only continues a finished
+            // command (done or aborted). An unknown parent falls through to the writer's 409.
+            var parent = LaneScanner.Scan(project.Path).FirstOrDefault(i => i.Id == id);
+            if (parent?.Cmd is { } parentCmd && parentCmd.Status is not (CmdStatus.Done or CmdStatus.Aborted))
+            {
+                return Results.Conflict(new
+                {
+                    error = $"'{id}' is {parentCmd.Status.ToYaml()} — a follow-up can only be created for a done or aborted command",
+                });
+            }
+
             try
             {
                 var (outcome, result) = await writer.CreateFollowUpAsync(project.Path, id, request.Feedback, request.Slug);

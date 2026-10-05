@@ -56,9 +56,13 @@ When any command in the project is `running`, a banner says the chat
 shares the machine with it. It is informational only and never blocks.
 It refreshes on `lane` events, after each reply, and every 15 s.
 
-BUG: the markdown renderer (`md.js`) copies link targets verbatim, so a
-`javascript:` URL in an agent reply becomes a clickable link. This
-matters most here, because the rendered text is model output.
+## Link safety
+
+Replies are model output, so the shared markdown renderer (`md.js`)
+vets every link target. Only `http:`, `https:`, `mailto:` and relative
+targets become links. Any other scheme (`javascript:`, `data:`, …)
+renders as its plain label. The same rule holds on every page that
+renders markdown.
 
 DRAFT: generated from code, not human-reviewed.
 

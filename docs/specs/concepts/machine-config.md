@@ -84,6 +84,11 @@ so comments, ordering and hand formatting survive. Rules:
 
 - A legacy `mf-cockpit.yml` is refused: merge it first. The deprecation
   path grows no new features.
+- A `magnaflow.yml` with cockpit fields flat at the root (no `cockpit:`
+  key) is refused on Add project: a new `cockpit:` section would hide
+  them. The message says to move them under `cockpit:`; nothing is
+  migrated automatically. Another tool's root section (`watch:`) is not
+  a cockpit field.
 - An existing file is edited where the lookup found it. When no file
   was found, a new one is created in the user config dir, never next to
   the binary, which may not be writable.
@@ -92,14 +97,10 @@ so comments, ordering and hand formatting survive. Rules:
   block list, an inline `projects: []`, a `cockpit:` section without
   `projects:`, and no `cockpit:` section at all.
 - A `.bak` copy is written first. Then the file is re-parsed and
-  verified: the new entry round-trips, or on removal the entry is gone
-  and every other entry survived. On any failure the original is
-  restored. Callers serialize writes with one lock.
-
-BUG: a `magnaflow.yml` whose cockpit fields are still flat at the root
-(no `cockpit:` key) gets a new `cockpit:` section appended on "Add
-project". From then on only that section is read, so the root-level
-projects silently disappear. The verification only checks the new entry.
+  verified: on append the new entry round-trips and every previously
+  listed project is still read; on removal the entry is gone and every
+  other entry survived. On any failure the original is restored.
+  Callers serialize writes with one lock.
 
 ## Project: `.magnaflow/config.yml`
 

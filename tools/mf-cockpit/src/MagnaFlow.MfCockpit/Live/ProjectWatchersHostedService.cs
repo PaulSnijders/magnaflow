@@ -4,10 +4,12 @@ using Microsoft.Extensions.Hosting;
 
 namespace MagnaFlow.MfCockpit.Live;
 
-/// <summary>Lets write #7 (remove project) dispose exactly the removed project's FileSystemWatcher
-/// — no orphan watcher, no SSE from a project the cockpit has forgotten (ontwerp-v0.5.md item 4).</summary>
+/// <summary>Lets write #6 (add project) start a new project's FileSystemWatcher at once, with no
+/// restart, and write #7 (remove project) dispose exactly the removed project's watcher — no orphan
+/// watcher, no SSE from a project the cockpit has forgotten (ontwerp-v0.5.md item 4).</summary>
 public interface IProjectWatcherRegistry
 {
+    void Add(string projectName, string projectPath);
     void Remove(string projectName);
 }
 
@@ -23,6 +25,16 @@ public sealed class ProjectWatchersHostedService(CockpitConfig config, SseHub hu
         foreach (var project in config.Projects)
             _watchers[project.Name] = new ProjectWatcher(project.Name, project.Path, hub);
         return Task.CompletedTask;
+    }
+
+    public void Add(string projectName, string projectPath)
+    {
+        // After shutdown began, a late add must not leave an undisposed watcher behind.
+        if (Volatile.Read(ref _stopped) != 0)
+            return;
+        var watcher = new ProjectWatcher(projectName, projectPath, hub);
+        if (!_watchers.TryAdd(projectName, watcher))
+            watcher.Dispose();
     }
 
     public void Remove(string projectName)

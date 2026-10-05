@@ -61,7 +61,11 @@ first click or key press on the page (browser autoplay rules).
 
 Opened by "+ Add project", or by the empty state's button when no
 project is registered. Two tabs, Existing and New. Ctrl+Enter submits.
-On success the browser goes to the new project's page.
+On success the browser goes to the new project's page. A success that
+returned `warnings` (no `.git`, spec kit not copied) keeps the dialog
+open to list them, and the submit button becomes "Open project". A
+failure shows `error`; a failed scaffold also shows the directory it
+left in place and the template's captured `output`.
 
 `POST /api/projects` with `{mode: "new"|"existing", name, path?,
 template?}`. Any other mode is a 400. One process-wide lock
@@ -78,7 +82,8 @@ never a refusal.
 
 **New** is offered only when `cockpit.new_project.root` is configured.
 Otherwise the tab says what to add. `GET /api/new-project` returns
-`{root, templates: [names], specKit: bool}`. Only names leave the
+`{root, templates: [names], specKit: bool, separator}`; the target
+preview joins root and dir name with the server's `separator`. Only names leave the
 server: the request picks a template by name and can never supply a
 path or command text. Validation runs in this order, and the order is
 the design:
@@ -118,9 +123,12 @@ then the in-memory registry, then SSE kind `projects`. So a failure
 never leaves a phantom entry. The append is a text edit, never a
 parse-and-regenerate, so comments and ordering survive. `magnaflow.yml`
 is not in git, so the guard is a `.bak` copy, a re-parse that must show
-the new entry, and a restore plus 500 on any failure. The legacy
-`mf-cockpit.yml` filename is refused. When no file was loaded, a new
-`magnaflow.yml` is created in the user config directory. See
+the new entry and every project listed before, and a restore plus 500
+on any failure. Two configs are refused with a 400 before anything is
+scaffolded or written: the legacy `mf-cockpit.yml` filename (the same
+message as Remove project), and a `magnaflow.yml` with cockpit fields
+flat at the root (move them under `cockpit:`). When no file was loaded,
+a new `magnaflow.yml` is created in the user config directory. See
 [machine config](../concepts/machine-config.md).
 
 ## Live updates
@@ -128,20 +136,11 @@ the new entry, and a restore plus 500 on any failure. The legacy
 SSE kinds `lane`, `projects`, `watch` and `run` from any project
 refetch the whole list. `evidence` does not.
 
-BUG: a project added at runtime gets no file watcher until the cockpit
-restarts. `ProjectWatchersHostedService` creates watchers only at
-startup, so no SSE fires for that project's lane, watcher or services,
-and its pages stay stale until reloaded.
-
-BUG: the dialog shows only the response's `error`. Success warnings
-(no `.git`, spec kit not copied) and a failed template's captured
-`output` are discarded, though the server returns both for display.
-
-BUG: the New tab's target preview always joins root and name with
-`\`, which is wrong on Linux. The server path itself is correct.
-
-BUG: a legacy `mf-cockpit.yml` is refused here as a 500, but as a 400
-by Remove project.
+A project added at runtime gets its file watcher at once, through
+`IProjectWatcherRegistry` (the same registry Remove project uses to
+dispose one), so its lane, watcher and service events flow without a
+restart. A watcher covers only the directories that exist when it
+starts.
 
 DRAFT: generated from code, not human-reviewed.
 

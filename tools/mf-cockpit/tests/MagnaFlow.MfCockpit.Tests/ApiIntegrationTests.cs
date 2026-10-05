@@ -549,6 +549,45 @@ public class ApiIntegrationTests : IDisposable
         Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
     }
 
+    [Theory]
+    [InlineData("draft")]
+    [InlineData("ready")]
+    [InlineData("running")]
+    [InlineData("questions")]
+    public async Task Follow_up_is_refused_with_409_for_a_parent_that_is_not_done_or_aborted(string status)
+    {
+        WriteParentCmd(_project, "0005-fix-lava", status);
+        _project.InitGit();
+        using var factory = new CockpitFactory(_configPath);
+        using var client = factory.CreateClient();
+
+        var response = await client.PostAsJsonAsync(
+            "/api/projects/proj/commands/0005-fix-lava/follow-up",
+            new { feedback = "feedback text" });
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Contains("done or aborted", body.GetProperty("error").GetString());
+        Assert.False(File.Exists(Path.Combine(_project.PromptsDir, "0005B-cmd-fix-lava.md")), "no draft is written");
+    }
+
+    [Theory]
+    [InlineData("done")]
+    [InlineData("aborted")]
+    public async Task Follow_up_is_accepted_for_a_done_or_aborted_parent(string status)
+    {
+        WriteParentCmd(_project, "0005-fix-lava", status);
+        _project.InitGit();
+        using var factory = new CockpitFactory(_configPath);
+        using var client = factory.CreateClient();
+
+        var response = await client.PostAsJsonAsync(
+            "/api/projects/proj/commands/0005-fix-lava/follow-up",
+            new { feedback = "feedback text" });
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
     [Fact]
     public async Task Config_endpoint_reports_chat_enabled()
     {

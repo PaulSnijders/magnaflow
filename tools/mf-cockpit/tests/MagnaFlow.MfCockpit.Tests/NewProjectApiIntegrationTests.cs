@@ -2,7 +2,9 @@ using System.Diagnostics;
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
+using MagnaFlow.MfCockpit.Config;
 using MagnaFlow.MfCockpit.Models;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace MagnaFlow.MfCockpit.Tests;
 
@@ -320,5 +322,92 @@ public class NewProjectApiIntegrationTests : IDisposable
 
         Assert.Null(info!.Root);
         Assert.Empty(info.Templates);
+    }
+
+    [Theory]
+    [InlineData("existing")]
+    [InlineData("new")]
+    public async Task A_legacy_mf_cockpit_yml_is_refused_with_400_and_the_remove_project_message(string mode)
+    {
+        // MF_COCKPIT_CONFIG is explicit, so LocatePath never reports it as legacy — swap in the
+        // CockpitConfig the legacy-filename fallback would have produced.
+        var root = ScratchDir("root");
+        var existingDir = ScratchDir("existing");
+        var legacyPath = Path.Combine(ScratchDir("legacy"), CockpitConfig.LegacyFileName);
+        File.WriteAllText(legacyPath, $"projects: []\nnew_project:\n  root: {root.Replace('\\', '/')}\n");
+        var (legacyConfig, _, _) = CockpitConfig.Load(legacyPath, isLegacyFileName: true);
+        CockpitFactory.WriteConfig(_configPath);
+
+        using var factory = new CockpitFactory(_configPath, services =>
+        {
+            services.AddSingleton(legacyConfig!);
+            services.AddSingleton(legacyConfig!.NewProject);
+        });
+        using var client = factory.CreateClient();
+
+        var response = await client.PostAsJsonAsync("/api/projects", new { mode, name = "legacy-proj", path = existingDir });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var error = body.GetProperty("error").GetString();
+        Assert.Contains("deprecated mf-cockpit.yml filename", error);
+        Assert.Contains("before managing projects here", error);
+        Assert.False(Directory.Exists(Path.Combine(root, "legacy-proj")), "nothing is scaffolded for a refused config");
+        Assert.Equal($"projects: []\nnew_project:\n  root: {root.Replace('\\', '/')}\n", File.ReadAllText(legacyPath));
+    }
+
+    [Fact]
+    public async Task A_magnaflow_yml_with_flat_root_cockpit_fields_is_refused_with_400()
+    {
+        var known = ScratchDir("known");
+        var existingDir = ScratchDir("existing");
+        var original = $"projects:\n  - name: known\n    path: {known.Replace('\\', '/')}\n";
+        File.WriteAllText(_configPath, original);
+
+        using var factory = new CockpitFactory(_configPath);
+        using var client = factory.CreateClient();
+
+        var response = await client.PostAsJsonAsync("/api/projects", new { mode = "existing", name = "existing-proj", path = existingDir });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Contains("under a top-level 'cockpit:' section", body.GetProperty("error").GetString());
+        Assert.Equal(original, await File.ReadAllTextAsync(_configPath));
+        Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync("/api/projects/existing-proj")).StatusCode);
+    }
+
+    [Fact]
+    public async Task A_project_added_at_runtime_gets_live_lane_events_without_a_restart()
+    {
+        using var added = new TempProject();
+        Directory.CreateDirectory(added.PromptsDir); // a watcher only covers directories that exist
+        CockpitFactory.WriteConfig(_configPath);
+
+        using var factory = new CockpitFactory(_configPath);
+        using var client = factory.CreateClient();
+
+        var response = await client.PostAsJsonAsync("/api/projects", new { mode = "existing", name = "added", path = added.Root });
+        response.EnsureSuccessStatusCode();
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        using var events = await client.GetAsync("/api/events", HttpCompletionOption.ResponseHeadersRead, cts.Token);
+        await using var stream = await events.Content.ReadAsStreamAsync(cts.Token);
+        using var reader = new StreamReader(stream);
+
+        await Task.Delay(300, cts.Token);
+        added.WriteCmd("0001-hello", status: "ready");
+
+        string? line;
+        var sawLaneEvent = false;
+        while (!sawLaneEvent && (line = await reader.ReadLineAsync(cts.Token)) is not null)
+        {
+            if (!line.StartsWith("data: "))
+                continue;
+            using var doc = JsonDocument.Parse(line["data: ".Length..]);
+            sawLaneEvent = doc.RootElement.GetProperty("project").GetString() == "added"
+                && doc.RootElement.GetProperty("kind").GetString() == "lane";
+        }
+
+        Assert.True(sawLaneEvent);
     }
 }

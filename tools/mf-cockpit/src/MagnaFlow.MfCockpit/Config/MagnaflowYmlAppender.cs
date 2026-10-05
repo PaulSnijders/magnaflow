@@ -11,7 +11,7 @@ namespace MagnaFlow.MfCockpit.Config;
 /// </summary>
 public static class MagnaflowYmlAppender
 {
-    public enum Outcome { Ok, LegacyFileRefused, VerifyFailed }
+    public enum Outcome { Ok, LegacyFileRefused, FlatRootRefused, VerifyFailed }
 
     public sealed record AppendResult(Outcome Outcome, string Path, string? Error);
 
@@ -31,11 +31,8 @@ public static class MagnaflowYmlAppender
     public static async Task<AppendResult> AppendProjectAsync(
         CockpitConfig config, ProjectEntry entry, string? userConfigDirectory, Func<string, ProjectEntry, string> composer)
     {
-        if (config.IsLegacyFileName)
-        {
-            return new AppendResult(Outcome.LegacyFileRefused, config.ConfigPath,
-                $"{config.ConfigPath} is the deprecated mf-cockpit.yml filename — merge it into magnaflow.yml under a top-level 'cockpit:' section before adding projects here (see docs/specs/concepts/machine-config.md).");
-        }
+        if (CheckWritable(config) is { } refused)
+            return refused;
 
         var targetPath = File.Exists(config.ConfigPath)
             ? config.ConfigPath
@@ -43,6 +40,8 @@ public static class MagnaflowYmlAppender
 
         var fileExisted = File.Exists(targetPath);
         var original = fileExisted ? await File.ReadAllTextAsync(targetPath) : "";
+        var (before, _, _) = fileExisted ? CockpitConfig.Load(targetPath) : (null, null, null);
+        var beforeNames = before?.Projects.Select(p => p.Name).ToList() ?? [];
         var edited = composer(original, entry);
 
         var directory = Path.GetDirectoryName(targetPath);
@@ -61,12 +60,18 @@ public static class MagnaflowYmlAppender
             var roundTrips = reloaded is not null && reloaded.Projects.Any(p =>
                 string.Equals(p.Name, entry.Name, StringComparison.Ordinal) &&
                 string.Equals(Path.GetFullPath(p.Path), Path.GetFullPath(entry.Path), StringComparison.OrdinalIgnoreCase));
+            // Every project read before the edit must still be read after it — an append that
+            // hides existing entries (e.g. a new section shadowing old ones) is a failed append.
+            var othersSurvive = reloaded is not null && beforeNames.All(n =>
+                reloaded.Projects.Any(p => string.Equals(p.Name, n, StringComparison.Ordinal)));
 
-            if (!roundTrips)
+            if (!roundTrips || !othersSurvive)
             {
                 Restore(targetPath, backupPath, fileExisted);
                 return new AppendResult(Outcome.VerifyFailed, targetPath,
-                    loadError ?? "the appended entry did not round-trip on reparse");
+                    loadError ?? (roundTrips
+                        ? "an existing project entry was no longer read after the append"
+                        : "the appended entry did not round-trip on reparse"));
             }
 
             return new AppendResult(Outcome.Ok, targetPath, null);
@@ -82,6 +87,28 @@ public static class MagnaflowYmlAppender
                 TryDelete(backupPath);
         }
     }
+
+    /// <summary>The up-front refusals of write #6, checked before anything is scaffolded or written:
+    /// the legacy mf-cockpit.yml filename (same message as write #7), and a magnaflow.yml whose
+    /// cockpit fields still sit flat at the root — appending a `cockpit:` section there would hide
+    /// them. Never migrated automatically. Null means the config may be appended to.</summary>
+    public static AppendResult? CheckWritable(CockpitConfig config)
+    {
+        if (config.IsLegacyFileName)
+            return new AppendResult(Outcome.LegacyFileRefused, config.ConfigPath, LegacyFileMessage(config.ConfigPath));
+
+        if (CockpitConfig.HasFlatCockpitFields(config.ConfigPath))
+        {
+            return new AppendResult(Outcome.FlatRootRefused, config.ConfigPath,
+                $"{config.ConfigPath} has cockpit fields at the root without a 'cockpit:' key — move them under a top-level 'cockpit:' section before adding projects here (see docs/specs/concepts/machine-config.md).");
+        }
+
+        return null;
+    }
+
+    /// <summary>The one legacy-filename refusal, shared by write #6 and write #7.</summary>
+    private static string LegacyFileMessage(string path) =>
+        $"{path} is the deprecated mf-cockpit.yml filename — merge it into magnaflow.yml under a top-level 'cockpit:' section before managing projects here (see docs/specs/concepts/machine-config.md).";
 
     public enum RemoveOutcome { Ok, LegacyFileRefused, FileNotFound, VerifyFailed }
 
@@ -104,8 +131,7 @@ public static class MagnaflowYmlAppender
     {
         if (config.IsLegacyFileName)
         {
-            return new RemoveResult(RemoveOutcome.LegacyFileRefused, config.ConfigPath,
-                $"{config.ConfigPath} is the deprecated mf-cockpit.yml filename — merge it into magnaflow.yml under a top-level 'cockpit:' section before managing projects here (see docs/specs/concepts/machine-config.md).");
+            return new RemoveResult(RemoveOutcome.LegacyFileRefused, config.ConfigPath, LegacyFileMessage(config.ConfigPath));
         }
 
         var targetPath = File.Exists(config.ConfigPath)

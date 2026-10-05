@@ -64,7 +64,7 @@ public sealed class CockpitFactory(string configPath, Action<IServiceCollection>
             lines.Add($"  command: {r.Command.Replace("\\", "/")}");
             lines.Add($"  timeout_seconds: {r.TimeoutSeconds.ToString(System.Globalization.CultureInfo.InvariantCulture)}");
         }
-        File.WriteAllText(path, string.Join('\n', lines));
+        File.WriteAllText(path, Sectioned(lines));
         return path;
     }
 
@@ -107,7 +107,12 @@ public sealed class CockpitFactory(string configPath, Action<IServiceCollection>
             }
         }
 
-        File.WriteAllText(path, string.Join('\n', lines));
+        File.WriteAllText(path, Sectioned(lines));
         return path;
     }
+
+    /// <summary>Wraps the cockpit fields in a top-level `cockpit:` section — the current format, and
+    /// the only one Add project appends to (a flat root is refused, see MagnaflowYmlAppender).</summary>
+    private static string Sectioned(IEnumerable<string> lines) =>
+        string.Join('\n', new[] { "cockpit:" }.Concat(lines.Select(l => "  " + l)));
 }

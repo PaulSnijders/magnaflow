@@ -23,23 +23,30 @@ public static class NewProjectEndpoints
             Results.Ok(new NewProjectInfoDto(
                 newProjectConfig.Root,
                 newProjectConfig.Templates.Select(t => t.Name).ToList(),
-                !string.IsNullOrWhiteSpace(newProjectConfig.SpecKit))));
+                !string.IsNullOrWhiteSpace(newProjectConfig.SpecKit),
+                Path.DirectorySeparatorChar.ToString())));
 
         app.MapPost("/api/projects", (CreateProjectRequest request, CockpitConfig config, NewProjectConfig newProjectConfig,
-                ProjectRegistry registry, ProjectScaffolder scaffolder, SseHub hub) =>
+                ProjectRegistry registry, ProjectScaffolder scaffolder, IProjectWatcherRegistry watchers, SseHub hub) =>
             string.Equals(request.Mode, "existing", StringComparison.OrdinalIgnoreCase)
-                ? HandleExistingAsync(request, config, newProjectConfig, registry, hub)
+                ? HandleExistingAsync(request, config, newProjectConfig, registry, watchers, hub)
                 : string.Equals(request.Mode, "new", StringComparison.OrdinalIgnoreCase)
-                    ? HandleNewAsync(request, config, registry, scaffolder, hub)
+                    ? HandleNewAsync(request, config, registry, scaffolder, watchers, hub)
                     : Task.FromResult(Results.BadRequest(new { error = "mode must be 'new' or 'existing'" })));
     }
 
     private static async Task<IResult> HandleNewAsync(
-        CreateProjectRequest request, CockpitConfig config, ProjectRegistry registry, ProjectScaffolder scaffolder, SseHub hub)
+        CreateProjectRequest request, CockpitConfig config, ProjectRegistry registry, ProjectScaffolder scaffolder,
+        IProjectWatcherRegistry watchers, SseHub hub)
     {
         await ConfigWriteGate.WaitAsync();
         try
         {
+            // Refused up front, before anything is scaffolded: no orphan directory for a config the
+            // cockpit will not append to.
+            if (MagnaflowYmlAppender.CheckWritable(config) is { } refused)
+                return Results.BadRequest(new { error = refused.Error });
+
             var validation = scaffolder.Validate(request.Name, request.Template, registry);
             if (!validation.IsOk)
                 return ValidationError(validation);
@@ -60,11 +67,12 @@ public static class NewProjectEndpoints
             var entry = new ProjectEntry { Name = name, Path = scaffold.TargetPath };
             var appended = await MagnaflowYmlAppender.AppendProjectAsync(config, entry);
             if (appended.Outcome != MagnaflowYmlAppender.Outcome.Ok)
-                return Results.Problem(appended.Error, statusCode: StatusCodes.Status500InternalServerError);
+                return AppendFailed(appended);
 
             // Registration is deliberately last (ontwerp-v0.4.md): a failed scaffold or a failed
             // config append never leaves a phantom in-memory entry.
             registry.Add(entry);
+            watchers.Add(entry.Name, entry.Path);
             hub.Broadcast(new LiveEvent(name, "projects"));
 
             return Results.Ok(new CreateProjectResponse(name, scaffold.TargetPath, scaffold.Warnings, scaffold.SeededDraft?.Id));
@@ -76,11 +84,15 @@ public static class NewProjectEndpoints
     }
 
     private static async Task<IResult> HandleExistingAsync(
-        CreateProjectRequest request, CockpitConfig config, NewProjectConfig newProjectConfig, ProjectRegistry registry, SseHub hub)
+        CreateProjectRequest request, CockpitConfig config, NewProjectConfig newProjectConfig, ProjectRegistry registry,
+        IProjectWatcherRegistry watchers, SseHub hub)
     {
         await ConfigWriteGate.WaitAsync();
         try
         {
+            if (MagnaflowYmlAppender.CheckWritable(config) is { } refused)
+                return Results.BadRequest(new { error = refused.Error });
+
             var name = (request.Name ?? "").Trim();
             if (name.Length == 0)
                 return Results.BadRequest(new { error = "name is required" });
@@ -109,9 +121,10 @@ public static class NewProjectEndpoints
             var entry = new ProjectEntry { Name = name, Path = resolvedPath };
             var appended = await MagnaflowYmlAppender.AppendProjectAsync(config, entry);
             if (appended.Outcome != MagnaflowYmlAppender.Outcome.Ok)
-                return Results.Problem(appended.Error, statusCode: StatusCodes.Status500InternalServerError);
+                return AppendFailed(appended);
 
             registry.Add(entry);
+            watchers.Add(entry.Name, entry.Path);
             hub.Broadcast(new LiveEvent(name, "projects"));
 
             return Results.Ok(new CreateProjectResponse(name, resolvedPath, warnings, null));
@@ -121,6 +134,13 @@ public static class NewProjectEndpoints
             ConfigWriteGate.Release();
         }
     }
+
+    private static IResult AppendFailed(MagnaflowYmlAppender.AppendResult appended) => appended.Outcome switch
+    {
+        MagnaflowYmlAppender.Outcome.LegacyFileRefused or MagnaflowYmlAppender.Outcome.FlatRootRefused =>
+            Results.BadRequest(new { error = appended.Error }),
+        _ => Results.Problem(appended.Error, statusCode: StatusCodes.Status500InternalServerError),
+    };
 
     private static string? ResolvePath(string path, string? root)
     {

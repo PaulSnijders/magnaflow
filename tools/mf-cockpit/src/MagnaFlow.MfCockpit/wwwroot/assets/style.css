@@ -551,6 +551,13 @@ button.danger:disabled { background: transparent; color: var(--muted); border-co
   margin-top: 0.5rem;
 }
 
+.dialog-output {
+  max-height: 12rem;
+  overflow: auto;
+  white-space: pre-wrap;
+  font-size: 0.8rem;
+}
+
 .dialog-footer {
   display: flex;
   justify-content: flex-end;

@@ -7,9 +7,12 @@ const Cockpit = (() => {
   async function api(path, options) {
     const res = await fetch(path, options);
     if (!res.ok) {
-      let detail = "";
-      try { detail = (await res.json()).error || ""; } catch { /* not JSON */ }
-      throw new Error(`${res.status} ${res.statusText}${detail ? ": " + detail : ""}`);
+      let body = null;
+      try { body = await res.json(); } catch { /* not JSON */ }
+      const detail = (body && body.error) || "";
+      const err = new Error(`${res.status} ${res.statusText}${detail ? ": " + detail : ""}`);
+      err.body = body; // the parsed JSON error body, for pages that show more than `error`
+      throw err;
     }
     if (res.status === 204) return null;
     const ct = res.headers.get("content-type") || "";

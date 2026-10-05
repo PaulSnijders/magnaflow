@@ -57,6 +57,28 @@
     return `specs.html?p=${encodeURIComponent(project)}${path ? "&path=" + encodeURIComponent(path) : ""}`;
   }
 
+  // Spec cross-links (`../concepts/design.md#why`) resolve against the open spec's folder and
+  // stay inside the specs page; a link that climbs out of docs/specs/ renders as plain text.
+  // Other relative targets are left as written.
+  function specLink(specPath, target) {
+    const hashAt = target.indexOf("#");
+    const linkPath = hashAt < 0 ? target : target.slice(0, hashAt);
+    const anchor = hashAt < 0 ? "" : target.slice(hashAt);
+    if (!/\.md$/i.test(linkPath)) return target;
+    if (linkPath.startsWith("/")) return null;
+    const parts = specPath.split("/").filter(Boolean).slice(0, -1);
+    for (const part of linkPath.split("/")) {
+      if (part === "" || part === ".") continue;
+      if (part === "..") {
+        if (!parts.length) return null;
+        parts.pop();
+      } else {
+        parts.push(part);
+      }
+    }
+    return pathUrl(parts.join("/")) + anchor;
+  }
+
   function renderBreadcrumbs(path) {
     const parts = path.split("/").filter(Boolean);
     const crumbs = [`<a href="${pathUrl("")}">docs/specs</a>`];
@@ -86,7 +108,7 @@
           return `<li><a href="${pathUrl(childPath)}">${label}</a></li>`;
         }).join("") + "</ul>";
       } else {
-        view.innerHTML = renderMarkdown(result.content);
+        view.innerHTML = renderMarkdown(result.content, { rewriteLink: (target) => specLink(path, target) });
       }
     } catch (err) {
       view.innerHTML = `<span class="muted">${Cockpit.escapeHtml(err.message)}</span>`;

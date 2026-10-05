@@ -73,6 +73,8 @@
     </div>
 
     <div id="add-project-error" class="dialog-error"></div>
+    <pre id="add-project-output" class="dialog-output" style="display:none;"></pre>
+    <div id="add-project-warnings" class="muted" style="display:none;"></div>
     <div class="dialog-footer">
       <button type="button" id="add-project-cancel" class="secondary">Cancel</button>
       <button type="submit" id="add-project-submit">Add project</button>
@@ -210,7 +212,8 @@
     const preview = document.getElementById("new-target-preview");
     if (!newProjectInfo || !newProjectInfo.root) { preview.textContent = "-"; return; }
     const dirName = sanitizeDirName(document.getElementById("new-name").value);
-    preview.textContent = dirName ? `${newProjectInfo.root}\\${dirName}` : "-";
+    const root = newProjectInfo.root.replace(/[\\/]+$/, "");
+    preview.textContent = dirName ? `${root}${newProjectInfo.separator}${dirName}` : "-";
   }
 
   document.getElementById("new-name").addEventListener("input", updateTargetPreview);
@@ -239,8 +242,24 @@
     }
   }
 
-  function openAddProjectDialog() {
+  // Set after a successful add that came with warnings: the dialog stays open to show them and
+  // the submit button becomes "Open project".
+  let addedProjectName = null;
+
+  function resetAddProjectResult() {
+    addedProjectName = null;
     document.getElementById("add-project-error").textContent = "";
+    const output = document.getElementById("add-project-output");
+    output.textContent = "";
+    output.style.display = "none";
+    const warnings = document.getElementById("add-project-warnings");
+    warnings.innerHTML = "";
+    warnings.style.display = "none";
+    document.getElementById("add-project-submit").textContent = "Add project";
+  }
+
+  function openAddProjectDialog() {
+    resetAddProjectResult();
     document.getElementById("existing-name").value = "";
     document.getElementById("existing-path").value = "";
     document.getElementById("new-name").value = "";
@@ -261,9 +280,13 @@
 
   document.getElementById("add-project-form").addEventListener("submit", async (e) => {
     e.preventDefault();
+    if (addedProjectName) {
+      location.href = "project.html?p=" + encodeURIComponent(addedProjectName);
+      return;
+    }
     const errorEl = document.getElementById("add-project-error");
     const submitBtn = document.getElementById("add-project-submit");
-    errorEl.textContent = "";
+    resetAddProjectResult();
     const activeTab = document.querySelector('.tab-btn[aria-pressed="true"]').dataset.tab;
 
     let body;
@@ -286,10 +309,34 @@
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
+      if (result.warnings && result.warnings.length) {
+        // Registered, but with something to know (no .git, spec kit not copied): show it first.
+        addedProjectName = result.name;
+        const warnings = document.getElementById("add-project-warnings");
+        warnings.innerHTML = `Added "${Cockpit.escapeHtml(result.name)}" with warnings:<ul>` +
+          result.warnings.map((w) => `<li>${Cockpit.escapeHtml(w)}</li>`).join("") + "</ul>";
+        warnings.style.display = "";
+        submitBtn.textContent = "Open project";
+        return;
+      }
       document.getElementById("add-project-dialog").close();
       location.href = "project.html?p=" + encodeURIComponent(result.name);
     } catch (err) {
       errorEl.textContent = err.message;
+      // A failed scaffold (422) also returns the template's captured output and the directory it
+      // left in place; show both rather than discarding them.
+      const body = err.body || {};
+      if (body.path) errorEl.textContent += ` (left in place: ${body.path})`;
+      if (body.output) {
+        const output = document.getElementById("add-project-output");
+        output.textContent = body.output;
+        output.style.display = "";
+      }
+      if (body.warnings && body.warnings.length) {
+        const warnings = document.getElementById("add-project-warnings");
+        warnings.innerHTML = "Warnings:<ul>" + body.warnings.map((w) => `<li>${Cockpit.escapeHtml(w)}</li>`).join("") + "</ul>";
+        warnings.style.display = "";
+      }
     } finally {
       submitBtn.disabled = false;
     }

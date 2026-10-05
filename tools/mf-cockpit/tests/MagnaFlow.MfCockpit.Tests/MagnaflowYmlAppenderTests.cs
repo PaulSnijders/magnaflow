@@ -347,4 +347,62 @@ public class MagnaflowYmlAppenderAppendTests
         Assert.Equal(MagnaflowYmlAppender.Outcome.VerifyFailed, result.Outcome);
         Assert.False(File.Exists(path), "no file existed before the append, so a failed append must leave none behind");
     }
+
+    [Fact]
+    public async Task Refuses_to_append_to_a_magnaflow_yml_with_flat_root_level_cockpit_fields()
+    {
+        using var project = new TempProject();
+        var original = $"port: 6000\nprojects:\n  - name: old\n    path: {RootedPath("old").Replace('\\', '/')}\nwatch:\n  poll_seconds: 5\n";
+        var path = project.WriteFile("magnaflow.yml", original);
+        var (config, _, _) = CockpitConfig.Load(path);
+
+        var result = await MagnaflowYmlAppender.AppendProjectAsync(config!, new ProjectEntry { Name = "x", Path = RootedPath("x") });
+
+        Assert.Equal(MagnaflowYmlAppender.Outcome.FlatRootRefused, result.Outcome);
+        Assert.Contains("'cockpit:'", result.Error);
+        Assert.Equal(original, await File.ReadAllTextAsync(path));
+    }
+
+    [Fact]
+    public void Only_another_tools_section_at_the_root_is_not_flat()
+    {
+        using var project = new TempProject();
+        var path = project.WriteFile("magnaflow.yml", "watch:\n  poll_seconds: 5\n");
+        var (config, _, _) = CockpitConfig.Load(path);
+
+        Assert.Null(MagnaflowYmlAppender.CheckWritable(config!));
+    }
+
+    [Fact]
+    public async Task An_append_keeps_every_existing_project()
+    {
+        using var project = new TempProject();
+        var path = project.WriteFile("magnaflow.yml",
+            $"cockpit:\n  projects:\n    - name: a\n      path: {RootedPath("a").Replace('\\', '/')}\n    - name: b\n      path: {RootedPath("b").Replace('\\', '/')}\n");
+        var (config, _, _) = CockpitConfig.Load(path);
+
+        var result = await MagnaflowYmlAppender.AppendProjectAsync(config!, new ProjectEntry { Name = "c", Path = RootedPath("c") });
+
+        Assert.Equal(MagnaflowYmlAppender.Outcome.Ok, result.Outcome);
+        var (reloaded, _, _) = CockpitConfig.Load(path);
+        Assert.Equal(["a", "b", "c"], reloaded!.Projects.Select(p => p.Name));
+    }
+
+    [Fact]
+    public async Task An_append_that_hides_an_existing_project_restores_the_backup_and_reports_VerifyFailed()
+    {
+        using var project = new TempProject();
+        var original = $"cockpit:\n  projects:\n    - name: a\n      path: {RootedPath("a").Replace('\\', '/')}\n";
+        var path = project.WriteFile("magnaflow.yml", original);
+        var (config, _, _) = CockpitConfig.Load(path);
+
+        // The new entry round-trips, but the sibling is gone — what a shadowing section would do.
+        var result = await MagnaflowYmlAppender.AppendProjectAsync(
+            config!, new ProjectEntry { Name = "x", Path = RootedPath("x") }, userConfigDirectory: null,
+            composer: (_, e) => $"cockpit:\n  projects:\n    - name: {e.Name}\n      path: {e.Path.Replace('\\', '/')}\n");
+
+        Assert.Equal(MagnaflowYmlAppender.Outcome.VerifyFailed, result.Outcome);
+        Assert.Contains("existing project", result.Error);
+        Assert.Equal(original, await File.ReadAllTextAsync(path));
+    }
 }

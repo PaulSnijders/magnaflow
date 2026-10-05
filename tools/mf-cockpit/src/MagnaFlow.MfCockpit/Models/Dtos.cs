@@ -163,7 +163,7 @@ public sealed record ScratchpadSaveResponse(string Hash, string SavedAt);
 
 /// <summary>GET /api/new-project (ontwerp-v0.4.md "The dialog"): names only — template definitions
 /// (command/args/source) never leave the server.</summary>
-public sealed record NewProjectInfoDto(string? Root, IReadOnlyList<string> Templates, bool SpecKit);
+public sealed record NewProjectInfoDto(string? Root, IReadOnlyList<string> Templates, bool SpecKit, string Separator);
 
 /// <summary>POST /api/projects — write #6 (ontwerp-v0.4.md "Creating a project"). Mode is "new" or
 /// "existing"; Path is used by "existing" only, Template by "new" only.</summary>

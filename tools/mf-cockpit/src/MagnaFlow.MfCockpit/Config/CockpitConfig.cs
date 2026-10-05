@@ -242,6 +242,29 @@ public sealed class CockpitConfig
         }, null, notice);
     }
 
+    /// <summary>Whether the file at path has no top-level `cockpit:` key but does carry cockpit fields
+    /// flat at the root (the old mf-cockpit.yml shape under the new filename). Appending a `cockpit:`
+    /// section to such a file would hide every root-level field, so write #6 refuses it. A missing
+    /// or unparseable file is not flat.</summary>
+    public static bool HasFlatCockpitFields(string path)
+    {
+        if (!File.Exists(path))
+            return false;
+        try
+        {
+            var deserializer = new DeserializerBuilder()
+                .WithNamingConvention(UnderscoredNamingConvention.Instance)
+                .IgnoreUnmatchedProperties()
+                .Build();
+            var dto = deserializer.Deserialize<RootDto>(File.ReadAllText(path));
+            return dto is not null && dto.Cockpit is null && (dto.HasAnyLegacyField() || dto.NewProject is not null);
+        }
+        catch (Exception)
+        {
+            return false;
+        }
+    }
+
     private class ConfigDto
     {
         public int? Port { get; set; }

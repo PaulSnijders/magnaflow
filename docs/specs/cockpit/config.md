@@ -47,11 +47,14 @@ config, so a save takes effect on the next run. It warns and never
 blocks.
 
 A dirty editor is never overwritten by a live refresh. An on-disk change
-then shows a "changed on disk" note instead.
+then shows a "changed on disk" note instead, with two buttons:
 
-BUG: that note says "Save to overwrite", but the editor still holds the
-old `baseHash`, so Save is refused with the 409 above. The only way out
-is a reload, which discards the edits.
+- **Reload** loads the file from disk and discards the edits.
+- **Overwrite** fetches the current disk hash, then saves the editor's
+  content against it, replacing the version on disk.
+
+Save itself keeps the concurrency check: while the note is up, a plain
+Save still gets the 409.
 
 ## Remove project
 

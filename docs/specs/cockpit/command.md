@@ -67,10 +67,9 @@ follow-up draft:
 It is committed alone (`cockpit: create follow-up draft <id> (from
 <parent>)`) and the browser moves to the new draft.
 
-BUG: the server does not check the parent's status. The card hides
-itself for non-terminal commands, but `POST .../follow-up` accepts a
-`draft` or `running` parent. This breaks the rule that the endpoint
-enforces what the button shows.
+The endpoint enforces what the card shows: a parent that is not `done`
+or `aborted` is a 409 with an `error` naming its status. An unknown
+parent is a 409 as well.
 
 ## Live updates
 

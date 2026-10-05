@@ -31,11 +31,15 @@ None for the tree itself, because `docs/specs/` is not watched. Only the
 summary bar follows `lane` and `watch` events. An open spec is as fresh
 as its page load.
 
-BUG: links inside a rendered spec keep their raw relative target and
-open in a new tab against the cockpit's own root. For example,
-`../concepts/design.md` becomes `/concepts/design.md`, a 404. Unlike
-lane-file links on the command page, spec cross-links are not rewritten
-to `specs.html?path=…`, so no cross-link between specs works here.
+## Cross-links
+
+A relative `.md` link in a rendered spec is resolved against the open
+spec's folder and rewritten to `specs.html?p=<project>&path=<resolved>`,
+keeping any `#anchor`. So `../concepts/design.md` from
+`cockpit/index.md` opens `concepts/design.md`. A link that climbs out
+of `docs/specs/`, or is rooted (`/x.md`), renders as plain text. Other
+relative targets are left as written. Link schemes follow the renderer's
+rule (see [chat](chat.md#link-safety)). Links open in a new tab.
 
 DRAFT: generated from code, not human-reviewed.
 

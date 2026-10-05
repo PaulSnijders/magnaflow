@@ -40,7 +40,12 @@
   <div class="card">
     <h2>.magnaflow/config.yml</h2>
     <div id="config-warnings" class="muted"></div>
-    <div id="config-disk-note" class="muted" style="display:none;"></div>
+    <div id="config-disk-note" class="muted" style="display:none;">
+      config.yml changed on disk — your unsaved edits are kept. Reload to discard them, or Overwrite
+      to save them over the version on disk.
+      <button type="button" id="config-reload-btn" class="secondary">Reload</button>
+      <button type="button" id="config-overwrite-btn">Overwrite</button>
+    </div>
     <textarea id="config-editor" rows="24" spellcheck="false" disabled>Loading…</textarea>
     <div class="row" style="margin-top:0.75rem; align-items:center;">
       <button id="config-save-btn" disabled>Save</button>
@@ -232,10 +237,23 @@
 
   function reloadEditorIfClean() { return loadConfig(); }
   function noteChangedOnDisk() {
-    const note = document.getElementById("config-disk-note");
-    note.style.display = "";
-    note.textContent = "config.yml changed on disk — your unsaved edits are kept; Save to overwrite, or reload the page to discard.";
+    document.getElementById("config-disk-note").style.display = "";
   }
+
+  // The conflict's two ways out. Save itself keeps its concurrency check (409 on a stale baseHash);
+  // Overwrite deliberately adopts the current disk hash first, then saves the editor's content.
+  document.getElementById("config-reload-btn").addEventListener("click", () => loadConfig());
+  document.getElementById("config-overwrite-btn").addEventListener("click", async () => {
+    const errorEl = document.getElementById("config-error");
+    errorEl.textContent = "";
+    try {
+      const cfg = await Cockpit.api(`/api/projects/${encodeURIComponent(project)}/config`);
+      baseHash = cfg.hash;
+      document.getElementById("config-save-btn").click();
+    } catch (err) {
+      errorEl.textContent = err.message;
+    }
+  });
 
   Cockpit.live({
     project,
