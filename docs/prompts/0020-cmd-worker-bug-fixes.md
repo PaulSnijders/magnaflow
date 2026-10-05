@@ -1,7 +1,8 @@
 ---
 title: "mf-worker: re-ready resets attempts, plan retry keeps the command, CLI follows the specs, one question stays one question"
-status: running
+status: done
 created: 2026-10-05
+attempts: 1
 ---
 
 ## Context
