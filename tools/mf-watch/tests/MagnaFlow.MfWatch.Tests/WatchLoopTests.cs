@@ -1,5 +1,6 @@
 using MagnaFlow.MfWatch.Config;
 using MagnaFlow.MfWatch.Infrastructure;
+using MagnaFlow.MfWatch.Polling;
 using MagnaFlow.MfWatch.Watch;
 
 namespace MagnaFlow.MfWatch.Tests;
@@ -297,5 +298,84 @@ public class WatchLoopTests
         await loop.PollOnceAsync();
 
         Assert.Equal(["0001-first", "0002-second"], order);
+    }
+
+    private static BackoffScheduler Scheduler() =>
+        new(TimeSpan.FromMinutes(1), TimeSpan.FromMinutes(15), TimeSpan.FromMinutes(30), new FakeClock());
+
+    [Fact]
+    public async Task ShutdownDuringDispatchLetsTheWorkerFinishThenTheLoopExits()
+    {
+        using var project = new TempProject();
+        project.WriteCmd("0001-first", status: "ready", title: "First");
+        project.WriteCmd("0002-second", status: "ready", title: "Second");
+        using var shutdown = new CancellationTokenSource();
+        var processes = new FakeProcessRunner
+        {
+            OnRunExecutable = (_, args) =>
+            {
+                // Ctrl+C arrives while the worker runs; the worker still completes its command.
+                shutdown.Cancel();
+                File.WriteAllText(project.CmdPath(args[3]), TempProject.CmdMarkdown(status: "done", title: "First"));
+                return new ProcessResult(0, "", "", false);
+            },
+        };
+        var notifier = new FakeNotifier();
+        var git = new FakeGitClient();
+        var loop = new WatchLoop(Config(gitSync: true), git, processes, project.Root, _ => { }, notifier);
+
+        var run = loop.RunAsync(Scheduler(), once: false, shutdown.Token);
+        var finished = await Task.WhenAny(run, Task.Delay(TimeSpan.FromSeconds(10)));
+
+        Assert.Same(run, finished);
+        await run; // exits cleanly, no OperationCanceledException
+        var call = Assert.Single(processes.ExecutableCalls); // no new dispatch after the shutdown
+        Assert.Equal("0001-first", call.Arguments[3]);
+        Assert.False(Assert.Single(processes.ExecutableTokens).CanBeCanceled); // shutdown never reached the worker
+        Assert.Contains(notifier.Notifications, n => n.Title == "0001-first: done");
+        Assert.Equal("push", git.Operations[^1]); // the poll still ends with its push
+        Assert.False(loop.IsDispatching);
+    }
+
+    [Fact]
+    public async Task ShutdownWhileIdleExitsAtOnce()
+    {
+        using var project = new TempProject();
+        using var shutdown = new CancellationTokenSource();
+        var sleeping = new TaskCompletionSource();
+        var loop = new WatchLoop(Config(), new FakeGitClient(), new FakeProcessRunner(), project.Root,
+            line => { if (line.StartsWith("sleeping", StringComparison.Ordinal)) sleeping.TrySetResult(); }, new FakeNotifier());
+
+        var run = loop.RunAsync(Scheduler(), once: false, shutdown.Token);
+        await sleeping.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        await shutdown.CancelAsync();
+        var finished = await Task.WhenAny(run, Task.Delay(TimeSpan.FromSeconds(5)));
+
+        Assert.Same(run, finished); // the one-minute sleep was cut short
+        await run;
+    }
+
+    [Fact]
+    public async Task WorkerSpawnIsMarkedAsDispatching()
+    {
+        using var project = new TempProject();
+        project.WriteCmd("0001-hello", status: "ready");
+        WatchLoop? loop = null;
+        var seen = false;
+        var processes = new FakeProcessRunner
+        {
+            OnRunExecutable = (_, _) =>
+            {
+                seen = loop!.IsDispatching;
+                File.WriteAllText(project.CmdPath("0001-hello"), TempProject.CmdMarkdown(status: "done"));
+                return new ProcessResult(0, "", "", false);
+            },
+        };
+        loop = new WatchLoop(Config(), new FakeGitClient(), processes, project.Root, _ => { }, new FakeNotifier());
+
+        await loop.PollOnceAsync();
+
+        Assert.True(seen);
+        Assert.False(loop.IsDispatching);
     }
 }

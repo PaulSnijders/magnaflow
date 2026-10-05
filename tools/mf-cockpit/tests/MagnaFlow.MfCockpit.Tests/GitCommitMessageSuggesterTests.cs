@@ -33,6 +33,7 @@ public class GitCommitMessageSuggesterTests
     [Fact]
     public void Matches_specs_path_case_insensitively_and_handles_backslashes()
     {
+        if (!OperatingSystem.IsWindows()) return; // backslash is a path separator only on Windows
         var suggestion = GitCommitMessageSuggester.SuggestDefault(["Docs\\Specs\\overview.md"]);
         Assert.Equal("overview.md", suggestion);
     }

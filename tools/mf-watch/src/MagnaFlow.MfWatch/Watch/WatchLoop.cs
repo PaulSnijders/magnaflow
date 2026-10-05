@@ -1,6 +1,7 @@
 using MagnaFlow.MfWatch.Config;
 using MagnaFlow.MfWatch.Infrastructure;
 using MagnaFlow.MfWatch.Notify;
+using MagnaFlow.MfWatch.Polling;
 using MagnaFlow.MfWatch.Prompts;
 
 namespace MagnaFlow.MfWatch.Watch;
@@ -25,6 +26,37 @@ public sealed class WatchLoop(
     // every subsequent poll for something already handed to the human (ontwerp-v0.1.md "Guards").
     private readonly HashSet<string> _notifiedStaleIds = [];
 
+    /// <summary>True while a worker spawn is awaited — the Ctrl+C handler uses it to say a second
+    /// Ctrl+C aborts the worker.</summary>
+    public bool IsDispatching { get; private set; }
+
+    /// <summary>The daemon: poll, sleep, repeat — or a single poll with <paramref name="once"/>.
+    /// Cancellation stops the loop, never the worker: a poll in progress finishes its current
+    /// dispatch (and its push), then the loop exits; a sleep is cut short at once.</summary>
+    public async Task RunAsync(BackoffScheduler scheduler, bool once, CancellationToken cancellationToken)
+    {
+        while (true)
+        {
+            var activity = await PollOnceAsync(cancellationToken);
+            scheduler.RecordPoll(activity);
+
+            if (once || cancellationToken.IsCancellationRequested)
+                return;
+
+            log($"sleeping {scheduler.Current}");
+            try
+            {
+                // Sliced, not one long delay, so a wake file can cut the sleep short (Polling/WakeFile.cs).
+                if (await WakeFile.SleepAsync(scheduler.Current, projectRoot, cancellationToken))
+                    log("wake requested (.magnaflow/mf-watch.wake) — polling now");
+            }
+            catch (OperationCanceledException)
+            {
+                return;
+            }
+        }
+    }
+
     /// <summary>Runs one full poll cycle. Returns true if anything happened (activity), which the
     /// caller feeds into the adaptive backoff.</summary>
     public async Task<bool> PollOnceAsync(CancellationToken cancellationToken = default)
@@ -39,8 +71,11 @@ public sealed class WatchLoop(
 
         foreach (var cmd in commands.Where(c => c.IsReady))
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            await RunOneAsync(cmd, cancellationToken);
+            // Shutdown means no new dispatch; the poll still ends normally so the push below
+            // carries whatever the worker that just finished committed.
+            if (cancellationToken.IsCancellationRequested)
+                break;
+            await RunOneAsync(cmd);
             activity = true;
         }
 
@@ -91,7 +126,9 @@ public sealed class WatchLoop(
         }
     }
 
-    private async Task RunOneAsync(ScannedCommand cmd, CancellationToken cancellationToken)
+    // Deliberately no cancellation token: shutdown stops the loop (no new dispatch, no new poll),
+    // never the in-flight worker — worker_timeout_minutes is its only bound.
+    private async Task RunOneAsync(ScannedCommand cmd)
     {
         var title = cmd.Title ?? cmd.Id;
         log($"[{cmd.Id}] spawning worker");
@@ -99,9 +136,18 @@ public sealed class WatchLoop(
         var args = new List<string> { "run", "--project", projectRoot, cmd.Id };
         args.AddRange(config.WorkerArgs);
 
-        var result = await processes.RunExecutableAsync(
-            config.WorkerCommand, args, projectRoot,
-            line => log($"[{cmd.Id}] {line}"), config.WorkerTimeout, cancellationToken);
+        ProcessResult result;
+        IsDispatching = true;
+        try
+        {
+            result = await processes.RunExecutableAsync(
+                config.WorkerCommand, args, projectRoot,
+                line => log($"[{cmd.Id}] {line}"), config.WorkerTimeout);
+        }
+        finally
+        {
+            IsDispatching = false;
+        }
 
         var after = PromptStatusScanner.ReadStatus(cmd.FilePath);
         _notifiedStaleIds.Add(cmd.Id); // whatever state it lands in, this run has already been observed

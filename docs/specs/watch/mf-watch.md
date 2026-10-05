@@ -105,17 +105,19 @@ Writers: `touch` by hand, or the cockpit's
 
 `.magnaflow/mf-watch.lock`: never two instances on one working copy. A
 `--once` racing a running loop is refused too. The open write handle is
-the lock, so the OS releases it however the process dies. While held,
-the file is readable by others and contains two lines: the PID, then the
+the lock, so the OS releases it however the process dies. It is
+exclusive on every OS. On Windows the share mode is the lock: others may
+open the file for reading only. On Linux and macOS it is an exclusive
+`flock`. That is advisory, so plain readers (`cat`) still read the file,
+but another .NET `FileStream` is refused, because .NET takes a `flock`
+of its own. The cockpit reads the content only on Windows, see
+[watch supervision](../concepts/watch-supervision.md#lock-file). While
+held, the file contains two lines: the PID, then the
 process start time (UTC, round-trip ISO-8601). This is the same shape as
 mf-run's PID file, so readers can apply the same PID-reuse guard. On a
 clean exit the file is deleted. A hard kill leaves it behind with stale
 content. File presence alone therefore does not mean "running", see
 [watch supervision](../concepts/watch-supervision.md#lock-file).
-
-BUG: suspected, unverified. On Linux, .NET maps a write handle with
-`FileShare.Read` to a shared `flock`, so a second instance may acquire
-the lock too. The lock tests only run against the Windows semantics.
 
 ## Notifications
 
@@ -149,12 +151,24 @@ machine-local and never committed.
 
 ## Shutdown
 
-Ctrl+C logs `shutdown requested, finishing current poll...` and exits 0.
+Ctrl+C stops the loop, not the worker. It logs `shutdown requested,
+finishing current poll...`. From then on no new poll starts and no
+further `ready` command is dispatched. A sleep ends at once. A worker
+already running is left to finish its command, bounded only by
+`worker_timeout_minutes`. Its outcome is logged and notified, and the
+poll still ends with its `git_sync` push. Then mf-watch logs
+`mf-watch stopped`, releases the lock and exits 0.
 
-BUG: the cancellation also reaches the in-flight mf-worker process, so
-Ctrl+C kills a running worker instead of letting the poll finish. That
-leaves the command `running`. The log line and the README promise
-otherwise.
+While a worker runs, the first Ctrl+C also logs `worker still running;
+Ctrl+C again to abort it`. A second Ctrl+C logs `second Ctrl+C:
+aborting` and ends mf-watch hard. The lock file stays behind with stale
+content, and mf-watch does not kill the worker itself.
+
+BUG: in a terminal, Ctrl+C goes to the whole foreground process group
+(on Windows: every process on the console), so mf-worker and its agent
+receive it too. A worker started from a foreground mf-watch still dies
+on the first Ctrl+C and leaves its command `running`. Under systemd,
+where there is no terminal, this does not arise.
 
 ## Exit codes
 

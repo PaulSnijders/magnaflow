@@ -178,8 +178,11 @@ cat .magnaflow\mf-watch.log
 
 ## 4. Daemon vs. `--once` + scheduler
 
-Running with no `--once` starts the poll loop; `Ctrl+C` shuts it down cleanly (finishes the
-current poll, releases the lockfile):
+Running with no `--once` starts the poll loop; `Ctrl+C` shuts it down cleanly: no new poll or
+dispatch, a sleep is cut short, a worker already running is left to finish its command, then the
+lockfile is released. A second `Ctrl+C` while that worker runs stops mf-watch hard. Caveat: in a
+terminal, `Ctrl+C` also reaches the worker itself (it shares the console), so a foreground worker
+still dies on the first one; under systemd or another service host this does not arise:
 
 ```powershell
 mf-watch --project C:\tmp\hello-website --config C:\tmp\hello-website\mf-watch.yml

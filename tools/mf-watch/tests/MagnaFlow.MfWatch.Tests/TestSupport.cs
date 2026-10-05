@@ -99,6 +99,7 @@ public sealed class FakeGitClient : IGitClient
 public sealed class FakeProcessRunner : IProcessRunner
 {
     public List<(string Executable, IReadOnlyList<string> Arguments)> ExecutableCalls = [];
+    public List<CancellationToken> ExecutableTokens = [];
     public Func<string, IReadOnlyList<string>, ProcessResult>? OnRunExecutable;
     public Queue<ProcessResult> ExecutableResults = new();
 
@@ -110,6 +111,7 @@ public sealed class FakeProcessRunner : IProcessRunner
         CancellationToken cancellationToken = default)
     {
         ExecutableCalls.Add((executable, arguments));
+        ExecutableTokens.Add(cancellationToken);
         var result = OnRunExecutable?.Invoke(executable, arguments)
             ?? (ExecutableResults.Count > 0 ? ExecutableResults.Dequeue() : new ProcessResult(0, "", "", false));
         return Task.FromResult(result);

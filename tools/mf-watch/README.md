@@ -38,7 +38,9 @@ mf-watch [--project <path>] [--config <path>] [--once]
 Console output always happens; every poll, run, notification, and error is also appended to
 `.magnaflow/mf-watch.log` under the target project. A lockfile at `.magnaflow/mf-watch.lock`
 refuses a second instance against the same project (including a `--once` racing a running daemon).
-The lockfile is externally readable (PID + start time, two lines, plain text) while held — mf-run's
+The lock is exclusive on every OS (Windows: share mode; Linux/macOS: an exclusive `flock`).
+The lockfile is externally readable (PID + start time, two lines, plain text) while held — on
+Linux/macOS by plain readers such as `cat`, since `flock` is advisory — mf-run's
 own `.pid` file shape — so another tool can tell whether an instance is genuinely running without
 owning any process logic of its own; mf-cockpit's watch toggle is the first consumer.
 

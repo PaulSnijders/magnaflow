@@ -33,6 +33,7 @@ public class RunE2ETests : IDisposable
     [Fact]
     public async Task Start_action_returns_the_stubs_output_and_exit_code()
     {
+        if (!OperatingSystem.IsWindows()) return; // fixtures are .cmd stubs
         CockpitFactory.WriteConfig(_configPath, chat: null, run: (StubPath("run-stub.cmd"), TimeoutSeconds: 30), ("proj", _project.Root));
 
         using var factory = new CockpitFactory(_configPath);
@@ -51,6 +52,7 @@ public class RunE2ETests : IDisposable
     [Fact]
     public async Task Status_passes_through_the_stubs_json_output()
     {
+        if (!OperatingSystem.IsWindows()) return; // fixtures are .cmd stubs
         CockpitFactory.WriteConfig(_configPath, chat: null, run: (StubPath("run-stub.cmd"), TimeoutSeconds: 30), ("proj", _project.Root));
 
         using var factory = new CockpitFactory(_configPath);
@@ -92,6 +94,7 @@ public class RunE2ETests : IDisposable
     [Fact]
     public async Task Hanging_stub_is_killed_by_the_configured_timeout()
     {
+        if (!OperatingSystem.IsWindows()) return; // fixtures are .cmd stubs
         CockpitFactory.WriteConfig(_configPath, chat: null, run: (StubPath("run-stub-hang.cmd"), TimeoutSeconds: 3), ("proj", _project.Root));
 
         using var factory = new CockpitFactory(_configPath);

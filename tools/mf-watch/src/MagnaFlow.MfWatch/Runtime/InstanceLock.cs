@@ -11,9 +11,14 @@ namespace MagnaFlow.MfWatch.Runtime;
 /// separate PID-liveness check needed for TryAcquire itself: the OS releases the write lock the
 /// moment the process dies, however it died.
 ///
-/// Opened with FileShare.Read (not FileShare.None) so the lock file is externally readable while
-/// held — a second TryAcquire still fails (it needs write access, which FileShare.Read doesn't
-/// grant a second handle), but a read-only opener can see who holds it. Content is two lines, PID
+/// The share mode is per OS. On Windows it is FileShare.Read: the share mode itself is the lock (a
+/// second TryAcquire needs write access, which FileShare.Read doesn't grant a second handle), and a
+/// read-only opener — mf-cockpit's MfWatchLockFile — can still see who holds it. On Unix .NET turns
+/// any share mode other than None into a *shared* advisory flock, so a second watcher acquired the
+/// lock too (verified on Linux, cmd 0019); FileShare.None takes an exclusive flock instead. flock is
+/// advisory, so plain readers (cat) still read the file there; only another .NET FileStream, which
+/// takes a shared flock of its own, is refused — and the cockpit reads the content on Windows only.
+/// Content is two lines, PID
 /// then start time (round-trip ISO-8601) — same shape as mf-run's PidFile — so an external reader
 /// (mf-cockpit's watch toggle) can apply the same PID-reuse guard mf-run does before treating a
 /// stale leftover file as "still running".
@@ -29,6 +34,8 @@ public sealed class InstanceLock : IDisposable
         _path = path;
     }
 
+    private static FileShare ShareMode => OperatingSystem.IsWindows() ? FileShare.Read : FileShare.None;
+
     public static string LockPath(string projectRoot) => Path.Combine(projectRoot, ".magnaflow", "mf-watch.lock");
 
     /// <summary>Returns null when another instance already holds the lock.</summary>
@@ -38,7 +45,7 @@ public sealed class InstanceLock : IDisposable
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         try
         {
-            var stream = new FileStream(path, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.Read);
+            var stream = new FileStream(path, FileMode.OpenOrCreate, FileAccess.ReadWrite, ShareMode);
             stream.SetLength(0);
             var startTime = Process.GetCurrentProcess().StartTime.ToUniversalTime();
             var content = $"{Environment.ProcessId}\n{startTime.ToString("o", CultureInfo.InvariantCulture)}\n";

@@ -18,8 +18,11 @@ a library or a socket. Both files have a by-hand equivalent.
 ### Lock file {#lock-file}
 
 Two lines: the PID, then the process start time (UTC, round-trip
-ISO-8601). It stays readable while mf-watch holds it. Its *presence*
-is not liveness. A hard kill (Windows toggle Stop, `Stop-Process`,
+ISO-8601). It stays readable while mf-watch holds it: on Windows for
+any reader that shares write access, on Linux and macOS for plain
+readers (`cat`). There the lock is an exclusive advisory `flock`, which
+another .NET `FileStream` respects, so only Windows reads it from the
+cockpit. Its *presence* is not liveness. A hard kill (Windows toggle Stop, `Stop-Process`,
 possibly a systemd stop) leaves the file behind with stale content. The
 rules:
 

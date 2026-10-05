@@ -32,6 +32,7 @@ public class ChatE2ETests : IDisposable
     [Fact]
     public async Task Chat_streams_lines_and_reuses_session_id_on_the_second_message()
     {
+        if (!OperatingSystem.IsWindows()) return; // fixtures are .cmd stubs
         CockpitFactory.WriteConfig(_configPath, (StubPath("chat-stub.cmd"), TimeoutMinutes: 1.0), ("proj", _project.Root));
 
         using var factory = new CockpitFactory(_configPath);
@@ -57,6 +58,7 @@ public class ChatE2ETests : IDisposable
     [Fact]
     public async Task Chat_timeout_kills_a_hanging_stub()
     {
+        if (!OperatingSystem.IsWindows()) return; // fixtures are .cmd stubs
         CockpitFactory.WriteConfig(_configPath, (StubPath("chat-stub-hang.cmd"), TimeoutMinutes: 0.05), ("proj", _project.Root));
 
         using var factory = new CockpitFactory(_configPath);

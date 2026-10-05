@@ -101,6 +101,7 @@ public class NewProjectApiIntegrationTests : IDisposable
     [Fact]
     public async Task Mode_new_with_a_command_template_runs_the_stub_with_placeholders_substituted()
     {
+        if (!OperatingSystem.IsWindows()) return; // fixtures are .cmd stubs
         var root = ScratchDir("root");
         CockpitFactory.WriteConfigWithNewProject(_configPath, new CockpitFactory.NewProjectSpec(root, null,
             [new CockpitFactory.NewProjectTemplateSpec("gen", "command",
@@ -119,6 +120,7 @@ public class NewProjectApiIntegrationTests : IDisposable
     [Fact]
     public async Task Mode_new_with_a_failing_command_template_leaves_the_directory_in_place_and_registers_nothing()
     {
+        if (!OperatingSystem.IsWindows()) return; // fixtures are .cmd stubs
         var root = ScratchDir("root");
         CockpitFactory.WriteConfigWithNewProject(_configPath, new CockpitFactory.NewProjectSpec(root, null,
             [new CockpitFactory.NewProjectTemplateSpec("gen", "command", Command: StubPath("template-stub-fail.cmd"), TimeoutSeconds: 30)]));
@@ -143,6 +145,7 @@ public class NewProjectApiIntegrationTests : IDisposable
     [Fact]
     public async Task Mode_new_with_a_hanging_command_template_is_killed_by_the_configured_timeout()
     {
+        if (!OperatingSystem.IsWindows()) return; // fixtures are .cmd stubs
         var root = ScratchDir("root");
         CockpitFactory.WriteConfigWithNewProject(_configPath, new CockpitFactory.NewProjectSpec(root, null,
             [new CockpitFactory.NewProjectTemplateSpec("gen", "command", Command: StubPath("template-stub-hang.cmd"), TimeoutSeconds: 3)]));

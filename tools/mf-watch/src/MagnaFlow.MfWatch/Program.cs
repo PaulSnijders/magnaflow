@@ -64,16 +64,23 @@ var notifier = new ShellNotifier(processes, config.NotifyCommand, projectRoot, L
 var loop = new WatchLoop(config, git, processes, projectRoot, Log, notifier);
 var scheduler = new BackoffScheduler(config.IntervalMin, config.IntervalMax, config.IdleGrace, new SystemClock());
 
+// The token stops the loop only (no new poll, no new dispatch, sleep cut short); it never reaches
+// the worker spawn. A second Ctrl+C is the hard stop: the default handler ends the process.
 using var cts = new CancellationTokenSource();
-ConsoleCancelEventHandler? onCancel = null;
-onCancel = (_, e) =>
+Console.CancelKeyPress += (_, e) =>
 {
+    if (cts.IsCancellationRequested)
+    {
+        Log("second Ctrl+C: aborting");
+        return; // e.Cancel stays false: the runtime terminates mf-watch
+    }
+
     e.Cancel = true;
     Log("shutdown requested, finishing current poll...");
+    if (loop.IsDispatching)
+        Log("worker still running; Ctrl+C again to abort it");
     cts.Cancel();
-    Console.CancelKeyPress -= onCancel;
 };
-Console.CancelKeyPress += onCancel;
 
 if (config.GitSync && !await git.IsAvailableAsync())
 {
@@ -82,35 +89,7 @@ if (config.GitSync && !await git.IsAvailableAsync())
     return 4;
 }
 
-try
-{
-    while (true)
-    {
-        var activity = await loop.PollOnceAsync(cts.Token);
-        scheduler.RecordPoll(activity);
-
-        if (once)
-            break;
-        if (cts.IsCancellationRequested)
-            break;
-
-        Log($"sleeping {scheduler.Current}");
-        try
-        {
-            // Sliced, not one long delay, so a wake file can cut the sleep short (Polling/WakeFile.cs).
-            if (await WakeFile.SleepAsync(scheduler.Current, projectRoot, cts.Token))
-                Log("wake requested (.magnaflow/mf-watch.wake) — polling now");
-        }
-        catch (OperationCanceledException)
-        {
-            break;
-        }
-    }
-}
-catch (OperationCanceledException)
-{
-    // cancelled mid-poll; fall through to a clean shutdown
-}
+await loop.RunAsync(scheduler, once, cts.Token);
 
 Log("mf-watch stopped");
 return 0;

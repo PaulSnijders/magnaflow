@@ -245,6 +245,11 @@ public class MagnaflowYmlRemoveTests
 
 public class MagnaflowYmlAppenderAppendTests
 {
+    // A rooted path on the running OS: a Windows drive path like C:\x is relative on Linux, so the
+    // appender's reparse-verify (Path.GetFullPath) would resolve it differently there.
+    private static string RootedPath(string name) =>
+        OperatingSystem.IsWindows() ? $@"C:\{name}" : $"/tmp/{name}";
+
     [Fact]
     public async Task Appends_to_an_existing_sectioned_magnaflow_yml_next_to_the_binary()
     {
@@ -252,7 +257,7 @@ public class MagnaflowYmlAppenderAppendTests
         var path = project.WriteFile("magnaflow.yml", "cockpit:\n  projects: []\n");
         var (config, _, _) = CockpitConfig.Load(path);
 
-        var result = await MagnaflowYmlAppender.AppendProjectAsync(config!, new ProjectEntry { Name = "x", Path = @"C:\x" });
+        var result = await MagnaflowYmlAppender.AppendProjectAsync(config!, new ProjectEntry { Name = "x", Path = RootedPath("x") });
 
         Assert.Equal(MagnaflowYmlAppender.Outcome.Ok, result.Outcome);
         Assert.Equal(path, result.Path);
@@ -268,7 +273,7 @@ public class MagnaflowYmlAppenderAppendTests
         var path = project.WriteFile("mf-cockpit.yml", "port: 6000\n");
         var (config, _, _) = CockpitConfig.Load(path, isLegacyFileName: true);
 
-        var result = await MagnaflowYmlAppender.AppendProjectAsync(config!, new ProjectEntry { Name = "x", Path = @"C:\x" });
+        var result = await MagnaflowYmlAppender.AppendProjectAsync(config!, new ProjectEntry { Name = "x", Path = RootedPath("x") });
 
         Assert.Equal(MagnaflowYmlAppender.Outcome.LegacyFileRefused, result.Outcome);
         Assert.Contains("magnaflow.yml", result.Error);
@@ -286,7 +291,7 @@ public class MagnaflowYmlAppenderAppendTests
         var (locatedPath, isLegacy) = CockpitConfig.LocatePath([], baseDir.Root, userDir.Root);
         var (config, _, _) = CockpitConfig.Load(locatedPath, isLegacy);
 
-        var result = await MagnaflowYmlAppender.AppendProjectAsync(config!, new ProjectEntry { Name = "x", Path = @"C:\x" }, userDir.Root);
+        var result = await MagnaflowYmlAppender.AppendProjectAsync(config!, new ProjectEntry { Name = "x", Path = RootedPath("x") }, userDir.Root);
 
         Assert.Equal(MagnaflowYmlAppender.Outcome.Ok, result.Outcome);
         var expectedPath = Path.Combine(userDir.Root, CockpitConfig.FileName);
@@ -303,7 +308,7 @@ public class MagnaflowYmlAppenderAppendTests
         var path = project.WriteFile("magnaflow.yml", "cockpit:\n  port: 5210\n");
         var (config, _, _) = CockpitConfig.Load(path);
 
-        await MagnaflowYmlAppender.AppendProjectAsync(config!, new ProjectEntry { Name = "roundtrip", Path = @"C:\GIT\roundtrip" });
+        await MagnaflowYmlAppender.AppendProjectAsync(config!, new ProjectEntry { Name = "roundtrip", Path = RootedPath("roundtrip") });
 
         var (reloaded, error, _) = CockpitConfig.Load(path);
         Assert.Null(error);
@@ -320,7 +325,7 @@ public class MagnaflowYmlAppenderAppendTests
         var (config, _, _) = CockpitConfig.Load(path);
 
         var result = await MagnaflowYmlAppender.AppendProjectAsync(
-            config!, new ProjectEntry { Name = "x", Path = @"C:\x" }, userConfigDirectory: null,
+            config!, new ProjectEntry { Name = "x", Path = RootedPath("x") }, userConfigDirectory: null,
             composer: (_, _) => "not: [valid, yaml, this is broken {{{");
 
         Assert.Equal(MagnaflowYmlAppender.Outcome.VerifyFailed, result.Outcome);
@@ -336,7 +341,7 @@ public class MagnaflowYmlAppenderAppendTests
         var (config, _, _) = CockpitConfig.Load(path);
 
         var result = await MagnaflowYmlAppender.AppendProjectAsync(
-            config!, new ProjectEntry { Name = "x", Path = @"C:\x" }, userConfigDirectory: null,
+            config!, new ProjectEntry { Name = "x", Path = RootedPath("x") }, userConfigDirectory: null,
             composer: (_, _) => "not: [valid, yaml, this is broken {{{");
 
         Assert.Equal(MagnaflowYmlAppender.Outcome.VerifyFailed, result.Outcome);
