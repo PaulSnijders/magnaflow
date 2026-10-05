@@ -1,0 +1,34 @@
+# Surface declarations: where users or systems touch the product.
+# Each surface maps a spec subtree (docs/specs/<name>/) to a code root
+# and a route-discovery glob. The glob is all the deterministic tooling
+# needs; `adapter` and `slug` are prose hints for the AI.
+#
+# MagnaFlow is a set of tools, not a web app: one surface per tool.
+# The spec kit (tools/mf-spec/) is deliberately not a surface — it is
+# described by tools/mf-spec/README.md + system.md.
+
+surfaces:
+  cockpit:
+    adapter: static-pages (ASP.NET Core wwwroot, no SPA framework)
+    root: tools/mf-cockpit/src/MagnaFlow.MfCockpit
+    routes: "wwwroot/*.html"
+    slug: "filename without .html; index.html -> index"
+    help: false
+  worker:
+    adapter: spectre-console-cli (one Command class per subcommand)
+    root: tools/worker-controller/src/MagnaFlow.WorkerController
+    routes: "Commands/*Command.cs"
+    slug: "subcommand name, kebab-case: RunAllCommand.cs -> run-all"
+    help: false
+  watch:
+    adapter: hand-rolled args in Program.cs (single command)
+    root: tools/mf-watch/src/MagnaFlow.MfWatch
+    routes: "Program.cs"
+    slug: "always mf-watch"
+    help: false
+  run:
+    adapter: hand-rolled args in Program.cs (verbs start|stop|restart|status in one spec)
+    root: tools/mf-run/src/MagnaFlow.MfRun
+    routes: "Program.cs"
+    slug: "always mf-run"
+    help: false

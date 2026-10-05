@@ -28,7 +28,7 @@ Start/Stop or a live refresh changes it.
 
 The design doc is already updated — see the
 `> **Updated (docs/prompts/0012):**` blockquote in
-`docs/fase5-cockpit/ontwerp-v0.1.md`. Nothing further to write there.
+`docs/decisions/0007-cockpit-design.md`. Nothing further to write there.
 
 ## Verify live
 

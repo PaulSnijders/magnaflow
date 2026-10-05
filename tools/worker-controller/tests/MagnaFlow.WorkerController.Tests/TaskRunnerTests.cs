@@ -736,7 +736,7 @@ public class TaskRunnerTests : IDisposable
         Assert.Equal("001-feature", session.Group);
     }
 
-    // --- mf-run stop/start integration (docs/fase6-mf-run/ontwerp-v0.1.md "Worker integration") ---
+    // --- mf-run stop/start integration (docs/decisions/0010-mf-run-design.md "Worker integration") ---
 
     [Fact]
     public async Task NoRunServicesConfigured_NeverInvokesMfRun()

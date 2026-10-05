@@ -1,0 +1,16 @@
+# Worker config for this repo (project-level, travels in git).
+# Monorepo: one .NET solution per tool, run sequentially, first failure stops.
+build:
+  commands:
+    - dotnet build tools/worker-controller/WorkerController.slnx
+    - dotnet build tools/mf-watch/MfWatch.slnx
+    - dotnet build tools/mf-run/MfRun.slnx
+    - dotnet build tools/mf-cockpit/MfCockpit.slnx
+test:
+  commands:
+    - dotnet test tools/worker-controller/WorkerController.slnx
+    - dotnet test tools/mf-watch/MfWatch.slnx
+    - dotnet test tools/mf-run/MfRun.slnx
+    - dotnet test tools/mf-cockpit/MfCockpit.slnx
+# No run: section — the tools are rolled out with tools/install/install.ps1,
+# which stops the very watcher that runs the worker; deploy stays manual.

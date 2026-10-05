@@ -5,7 +5,7 @@ namespace MagnaFlow.MfCockpit.Watch;
 public sealed record WatchStatus(TailResult Log, bool LockPresent);
 
 /// <summary>
-/// Reads mf-watch's own diary (docs/fase4-mf-watch/ontwerp-v0.1.md "Observability"):
+/// Reads mf-watch's own diary (docs/decisions/0006-mf-watch-design.md "Observability"):
 /// .magnaflow/mf-watch.log (tail) and .magnaflow/mf-watch.lock (presence = "watcher alive on this
 /// copy"). Read-only, no coupling to MagnaFlow.MfWatch — same file-format-only knowledge as every
 /// other cockpit reader.

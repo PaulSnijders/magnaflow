@@ -107,7 +107,7 @@ Nothing to add there.
    after the click, as the pull button does.
 
 6. **Design doc.** Add write #9 to the write list in
-   `docs/fase5-cockpit/ontwerp-v0.1.md` in house style, with an
+   `docs/decisions/0007-cockpit-design.md` in house style, with an
    `> **Updated (docs/prompts/0014):**` note. No new design doc.
 
 7. **Tests.** Mirror `GitPullApiIntegrationTests` through the

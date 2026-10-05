@@ -1,10 +1,10 @@
 ---
 title: Support multiple build/test commands in config.yml
-status: draft
+status: done
 branch: task/0001-multi-build-commands
 base: main
 specs:
-  - specs/001-worker-controller/contracts/file-formats.md
+  - c0e1353:specs/001-worker-controller/contracts/file-formats.md
 attempts: 0
 max_attempts: 3
 created: 2026-07-13
@@ -16,7 +16,7 @@ The Worker Controller (`tools/worker-controller/`) implements the updated
 `.magnaflow/config.yml` contract: the `build` and `test` sections each accept
 either `command:` (a single string) or `commands:` (a list of strings, run
 sequentially). The contract in
-`specs/001-worker-controller/contracts/file-formats.md` (section
+`c0e1353:specs/001-worker-controller/contracts/file-formats.md` (section
 "`.magnaflow/config.yml`") and `tools/worker-controller/README.md` already
 describe this; the code does not implement it yet.
 

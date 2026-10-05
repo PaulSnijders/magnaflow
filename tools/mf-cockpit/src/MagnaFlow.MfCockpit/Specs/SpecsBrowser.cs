@@ -14,7 +14,7 @@ public abstract record SpecsResult
 }
 
 /// <summary>
-/// Read-only browse of docs/specs/ (docs/mf-spec/system.md) — rendered client-side, the cockpit
+/// Read-only browse of docs/specs/ (tools/mf-spec/system.md) — rendered client-side, the cockpit
 /// never edits specs (ontwerp-v0.1.md "Invariant"). Path safety is the whole point of this class:
 /// relativePath is user input from the URL.
 /// </summary>

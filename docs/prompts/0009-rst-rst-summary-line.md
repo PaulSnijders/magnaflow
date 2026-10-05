@@ -14,7 +14,7 @@ paragraph describing what the rst is for, with the `title`/`cmd`/`done`/
 two sentences, no markdown, quote a value containing a colon). Version
 stamp 0.9 → 0.10 in that file and in `KIT.md`, with a 0.9 → 0.10
 migration note (documentation-only, no repair — existing reports keep no
-summary). `docs/mf-spec/system.md`'s `docs/prompts/` block mirrors the
+summary). `tools/mf-spec/system.md`'s `docs/prompts/` block mirrors the
 one-line description.
 
 **Worker.** `PromptBuilder.BuildInitial` now tells the agent to open the

@@ -36,5 +36,5 @@ rather than deliberate. Cheapest fix if it keeps bothering: right-align
 the row, which puts it directly under the summary bar's own `watcher`
 indicator. Not done — no prompt for it.
 
-`docs/fase5-cockpit/ontwerp-v0.1.md` was already updated when the cmd
+`docs/decisions/0007-cockpit-design.md` was already updated when the cmd
 was written; nothing further was needed there.

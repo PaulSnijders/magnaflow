@@ -131,7 +131,7 @@ tr.followup-row td:first-child { padding-left: 1.4rem; }
 .followup-marker { font-size: 0.85em; }
 
 /* The rst's one-line summary, greyed under the command title in the lane row
-   (docs/mf-spec/ontwerp-summary-line.md). The single truncated line IS the length constraint —
+   (docs/decisions/0015-rst-summary-line.md). The single truncated line IS the length constraint —
    nothing lints a summary, so the renderer holds it short; the full text is the tooltip. */
 .lane-summary {
   color: var(--muted);

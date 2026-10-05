@@ -12,7 +12,7 @@ decided* or for *what the outside world said*. In the v1 evaluation
 that gap pushed `docs/` root from 8 to 23 files; in this repo the
 decision genre exists unnamed and unnumbered across `docs/fase*/`.
 
-Design: `docs/mf-spec/ontwerp-genres-and-gate.md`, section "Five
+Design: `docs/decisions/0016-genres-and-gate.md`, section "Five
 genres, five houses". Read it first — it carries the reasoning for
 every choice below.
 

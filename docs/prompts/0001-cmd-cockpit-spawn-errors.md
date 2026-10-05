@@ -1,6 +1,6 @@
 ---
 title: "cockpit: friendly spawn errors, own log file, config visibility"
-status: draft
+status: done
 attempts: 0
 created: 2026-07-14
 ---

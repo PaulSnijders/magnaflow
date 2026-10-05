@@ -9,7 +9,7 @@ namespace MagnaFlow.MfWatch.Config;
 /// at any project, so its config lives next to the binary (or wherever --config says), not inside
 /// the project it watches. Same parsing approach as MagnaFlow.WorkerController.Config.ProjectConfig.
 /// Fase 7 merged the old standalone mf-watch.yml into magnaflow.yml's `watch:` section, alongside
-/// mf-cockpit's `cockpit:` section — see docs/fase7-machine-config/.
+/// mf-cockpit's `cockpit:` section — see docs/specs/concepts/machine-config.md.
 /// </summary>
 public sealed class WatchConfig
 {
@@ -26,7 +26,7 @@ public sealed class WatchConfig
     public const string LegacyFileName = "mf-watch.yml";
 
     /// <summary>Resolves the effective config path and whether it was found via the legacy
-    /// (pre-fase-7) filename, following the lookup order in docs/fase7-machine-config/:
+    /// (pre-fase-7) filename, following the lookup order in docs/specs/concepts/machine-config.md:
     /// (1) --config, explicit and authoritative — a missing --config path is not a further lookup,
     /// it simply yields defaults, same as before fase 7; (2) magnaflow.yml next to the binary;
     /// (3) the user config dir; (4) the legacy mf-watch.yml next to the binary. First hit wins.
@@ -97,7 +97,7 @@ public sealed class WatchConfig
         {
             section = dto;
             if (isLegacyFileName || dto.HasAnyLegacyField())
-                notice = $"mf-watch: {path} is in the old mf-watch.yml format — merge it into magnaflow.yml under a top-level 'watch:' section (see docs/fase7-machine-config/).";
+                notice = $"mf-watch: {path} is in the old mf-watch.yml format — merge it into magnaflow.yml under a top-level 'watch:' section (see docs/specs/concepts/machine-config.md).";
         }
 
         if (section.IntervalMinMinutes is <= 0)

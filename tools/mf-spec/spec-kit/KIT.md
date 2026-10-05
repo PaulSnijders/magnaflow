@@ -6,7 +6,7 @@ split between user help and developer notes; the spec-first rule; a
 drift audit (`/spec-drift`) with a format lint (Node, no dependencies);
 the prompt lane (`docs/prompts/`) and two record genres
 (`docs/decisions/`, `docs/context/`). Design rationale lives in the
-magnaflow repo under `docs/mf-spec/`.
+magnaflow repo under `tools/mf-spec/`.
 
 To adopt: copy this folder into the target repo as `docs/spec-kit/` and
 run `0001-adopt-spec-system.md` as a prompt with Claude Code there (it

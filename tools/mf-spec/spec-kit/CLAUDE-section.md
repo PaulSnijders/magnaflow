@@ -22,8 +22,9 @@ write your questions to `NNNN-qa-name.md` and set status `questions`
 (they answer beneath each question and set it back to `ready`); finish
 with `done` (specs updated) or `aborted` (reason in rst). All files are
 committed. If the cmd sets `branch:`: bookkeeping (cmd/rst/status)
-commits on the base branch, code + spec updates on the work branch,
-finish with a pull request.
+commits on the branch you were started from, code + spec updates on the
+work branch (created from `base:`); push both, the human opens the pull
+request and merges.
 
 Records live beside the specs: `docs/decisions/` (why it became this
 way — numbered, cited from a concept's `Why:` line) and `docs/context/`

@@ -4,7 +4,7 @@ A small daemon that polls a target project's `docs/prompts/` for `NNNN-cmd-name.
 `status: ready` and feeds them to `mf-worker`, one at a time. It does five things, forever:
 pull (optional), scan, dispatch, push (optional), notify — then sleeps with adaptive backoff.
 Everything it automates is a thing a human can do by hand; see
-[`docs/fase4-mf-watch/ontwerp-v0.1.md`](../../docs/fase4-mf-watch/ontwerp-v0.1.md) for the full
+[`docs/decisions/0006-mf-watch-design.md`](../../docs/decisions/0006-mf-watch-design.md) for the full
 design.
 
 mf-watch spawns `mf-worker` as a separate process — no library reference to

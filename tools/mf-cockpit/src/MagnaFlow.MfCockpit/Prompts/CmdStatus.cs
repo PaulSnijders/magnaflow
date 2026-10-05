@@ -1,8 +1,8 @@
 namespace MagnaFlow.MfCockpit.Prompts;
 
 /// <summary>
-/// Command lifecycle as the cockpit knows it (docs/mf-spec/system.md, docs/fase2-worker-controller
-/// /v0.2-completion-notes.md): draft | ready | running | questions | done | aborted. Own copy, not
+/// Command lifecycle as the cockpit knows it (tools/mf-spec/system.md,
+/// docs/specs/concepts/command-lifecycle.md): draft | ready | running | questions | done | aborted. Own copy, not
 /// a reference to MagnaFlow.WorkerController — the cockpit knows frontmatter strings and file
 /// layouts, nothing of the controller's internal types (ontwerp-v0.1.md "Tech").
 /// </summary>

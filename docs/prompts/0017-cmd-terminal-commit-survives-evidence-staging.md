@@ -1,6 +1,6 @@
 ---
 title: "mf-worker: the terminal commit must survive evidence staging"
-status: ready
+status: done
 created: 2026-09-10
 ---
 

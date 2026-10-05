@@ -7,7 +7,7 @@ namespace MagnaFlow.MfCockpit.Prompts;
 
 /// <summary>
 /// Read-mostly view of one NNNN-cmd-name.md: YAML frontmatter the cockpit renders
-/// (docs/mf-spec/system.md, ontwerp-v0.1.md "What it shows" — status, title, attempts,
+/// (tools/mf-spec/system.md, ontwerp-v0.1.md "What it shows" — status, title, attempts,
 /// max_attempts, branch, base, group, specs, created) + the raw body. The cockpit's only two
 /// writes ever touch the status: value (draft creation, draft-&gt;ready) — never the body, same
 /// surgical-rewrite discipline as MagnaFlow.WorkerController.Prompts.CmdFile, reimplemented here

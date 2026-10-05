@@ -68,7 +68,7 @@ public sealed class NewProjectConfig
 /// YAML/parsing approach as MagnaFlow.WorkerController.Config.ProjectConfig and
 /// MagnaFlow.MfWatch.Config.WatchConfig. Fase 7 merged the old standalone mf-cockpit.yml into
 /// magnaflow.yml's `cockpit:` section, alongside mf-watch's `watch:` section — see
-/// docs/fase7-machine-config/.
+/// docs/specs/concepts/machine-config.md.
 /// </summary>
 public sealed class CockpitConfig
 {
@@ -95,7 +95,7 @@ public sealed class CockpitConfig
     public const string LegacyFileName = "mf-cockpit.yml";
 
     /// <summary>Resolves the effective config path and whether it was found via the legacy
-    /// (pre-fase-7) filename, following the lookup order in docs/fase7-machine-config/: (1)
+    /// (pre-fase-7) filename, following the lookup order in docs/specs/concepts/machine-config.md: (1)
     /// --config, or MF_COCKPIT_CONFIG (test injection — WebApplicationFactory reruns this
     /// process's own Program.cs in-proc, where argv isn't test-controlled but environment
     /// variables are) — explicit and authoritative, a missing path here is not a further lookup,
@@ -176,7 +176,7 @@ public sealed class CockpitConfig
         {
             section = dto;
             if (isLegacyFileName || dto.HasAnyLegacyField())
-                notice = $"mf-cockpit: {path} is in the old mf-cockpit.yml format — merge it into magnaflow.yml under a top-level 'cockpit:' section (see docs/fase7-machine-config/).";
+                notice = $"mf-cockpit: {path} is in the old mf-cockpit.yml format — merge it into magnaflow.yml under a top-level 'cockpit:' section (see docs/specs/concepts/machine-config.md).";
         }
 
         var problems = new List<string>();

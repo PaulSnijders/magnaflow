@@ -52,7 +52,7 @@ public sealed record CommandSummaryDto(
     string? Error,
     string BaseNumber,
     bool IsFollowUp,
-    // The rst's one-line frontmatter summary (docs/mf-spec/ontwerp-summary-line.md); null when
+    // The rst's one-line frontmatter summary (docs/decisions/0015-rst-summary-line.md); null when
     // there is no report yet or it predates the convention — the lane then renders nothing.
     string? Summary,
     // First claude.log header to last evidence write (to now while running); null when unknown.

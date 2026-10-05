@@ -123,7 +123,7 @@ static void PrintUsage()
         Usage: mf-watch [--project <path>] [--config <path>] [--once]
 
           --project <path>  Target project root (default: current directory).
-          --config <path>   magnaflow.yml path (default: looked up — see docs/fase7-machine-config/).
+          --config <path>   magnaflow.yml path (default: looked up — see docs/specs/concepts/machine-config.md).
           --once             Run a single poll cycle, then exit.
         """);
 }

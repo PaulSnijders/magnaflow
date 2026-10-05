@@ -4,7 +4,7 @@ A small process manager for a project's own running application(s) — the dev/d
 the worker machine. It exists because Claude Code trips over locked ports and files while the app
 is running, and because after a run you want the fresh build already up so you can click through
 it immediately, remotely. See
-[`docs/fase6-mf-run/ontwerp-v0.1.md`](../../docs/fase6-mf-run/ontwerp-v0.1.md) for the full design.
+[`docs/decisions/0010-mf-run-design.md`](../../docs/decisions/0010-mf-run-design.md) for the full design.
 
 mf-run spawns and kills OS processes — no library reference to
 [`tools/worker-controller/`](../worker-controller/) or [`tools/mf-watch/`](../mf-watch/) in

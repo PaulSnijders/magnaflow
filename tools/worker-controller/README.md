@@ -5,9 +5,8 @@ One-shot controller that executes AI-delegated commands in a target project: it 
 branch, run the project's build and tests with bounded retries, and write status, logs, plan,
 and report back as committed plain-text files. It does its job and stops — no polling, no daemon.
 
-Full behavior contract: [specs/001-worker-controller/](../../specs/001-worker-controller/) (v0.1
-baseline) and [specs/002-plan-questions-feedback/](../../specs/002-plan-questions-feedback/)
-(plan/questions/report, this version's contracts). Hands-on walkthrough with a ready-made example
+Behavior specs: [docs/specs/worker/](../../docs/specs/worker/) and the concepts they link. The
+original Spec Kit contracts (001, 002) are history: `git show c0e1353:specs/`. Hands-on walkthrough with a ready-made example
 project: [EXAMPLES.md](EXAMPLES.md).
 
 ## Build
@@ -96,7 +95,7 @@ each — see [config.yml recipes](EXAMPLES.md#7-configyml-recipes).
 
 The agent runs with its own safe defaults unless a project explicitly opts into more autonomy via
 `agent.args`. Command file format:
-[contracts/file-formats.md](../../specs/002-plan-questions-feedback/contracts/file-formats.md).
+contracts/file-formats.md (`git show c0e1353:specs/002-plan-questions-feedback/contracts/file-formats.md`).
 
 ## Project conventions
 

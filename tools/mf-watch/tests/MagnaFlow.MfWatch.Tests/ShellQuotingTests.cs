@@ -4,7 +4,7 @@ using MagnaFlow.MfWatch.Notify;
 namespace MagnaFlow.MfWatch.Tests;
 
 /// <summary>
-/// docs/fase6-mf-run/v0.1-completion-notes.md flagged that RunShellAsync's use of CliWrap's
+/// c0e1353:docs/fase6-mf-run/v0.1-completion-notes.md flagged that RunShellAsync's use of CliWrap's
 /// WithArguments(string[]) on "cmd.exe /d /s /c &lt;commandLine&gt;" might exhibit the same quote
 /// corruption mf-run hit with ProcessStartInfo.ArgumentList, if a configured notify_command ever
 /// combines embedded quotes with spaces. These tests exercise the real OS shell (no fakes) to

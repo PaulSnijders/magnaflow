@@ -38,7 +38,7 @@ There is also a layout bug on `specs.html`: the breadcrumb renders as
    card and keeps them. The bar's remaining content (status, latest,
    counts, watcher, live marker, sound toggle) is unchanged everywhere.
    `/git` and `/run` are then requested by `project.html` alone. Add an
-   "**Updated:**" note to `docs/fase5-cockpit/ontwerp-v0.5.md` item 2 in
+   "**Updated:**" note to `docs/decisions/0013-cockpit-quality-of-life.md` item 2 in
    house style.
 
 3. **One request for the shared chrome.** New `GET /api/overview` with an

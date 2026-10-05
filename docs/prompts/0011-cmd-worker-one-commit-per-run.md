@@ -58,7 +58,7 @@ happen milliseconds apart with no observer in between.
    remote-tracking ref falls back to two commits; branch mode still
    produces the split.
 
-Record the rule in `docs/mf-spec/system.md`'s Branches section — one
+Record the rule in `tools/mf-spec/system.md`'s Branches section — one
 sentence, in house style: branchless runs land as a single commit,
 branched runs keep the split.
 

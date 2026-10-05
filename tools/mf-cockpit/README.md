@@ -4,8 +4,8 @@ A small ASP.NET Core app (Kestrel, static files, no SPA framework) that renders 
 MagnaFlow projects' plain-text state — the prompt lane, per-command evidence, the mf-watch
 diary, and the spec tree — and offers a read-only AI chat that can escalate an answer into a new
 `draft` command. It is a **window** on the system, never a second actor in it; see
-[`docs/fase5-cockpit/ontwerp-v0.1.md`](../../docs/fase5-cockpit/ontwerp-v0.1.md) for the full
-design and [`v0.1-completion-notes.md`](../../docs/fase5-cockpit/v0.1-completion-notes.md) for
+[`docs/decisions/0007-cockpit-design.md`](../../docs/decisions/0007-cockpit-design.md) for the full
+design and [`v0.1-completion-notes.md`](../../c0e1353:docs/fase5-cockpit/v0.1-completion-notes.md) for
 what shipped.
 
 No library reference to `tools/worker-controller/` or `tools/mf-watch/` — process spawn and file
@@ -50,7 +50,7 @@ watch:
 ## Watcher toggle
 
 A start/stop switch per project (`project.html`'s Watcher card). Two implementations, chosen once
-at startup by OS (see `docs/fase5-cockpit/watch-toggle-notes.md`): Linux shells out to
+at startup by OS (see `docs/decisions/0011-cockpit-watch-toggle.md`): Linux shells out to
 `systemd-escape`/`systemctl --user` against the `mf-watch@.service` template unit
 (`tools/install/install.sh`) — real per-project supervision, survives reboot. Windows has no such
 unit, so the cockpit spawns/kills `mf-watch` itself, reading liveness from mf-watch's own

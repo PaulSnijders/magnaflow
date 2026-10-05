@@ -118,7 +118,7 @@
 
     // The report's own one-line summary, at the top of the page right under the meta line — the
     // human-sized answer to "what did this command do?" before any of the long files below
-    // (docs/mf-spec/ontwerp-summary-line.md). Plain text by design, never markdown-rendered. It is
+    // (docs/decisions/0015-rst-summary-line.md). Plain text by design, never markdown-rendered. It is
     // not repeated above the report itself: the report's frontmatter block already shows it there.
     const summaryEl = document.getElementById("cmd-summary");
     summaryEl.textContent = detail.summary || "";

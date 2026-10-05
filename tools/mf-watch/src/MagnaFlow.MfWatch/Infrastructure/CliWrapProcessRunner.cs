@@ -28,7 +28,7 @@ public sealed class CliWrapProcessRunner : IProcessRunner
         // Windows: cmd.exe's /S-mode re-parsing needs the raw, unescaped command line. CliWrap's
         // array-form WithArguments applies its own argv-style escaping per element, which corrupts
         // embedded quotes exactly like ProcessStartInfo.ArgumentList does (see
-        // docs/fase6-mf-run/argumentlist-audit-notes.md) — the single-string overload passes the
+        // c0e1353:docs/fase6-mf-run/argumentlist-audit-notes.md) — the single-string overload passes the
         // whole "/d /s /c ..." line through unescaped instead.
         // Unix: /bin/sh -c receives commandLine as one argv element with no textual re-parsing
         // layer, so there is nothing for CliWrap's escaping to corrupt.

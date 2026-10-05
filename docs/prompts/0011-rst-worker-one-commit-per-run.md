@@ -57,7 +57,7 @@ not git semantics: seed → `-> running` → stage code → stage cmd/rst →
 `rst.md | 1 +`), a clean tree, and `branch --remotes --contains` empty
 on a remoteless repo.
 
-**7. Docs.** `docs/mf-spec/system.md` "Branches" gained the rule;
+**7. Docs.** `tools/mf-spec/system.md` "Branches" gained the rule;
 `tools/worker-controller/README.md`'s "Running without branches" no
 longer says the work lands "as its own commit, separate from the status
 commits", and names the fallback.

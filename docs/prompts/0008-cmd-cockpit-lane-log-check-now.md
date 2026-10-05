@@ -1,6 +1,6 @@
 ---
 title: "mf-cockpit: newest-first lane, short watcher log tail, and a Check now button"
-status: draft
+status: done
 attempts: 0
 created: 2026-08-17
 ---
@@ -66,7 +66,7 @@ delay.
      dir); the endpoint writes it and 404s on an unknown project
      (`WatchApiIntegrationTests` pattern).
    - Document the wake file in `tools/mf-watch/README.md` and add a
-     short paragraph to `docs/fase4-mf-watch/ontwerp-v0.1.md` — the
+     short paragraph to `docs/decisions/0006-mf-watch-design.md` — the
      sleep is design-level behaviour and it is changing.
 
 ## Verify live

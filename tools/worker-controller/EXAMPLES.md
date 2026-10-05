@@ -3,7 +3,7 @@
 A hands-on tour of every command, using the ready-made example project in
 [`examples/hello-website/`](examples/hello-website/): three commands that let the AI agent
 build a hello-world website. Reference docs: [README.md](README.md) and the
-[file-format contracts](../../specs/002-plan-questions-feedback/contracts/file-formats.md).
+file-format contracts (`git show c0e1353:specs/002-plan-questions-feedback/contracts/file-formats.md`).
 
 Commands below are PowerShell on Windows; the tool itself is cross-platform.
 

@@ -1,6 +1,6 @@
 ---
 title: "mf-worker: a plan file only when there are questions"
-status: ready
+status: done
 created: 2026-09-03
 ---
 
@@ -109,7 +109,7 @@ rst, where a human already looks.
    exist (`PlnFileTests` asserts it), and `Write` already emits only
    the sections it is given.
 
-4. **Spec** — `specs/002-plan-questions-feedback/spec.md`: FR-009 says
+4. **Spec** — `c0e1353:specs/002-plan-questions-feedback/spec.md`: FR-009 says
    the plan and every question it raised MUST be recorded in the pln.
    Restate it: the plan is produced in the plan step's reply; the pln
    records the open questions when there are any, and self-answered

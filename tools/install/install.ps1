@@ -48,6 +48,24 @@ Write-Host "== MagnaFlow install (repo: $repoRoot -> $InstallDir) =="
 # under their assembly names, hence the extra two entries.
 $daemonNames = @('mf-cockpit', 'mf-watch', 'MagnaFlow.MfCockpit', 'MagnaFlow.MfWatch')
 $wasRunning = [bool](Get-Process -Name $daemonNames -ErrorAction SilentlyContinue)
+
+# Project roots of the running watchers, read from their --project argument. The
+# restart below brings every one of them back — start-magnaflow.ps1 only knows
+# its own -Project, so watchers toggled on per project from the cockpit would
+# otherwise stay down after an update.
+function Get-WatchedProjects {
+    $roots = @()
+    foreach ($p in Get-CimInstance Win32_Process -Filter "Name='mf-watch.exe' OR Name='MagnaFlow.MfWatch.exe'") {
+        if ($p.CommandLine -match '--project\s+(?:"([^"]+)"|(\S+))') {
+            $root = if ($Matches[1]) { $Matches[1] } else { $Matches[2] }
+            $roots += $root.TrimEnd('\', '/')
+        } else {
+            Write-Warning "mf-watch (pid $($p.ProcessId)) runs without --project; it will not be restarted: $($p.CommandLine)"
+        }
+    }
+    return @($roots | Sort-Object -Unique)
+}
+$watchedProjects = Get-WatchedProjects
 if ($wasRunning) {
     Write-Host '-- stopping running MagnaFlow daemons (restarted after the install)'
     Stop-Process -Name $daemonNames -Force -ErrorAction SilentlyContinue
@@ -104,8 +122,8 @@ if ($added.Count -gt 0) {
 Copy-Item (Join-Path $PSScriptRoot 'start-magnaflow.ps1') $InstallDir -Force
 $startScript = Join-Path $InstallDir 'start-magnaflow.ps1'
 
-# Square MagnaFlow logo for the shortcuts (docs/images in the repo).
-$iconSource = Join-Path $repoRoot 'docs\images\magnaflow-logo.ico'
+# Square MagnaFlow logo for the shortcuts (assets/ in the repo).
+$iconSource = Join-Path $repoRoot 'assets\magnaflow-logo.ico'
 $iconTarget = Join-Path $InstallDir 'magnaflow.ico'
 Copy-Item $iconSource $iconTarget -Force
 
@@ -129,7 +147,17 @@ Write-Host ''
 if ($wasRunning) {
     Write-Host '-- restarting daemons with the fresh build'
     & $startScript
-    Write-Host '== Done. Cockpit + watcher restarted on the new version.'
+    # start-magnaflow.ps1 restarted its own -Project watcher (if none ran); bring
+    # back the rest the same way the cockpit toggle starts them: hidden, with
+    # --project <root> and the project as working directory.
+    $running = Get-WatchedProjects
+    foreach ($root in $watchedProjects) {
+        if ($running -contains $root) { continue }   # -contains is case-insensitive
+        Start-Process (Join-Path $InstallDir 'mf-watch\mf-watch.exe') `
+            -ArgumentList '--project', "`"$root`"" -WorkingDirectory $root -WindowStyle Hidden
+        Write-Host "mf-watch restarted on $root"
+    }
+    Write-Host '== Done. Cockpit + watchers restarted on the new version.'
 } else {
     Write-Host '== Done. Click the MagnaFlow shortcut (desktop or Start menu) to start'
     Write-Host '   the cockpit + watcher; the browser opens on http://localhost:5210.'

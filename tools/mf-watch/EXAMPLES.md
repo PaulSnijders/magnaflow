@@ -2,7 +2,7 @@
 
 A hands-on tour of mf-watch, reusing the same `hello-website` example project the Worker
 Controller ships with. Reference docs: [README.md](README.md) and the design it implements,
-[`docs/fase4-mf-watch/ontwerp-v0.1.md`](../../docs/fase4-mf-watch/ontwerp-v0.1.md).
+[`docs/decisions/0006-mf-watch-design.md`](../../docs/decisions/0006-mf-watch-design.md).
 
 Commands below are PowerShell on Windows; the tool itself is cross-platform.
 

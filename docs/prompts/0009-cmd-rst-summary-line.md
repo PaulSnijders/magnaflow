@@ -10,7 +10,7 @@ created: 2026-08-17
 To find out what a finished command did, you have to open its rst — the
 report is deliberately written for the next AI session, not for a human
 scanning a project. There is no human-sized layer. Design:
-`docs/mf-spec/ontwerp-summary-line.md`.
+`docs/decisions/0015-rst-summary-line.md`.
 
 ## Task
 
@@ -20,7 +20,7 @@ scanning a project. There is no human-sized layer. Design:
    the "Prompts — the delta lane" section) next to the existing
    description of what the rst is for, bump the version stamp and add
    the KIT.md migration note the way every kit change does. Mirror the
-   one-line description in `docs/mf-spec/system.md`'s delta-lane block.
+   one-line description in `tools/mf-spec/system.md`'s delta-lane block.
 
 2. **Worker.** The rst instruction in
    `tools/worker-controller/src/MagnaFlow.WorkerController/Execution/PromptBuilder.cs`

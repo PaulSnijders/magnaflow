@@ -34,7 +34,7 @@ public static class MagnaflowYmlAppender
         if (config.IsLegacyFileName)
         {
             return new AppendResult(Outcome.LegacyFileRefused, config.ConfigPath,
-                $"{config.ConfigPath} is the deprecated mf-cockpit.yml filename — merge it into magnaflow.yml under a top-level 'cockpit:' section before adding projects here (see docs/fase7-machine-config/).");
+                $"{config.ConfigPath} is the deprecated mf-cockpit.yml filename — merge it into magnaflow.yml under a top-level 'cockpit:' section before adding projects here (see docs/specs/concepts/machine-config.md).");
         }
 
         var targetPath = File.Exists(config.ConfigPath)
@@ -105,7 +105,7 @@ public static class MagnaflowYmlAppender
         if (config.IsLegacyFileName)
         {
             return new RemoveResult(RemoveOutcome.LegacyFileRefused, config.ConfigPath,
-                $"{config.ConfigPath} is the deprecated mf-cockpit.yml filename — merge it into magnaflow.yml under a top-level 'cockpit:' section before managing projects here (see docs/fase7-machine-config/).");
+                $"{config.ConfigPath} is the deprecated mf-cockpit.yml filename — merge it into magnaflow.yml under a top-level 'cockpit:' section before managing projects here (see docs/specs/concepts/machine-config.md).");
         }
 
         var targetPath = File.Exists(config.ConfigPath)

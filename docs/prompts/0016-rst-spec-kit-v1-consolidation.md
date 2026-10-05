@@ -35,7 +35,7 @@ All eight tasks, in `tools/mf-spec/spec-kit/` unless noted.
    both `TEMPLATE.md` files. Genre READMEs are now 28 and 24 lines in
    the v1 format (own rule only; `ls` is the index). Conventions README
    went from 347 to **219** lines, not ~150 — see decisions below. The
-   motivations moved to `docs/mf-spec/ontwerp-conventions-rationale.md`.
+   motivations moved to `tools/mf-spec/conventions-rationale.md`.
 6. **Freshness**: STATUS.md has no frontmatter; `Generated: <date>`
    only. `/spec-drift` step 0 treats older than 14 days, or missing, as
    the first line of the summary with the days overdue. The 14-day
@@ -51,7 +51,7 @@ All eight tasks, in `tools/mf-spec/spec-kit/` unless noted.
    ACCEPTED.md alone (the summary tells the user its entries are back
    on the table).
 
-Also updated, outside the kit: `docs/mf-spec/README.md` and
+Also updated, outside the kit: `tools/mf-spec/README.md` and
 `system.md` no longer describe ACCEPTED.md, the audit frontmatter or
 `/spec-fold-in`, and describe the lint as current rather than planned.
 

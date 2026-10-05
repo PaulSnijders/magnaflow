@@ -14,7 +14,7 @@ namespace MagnaFlow.WorkerController.Prompts;
 ///
 /// Every rst opens with the same frontmatter a hand-written one has — title/cmd/done plus the
 /// one-line `summary:` that is the only human-sized layer over a report written for the next AI
-/// session (docs/mf-spec/ontwerp-summary-line.md).
+/// session (docs/decisions/0015-rst-summary-line.md).
 /// </summary>
 public static class RstFile
 {

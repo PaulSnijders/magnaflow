@@ -9,7 +9,7 @@ done: 2026-07-13
 Checked `tools/mf-spec/spec-kit/docs/specs/README.md` (the version-
 stamped conventions README) — its "Prompts — the delta lane" section
 covered numbered cmd/rst/qa pairs but said nothing about follow-up
-naming. Added one short paragraph mirroring `docs/mf-spec/system.md`'s
+naming. Added one short paragraph mirroring `tools/mf-spec/system.md`'s
 `docs/prompts/` comment, right after "Number first so a pair sorts
 adjacently in any file explorer.":
 

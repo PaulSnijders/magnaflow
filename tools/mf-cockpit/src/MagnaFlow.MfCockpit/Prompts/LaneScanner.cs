@@ -4,7 +4,7 @@ namespace MagnaFlow.MfCockpit.Prompts;
 
 /// <summary>One NNNN-name id as found in docs/prompts/: the parsed cmd file (or the reason it
 /// couldn't be parsed) plus whichever pln/qa/rst siblings exist next to it. Summary is the rst's
-/// one-line frontmatter summary (docs/mf-spec/ontwerp-summary-line.md) — null when there is no rst
+/// one-line frontmatter summary (docs/decisions/0015-rst-summary-line.md) — null when there is no rst
 /// yet, or the rst predates the convention.</summary>
 public sealed record LaneItem(
     string Id,
@@ -30,7 +30,7 @@ public sealed record LaneItem(
 
 /// <summary>
 /// Discovers the prompt lane: every NNNN-cmd-name.md directly under docs/prompts/, grouped with
-/// its optional pln/qa/rst siblings by the shared NNNN-name id (docs/mf-spec/system.md). Read-only
+/// its optional pln/qa/rst siblings by the shared NNNN-name id (tools/mf-spec/system.md). Read-only
 /// — the cockpit's own writes (draft creation, draft-&gt;ready, follow-up) go through CmdFileLite
 /// directly, not through this scanner. Own implementation, not a reference to
 /// MagnaFlow.WorkerController.Prompts.PromptScanner (ontwerp-v0.1.md "Tech").

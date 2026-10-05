@@ -11,7 +11,7 @@ The dashboard refreshes itself (v0.5 item 1) but says nothing. With the
 page open in a background tab there is no way to notice that a command
 finished, failed, or started asking questions, short of looking at it.
 
-Design: `docs/fase5-cockpit/ontwerp-sound-cues.md`. Client-side only —
+Design: `docs/decisions/0014-cockpit-sound-cues.md`. Client-side only —
 no endpoint, no server change, no new write action.
 
 ## Task

@@ -19,7 +19,7 @@ public sealed class AgentSessionState
 /// <summary>
 /// The execution loop for one command (spec User Stories 1-3), following the two-plane commit
 /// model: bookkeeping (docs/prompts/ — cmd/pln/qa/rst) commits on the invoking branch; the
-/// agent's code work commits on the command's work branch (spec FR-004, docs/mf-spec/system.md).
+/// agent's code work commits on the command's work branch (spec FR-004, tools/mf-spec/system.md).
 /// Every run first runs a plan phase — a separate agent invocation, still on the invoking
 /// branch, since it only reads/writes bookkeeping files — that gates whether execution (which
 /// does need the work branch) proceeds this run or the command pauses at `questions` instead
@@ -144,7 +144,7 @@ public sealed class TaskRunner(
             }
         }
 
-        // mf-run stop/start (docs/fase6-mf-run/ontwerp-v0.1.md "Worker integration"): process spawn
+        // mf-run stop/start (docs/decisions/0010-mf-run-design.md "Worker integration"): process spawn
         // and exit code only, no library reference either way. A spawn failure (mf-run not
         // installed/found) is treated the same as mf-run itself exiting non-zero.
         async Task<ProcessResult> RunMfRunAsync(string verb)
@@ -171,7 +171,7 @@ public sealed class TaskRunner(
         await git.CommitAsync($"mf-worker: {cmd.Id} -> running");
 
         // A branchless run lands as a single commit: this claim commit is amended at the end to
-        // carry the work as well (docs/mf-spec/system.md "Branches"). Remember what it was, so the
+        // carry the work as well (tools/mf-spec/system.md "Branches"). Remember what it was, so the
         // amend can prove it is still the commit it is about to rewrite. In branch mode the two
         // planes are genuinely separate commits, so there is nothing to fold.
         var claimCommit = cmd.Branch is null ? await git.GetHeadCommitAsync() : null;

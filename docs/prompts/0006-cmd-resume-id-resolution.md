@@ -1,6 +1,6 @@
 ---
 title: "mf-worker: resolve resume: from a cmd filename, and explain it when it fails"
-status: draft
+status: done
 attempts: 0
 created: 2026-08-11
 ---
@@ -45,7 +45,7 @@ than what exists.
 
 4. **Spec-first**: update the owning spec for the worker's resume
    behaviour in the same commit (or `tools/worker-controller/README.md`
-   if there is none). `docs/mf-spec/system.md`'s "Session continuity
+   if there is none). `tools/mf-spec/system.md`'s "Session continuity
    (`resume:`)" section states the intent; flag any deviation in the
    report.
 

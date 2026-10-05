@@ -8,8 +8,8 @@ namespace MagnaFlow.MfCockpit.Evidence;
 public sealed record CommandEvidence(TailResult ClaudeLog, TailResult BuildLog, TailResult TestLog, string? SessionId);
 
 /// <summary>
-/// Reads .magnaflow/&lt;NNNN-name&gt;/ — machine runtime evidence, tail-only (docs/mf-spec/system.md,
-/// docs/fase2-worker-controller/v0.2-completion-notes.md). Read-only: the cockpit never writes
+/// Reads .magnaflow/&lt;NNNN-name&gt;/ — machine runtime evidence, tail-only (tools/mf-spec/system.md,
+/// c0e1353:docs/fase2-worker-controller/v0.2-completion-notes.md). Read-only: the cockpit never writes
 /// here (ontwerp-v0.1.md "Invariant: buttons, not an actor" — "never touches .magnaflow/").
 /// </summary>
 public static class EvidenceReader

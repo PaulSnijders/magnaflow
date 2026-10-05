@@ -6,7 +6,7 @@ namespace MagnaFlow.MfCockpit.Prompts;
 
 /// <summary>
 /// Reads the one-line `summary:` out of an NNNN-rst-name.md's frontmatter — nothing else
-/// (docs/mf-spec/ontwerp-summary-line.md). Deliberately frontmatter-only: the report body is
+/// (docs/decisions/0015-rst-summary-line.md). Deliberately frontmatter-only: the report body is
 /// written for the next AI session and can be arbitrarily long, while this runs for every finished
 /// command in a project's lane on every refresh. Same file-format-only knowledge as CmdFileLite,
 /// standalone (no library reference, ontwerp-v0.1.md "Tech").
