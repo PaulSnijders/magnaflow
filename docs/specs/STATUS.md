@@ -24,7 +24,7 @@ none
 
 ## Open prompts
 
-- 0024 install-self-update — ready
+- 0025 git-sync-rebase — ready
 
 ## Format problems
 
