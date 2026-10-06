@@ -44,7 +44,8 @@ and again whenever the hash changes. The lookup stays inside the
 rendered spec. So `concepts/machine-config.md#lookup-order` opens at
 "Lookup order", whether the target is the explicit `{#lookup-order}` or
 the heading's GitHub slug. A same-page link (`#why`) jumps within the
-page.
+page. Either way the target lands just below the sticky summary bar,
+fully visible.
 
 ## Cross-links
 

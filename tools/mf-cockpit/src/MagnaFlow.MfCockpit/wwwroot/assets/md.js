@@ -3,6 +3,10 @@
 // code, fenced code blocks, links, lists, blockquotes, GitHub-style pipe tables, and paragraphs,
 // which is everything the lane/plan/report/spec markdown in this project actually uses.
 //
+// A list item runs on over indented continuation lines (also across a blank line when the next
+// line is still indented); an indented marker is a nested list. A fenced code block indented under
+// an item is not supported: it ends the list.
+//
 // Headings get ids by the spec kit's rule (scripts/spec_lint.mjs ANCHOR + ghSlug), so every anchor
 // the lint accepts also resolves here: a `{#slug}` is dropped from the visible text and becomes the
 // id, and the GitHub slug of the heading is a second target when it differs. Ids are unique per
@@ -119,7 +123,9 @@ function renderMarkdown(src, opts) {
   const lines = text.split("\n");
   const out = [];
   let paragraph = [];
-  let list = null; // { tag: 'ul'|'ol', items: [] }
+  // Open lists, outermost first: { tag: 'ul'|'ol', indent, items: [{ text, contentIndent, subs: [] }],
+  // parentItem }. A nested list hangs in its parent item's subs.
+  let lists = [];
   let quote = [];
 
   function flushParagraph() {
@@ -128,11 +134,58 @@ function renderMarkdown(src, opts) {
       paragraph = [];
     }
   }
+  function listHtml(l) {
+    return "<" + l.tag + ">" + l.items.map((it) => "<li>" + inline(it.text) + it.subs.map(listHtml).join("") + "</li>").join("") +
+      "</" + l.tag + ">";
+  }
   function flushList() {
-    if (list) {
-      out.push("<" + list.tag + ">" + list.items.map((i) => "<li>" + inline(i) + "</li>").join("") + "</" + list.tag + ">");
-      list = null;
+    if (lists.length) {
+      out.push(listHtml(lists[0]));
+      lists = [];
     }
+  }
+  const indentOf = (line) => /^\s*/.exec(line)[0].length;
+
+  // A marker line at `indent`: a sub-item when it reaches the open item's content column,
+  // otherwise an item of the open list at its level (a different marker type starts a new list).
+  function addItem(tag, indent, contentIndent, text) {
+    const item = { text, contentIndent, subs: [] };
+    let top = lists[lists.length - 1];
+    if (top) {
+      const last = top.items[top.items.length - 1];
+      if (indent >= last.contentIndent) {
+        const sub = { tag, indent, items: [item], parentItem: last };
+        last.subs.push(sub);
+        lists.push(sub);
+        return;
+      }
+      while (lists.length > 1 && indent < top.indent) { lists.pop(); top = lists[lists.length - 1]; }
+      if (top.tag === tag) { top.items.push(item); return; }
+      if (lists.length > 1) {
+        const sibling = { tag, indent, items: [item], parentItem: top.parentItem };
+        top.parentItem.subs.push(sibling);
+        lists[lists.length - 1] = sibling;
+        return;
+      }
+      flushList();
+    }
+    lists.push({ tag, indent, items: [item], parentItem: null });
+  }
+
+  // An indented line under an open list continues the deepest item it is indented past,
+  // joined with one space so inline markdown across the line break still works.
+  function continueItem(indent, text) {
+    let k = lists.length - 1;
+    while (k > 0 && indent <= lists[k].indent) k--;
+    const item = lists[k].items[lists[k].items.length - 1];
+    item.text += " " + text;
+  }
+
+  // After a blank line a list stays open only if the next non-blank line is indented under it.
+  function listContinuesAfterBlank(i) {
+    let j = i + 1;
+    while (j < lines.length && lines[j].trim() === "") j++;
+    return j < lines.length && indentOf(lines[j]) > 0;
   }
   function flushQuote() {
     if (quote.length) {
@@ -169,19 +222,23 @@ function renderMarkdown(src, opts) {
     }
 
     if (trimmed === "") {
+      if (lists.length && listContinuesAfterBlank(i)) continue;
       flushAll();
       continue;
     }
 
-    const bullet = /^\s*[-*]\s+(.*)$/.exec(line);
-    const numbered = /^\s*\d+\.\s+(.*)$/.exec(line);
+    const bullet = /^(\s*)[-*]\s+(.*)$/.exec(line);
+    const numbered = /^(\s*)\d+\.\s+(.*)$/.exec(line);
     if (bullet || numbered) {
       flushParagraph();
       flushQuote();
-      const tag = bullet ? "ul" : "ol";
-      const item = (bullet || numbered)[1];
-      if (!list || list.tag !== tag) { flushList(); list = { tag, items: [] }; }
-      list.items.push(item);
+      const m = bullet || numbered;
+      addItem(bullet ? "ul" : "ol", m[1].length, line.length - m[2].length, m[2]);
+      continue;
+    }
+
+    if (lists.length && indentOf(line) > 0) {
+      continueItem(indentOf(line), trimmed);
       continue;
     }
 

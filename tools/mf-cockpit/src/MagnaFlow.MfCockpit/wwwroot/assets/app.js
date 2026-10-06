@@ -520,7 +520,7 @@ const Cockpit = (() => {
       const map = new Map();
       let cue = null;
       for (const it of items) {
-        const key = it.project + " " + it.id;
+        const key = it.project + "\u0000" + it.id;
         map.set(key, it.status);
         if (!prevMap) continue;                          // first render: fill baseline, stay silent
         const prev = prevMap.get(key);
@@ -576,6 +576,26 @@ const Cockpit = (() => {
       <span class="sb-live badge-live"><span class="dot"></span><span class="label">connecting…</span></span>`;
     const header = document.querySelector("header.cockpit-header");
     header.insertAdjacentElement("afterend", bar);
+
+    // The bar is sticky and wraps on a narrow screen; --summary-bar-h carries its real height so a
+    // scrolled-to heading (scroll-margin-top in style.css) lands just below it, not behind it.
+    // Set once right away too: a page may scroll to its #hash before the first observer callback.
+    // The bar can still grow after that scroll (its counts load async and wrap it on a narrow
+    // screen), so a #hash target the taller bar now covers is scrolled into view again. The last
+    // match wins: rendered markdown comes after the page's own chrome.
+    const syncBarHeight = () => {
+      const height = bar.offsetHeight;
+      document.documentElement.style.setProperty("--summary-bar-h", height + "px");
+      let id;
+      try { id = decodeURIComponent(location.hash.slice(1)); } catch { return; }
+      if (!id) return;
+      const matches = document.querySelectorAll(`:is(h1, h2, h3, h4, h5, h6, a)[id="${CSS.escape(id)}"]`);
+      const target = matches[matches.length - 1];
+      const top = target ? target.getBoundingClientRect().top : -1;
+      if (top >= 0 && top < height) target.scrollIntoView();
+    };
+    syncBarHeight();
+    new ResizeObserver(syncBarHeight).observe(bar);
 
     // Sound toggle (ontwerp-sound-cues.md): same place on every project-scoped page. Only index.html
     // and project.html actually fetch lane data and chime; the others just carry the toggle.

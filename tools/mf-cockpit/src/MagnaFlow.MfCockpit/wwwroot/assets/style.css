@@ -15,6 +15,10 @@
   --status-questions: #ffc04d;
   --status-done: #6fbf73;
   --status-aborted: #e5484d;
+
+  /* Real height of the sticky .summary-bar, kept current by Cockpit.summaryBar(); 0 on pages
+     without one. */
+  --summary-bar-h: 0px;
 }
 
 * { box-sizing: border-box; }
@@ -27,6 +31,9 @@ html, body {
   font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   font-size: 15px;
   line-height: 1.5;
+  /* A word longer than its line (a run of paths in a spec's "Code:" line) breaks instead of
+     widening the page; unlike `anywhere` this leaves table and flex sizing alone. */
+  overflow-wrap: break-word;
 }
 
 a { color: var(--lava-bright); text-decoration: none; }
@@ -48,9 +55,15 @@ code {
   background: var(--panel);
   border-radius: 3px;
   padding: 0.1em 0.35em;
+  /* A long inline path breaks rather than widening the page on a narrow screen. */
+  overflow-wrap: anywhere;
 }
 
-pre code { background: none; padding: 0; }
+pre code { background: none; padding: 0; overflow-wrap: normal; }
+
+/* A heading or extra <a id> target the page scrolls to (a #hash load or a same-page link) stops
+   just below the sticky summary bar instead of behind it. */
+:is(h1, h2, h3, h4, h5, h6)[id], a[id] { scroll-margin-top: calc(var(--summary-bar-h) + 0.5rem); }
 
 header.cockpit-header {
   background: var(--bg-raised) url("magnaflow-banner-wide.png") center/cover no-repeat;

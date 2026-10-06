@@ -83,6 +83,19 @@ lists, blockquotes, paragraphs and GitHub-style pipe tables.
   its id. The GitHub-style slug of the heading is a second target when
   it differs. Ids are unique within one rendered text: a duplicate gets
   `-1`, `-2`, … as on GitHub.
+  On every page with the sticky summary bar, a heading or anchor the
+  page scrolls to stops just below the bar instead of behind it.
+- **Lists**: `-`/`*` bullets and `1.` numbered items. An indented line
+  under an item continues that item, joined with one space, so inline
+  markdown across the line break still works. A blank line keeps the
+  item open when the next line is still indented; a non-indented line
+  or a new item ends it. An indented marker under an item starts a
+  nested list. A fenced code block indented under an item is not
+  supported: it ends the list.
+- **Long words wrap**: inline code breaks anywhere, and any other word
+  longer than its line (a run of paths) breaks too, so a page fits a
+  narrow screen without scrolling sideways. Fenced code blocks keep
+  their own wrapping, and tables their own horizontal scroll.
 
 DRAFT: generated from code, not human-reviewed.
 

@@ -1,7 +1,8 @@
 ---
 title: "mf-cockpit: anchors clear the sticky bar, multi-line list items, app.js as text, long code wraps"
-status: ready
+status: done
 created: 2026-10-06
+attempts: 1
 ---
 
 ## Context
