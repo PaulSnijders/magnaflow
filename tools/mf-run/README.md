@@ -1,4 +1,4 @@
-# mf-run — MagnaFlow process manager (v0.1)
+# mf-run — MagnaFlow process manager
 
 Starts and stops a project's own running app(s): the dev/debug instance on
 the worker machine. Two reasons: Claude Code trips over locked ports and
@@ -50,7 +50,7 @@ run:
       command: src/MyApp/bin/Debug/net10.0/MyApp.exe   # the built executable, not `dotnet run`
       args: ["--urls", "http://0.0.0.0:5000"]           # optional
       workdir: src/MyApp                                 # optional, default: project root
-      url: http://worker-1:5000                          # optional, informational only
+      url: http://worker-1:5000                          # optional; mf-run uses it only for the port check
 ```
 
 `command` and `workdir` both resolve against the project root, not against
@@ -132,19 +132,23 @@ delete a PID file.
 - **Tracked** (`running`): does mf-run's PID file point at a live,
   matching process? When false, `reason` is one of the three stale reasons
   above.
-- **Port listening** (`port_listening`): does *anything* accept a plain
+- **Port listening** (`portListening`): does *anything* accept a plain
   TCP connect (no HTTP) on the port of the service's `url`? `true`/`false`,
   or absent without a `url`. A service started outside mf-run (e.g.
   `ng serve` by hand) shows `running: false`, reason `no-pid-file`, and
-  `port_listening: true`.
+  `portListening: true`.
 
-mf-cockpit's Run card combines the two: tracked+listening → running; only
-listening → "running (not started by mf-run)"; only tracked → "process up,
-port not answering"; neither → stopped (with the reason).
+The plain-text output shows both on one line per service, e.g.
+`web: stopped [no-pid-file] http://worker-1:5000 (port listening)`.
 
 `--json` prints `[{name, running, pid?, url?, reason?, portListening?}]`.
 `reason` and `portListening` are additive, so consumers reading only
 `name`/`running`/`pid`/`url` are unaffected.
+
+mf-cockpit's Run card combines the two facts: tracked+listening →
+running; only listening → "running (not started by mf-run)"; only tracked
+→ "process up, port not answering"; neither → stopped (with the reason).
+See [the Run card spec](../../docs/specs/cockpit/project.md#run).
 
 ## Exit codes
 
@@ -154,10 +158,12 @@ port not answering"; neither → stopped (with the reason).
 | 1 | At least one requested service failed to start, failed to stop, or isn't running |
 | 2 | Usage or configuration error (unknown command, unknown service, invalid `config.yml`) |
 
-## Not in scope (v0.1)
+## Not in scope
 
 Health checks / URL polling, log rotation, auto-restart on file change,
 per-service environment variables, auth or tunnels for remote access (the
-network is the perimeter). A cockpit service card (status dot, start/stop
-buttons) is designed against this CLI's exit-code contract but built
-separately, later.
+network is the perimeter).
+
+The cockpit's Run card (start/stop/restart, log tail) is built on this
+CLI and tracks no process state of its own (see
+[Status semantics](#status-semantics)).

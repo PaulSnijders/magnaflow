@@ -1,6 +1,7 @@
 # mf-cockpit config — every field is optional and shown here at its default value, so this file
 # is something to edit rather than a blank page. Lives next to the binary (AppContext.BaseDirectory)
-# or wherever --config points. See README.md for the full reference.
+# or wherever --config points. Legacy name: prefer a `cockpit:` section in magnaflow.yml
+# (docs/specs/concepts/machine-config.md, which also owns the full key reference).
 
 port: 5210
 bind: localhost

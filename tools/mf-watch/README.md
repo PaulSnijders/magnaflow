@@ -33,10 +33,12 @@ mf-watch [--project <path>] [--config <path>] [--once]
 
 - `--project <path>`: project root containing `docs/prompts/` (default:
   current directory).
-- `--config <path>`: `mf-watch.yml` path (default: `mf-watch.yml` next to the
-  binary).
+- `--config <path>`: the machine config `magnaflow.yml` (default: the
+  [lookup order](../../docs/specs/concepts/machine-config.md#lookup-order)).
+  Only its `watch:` section is read.
 - `--once`: one poll cycle, then exit. For validation, or to use an OS
-  scheduler (cron, Task Scheduler) instead of the loop.
+  scheduler (cron, Task Scheduler) instead of the loop. It never consumes
+  the wake file (below).
 
 Output always goes to the console and is appended to
 `.magnaflow/mf-watch.log` in the target project.
@@ -47,7 +49,10 @@ OS (Windows: share mode; Linux/macOS: `flock`). While held, the file holds the
 PID and start time on two plain-text lines, the same shape as mf-run's `.pid`
 file, so other tools (first: mf-cockpit's watch toggle) can check whether an
 instance is really running. On Linux/macOS `cat` can read it, because `flock`
-is advisory. Details: [Instance lock](../../docs/specs/watch/mf-watch.md#instance-lock).
+is advisory. On a clean exit the file is deleted. A hard kill (or a second
+`Ctrl+C`) leaves it behind with stale content, so file presence alone does
+not mean "running"; the next instance simply takes it over. Details:
+[Instance lock](../../docs/specs/watch/mf-watch.md#instance-lock).
 
 ## Waking it early (`.magnaflow/mf-watch.wake`)
 
@@ -63,31 +68,41 @@ The sleep runs in ~1 s slices, so the poll starts within about a second and
 logs `wake requested (.magnaflow/mf-watch.wake) — polling now`. mf-watch
 deletes the file, which makes the wake one-shot. A wake is not activity: it
 resets neither the backoff interval nor the idle window (work found by that
-poll resets them as usual). Only a running mf-watch consumes the file; with
-nothing running it waits for the next instance. mf-cockpit's `Check now`
-button (`POST /api/projects/{name}/watch/check-now`) writes exactly this file
-and nothing else.
+poll resets them as usual). Only a sleeping loop consumes the file; `--once`
+never does. With no loop running, the file waits for the next instance.
+mf-cockpit's `Check now` button
+(`POST /api/projects/{name}/watch/check-now`) writes exactly this file and
+nothing else.
 
-## Config (`mf-watch.yml`)
+## Config
 
-Every field is optional; a missing file or field uses the default shown:
+mf-watch reads the `watch:` section of the per-machine `magnaflow.yml`,
+which it shares with mf-cockpit's `cockpit:` section. Every field is
+optional; a missing file or field uses the default shown:
 
 ```yaml
-git_sync: false                # pull before scanning, push after dispatching (FR: see design doc)
-worker:
-  command: mf-worker            # executable to spawn per ready command; swap for a stub in tests
-  args: []                      # extra argv appended after "run --project <root> <id>"
-notify_command: null            # shell template, e.g.: notify-send "{title}" "{message}"
-interval_min_minutes: 1
-interval_max_minutes: 15
-idle_grace_minutes: 30
-worker_timeout_minutes: 120
+watch:
+  git_sync: false            # pull before scanning, push after dispatching
+  worker:
+    command: mf-worker       # executable to spawn per ready command; swap for a stub in tests
+    args: []                 # extra argv appended after "run --project <root> <id>"
+  notify_command: null       # shell template, e.g.: notify-send "{title}" "{message}"
+  interval_min_minutes: 1
+  interval_max_minutes: 15
+  idle_grace_minutes: 30
+  worker_timeout_minutes: 120
 ```
 
 `worker.command`/`worker.args` work like the worker's own
 `agent.command`/`agent.args` (`MagnaFlow.WorkerController.Config.ProjectConfig`):
 swap in a stub executable to test end to end without a real
 `mf-worker` or agent.
+
+A standalone `mf-watch.yml` with these fields flat at the root still works,
+with a one-line deprecation notice on stderr and in the log. Validation
+rules: [Config](../../docs/specs/watch/mf-watch.md#config-watch). File
+location and legacy names:
+[machine config](../../docs/specs/concepts/machine-config.md).
 
 ## Notifications
 
@@ -103,6 +118,6 @@ are substituted verbatim. Titles and timing:
 | Code | Meaning |
 |------|---------|
 | 0 | Ran to completion (one poll with `--once`, or a clean shutdown of the daemon loop) |
-| 2 | Usage or configuration error (bad flag, invalid `mf-watch.yml`) |
+| 2 | Usage or configuration error (bad flag, invalid YAML, interval rules) |
 | 3 | Another mf-watch instance already holds the lock for this project |
 | 4 | `git_sync` is enabled but git is not available on this machine |

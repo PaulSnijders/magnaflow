@@ -36,11 +36,14 @@ Set-Alias mf-worker "C:\GIT\magnaflow\tools\worker-controller\src\MagnaFlow.Work
 "What a target project must contain"). mf-watch only reads a command's
 `status:` and the worker's exit code.
 
-Its own config, `mf-watch.yml`, is separate from the project's
-`.magnaflow/config.yml`. It lives next to the binary by default, or wherever
-`--config` points, so one install can watch any project. Fields and defaults:
-[README, Config](README.md#config-mf-watchyml). Every field is optional; no
-file means all defaults.
+Its own config is the `watch:` section of the per-machine `magnaflow.yml`,
+separate from the project's `.magnaflow/config.yml`. Without `--config` it is
+looked up next to the binary, then in the user config dir
+([lookup order](../../docs/specs/concepts/machine-config.md#lookup-order)),
+so one install can watch any project. The examples below pass `--config`
+with a file kept outside the watched repo, so it never dirties the worker's
+tree. Fields and defaults: [README, Config](README.md#config). Every field
+is optional; no file means all defaults.
 
 ## 2. Fast smoke test — no agent required
 
@@ -91,19 +94,20 @@ git add -A
 git commit -m "seed: 0001-hello ready"
 
 @'
-worker:
-  command: C:\tmp\mfwatch-smoketest\stub-worker.cmd
-'@ | Set-Content mf-watch.yml
+watch:
+  worker:
+    command: C:\tmp\mfwatch-smoketest\stub-worker.cmd
+'@ | Set-Content C:\tmp\mfwatch-smoketest\magnaflow.yml
 ```
 
 Run one poll cycle:
 
 ```powershell
-mf-watch --project C:\tmp\mfwatch-smoketest\proj --config C:\tmp\mfwatch-smoketest\proj\mf-watch.yml --once
+mf-watch --project C:\tmp\mfwatch-smoketest\proj --config C:\tmp\mfwatch-smoketest\magnaflow.yml --once
 ```
 
 ```text
-2026-07-10T11:35:07 mf-watch starting: project=C:\tmp\mfwatch-smoketest\proj config=...\mf-watch.yml once=True
+2026-07-10T11:35:07 mf-watch starting: project=C:\tmp\mfwatch-smoketest\proj config=C:\tmp\mfwatch-smoketest\magnaflow.yml once=True
 2026-07-10T11:35:07 [0001-hello] spawning worker
 2026-07-10T11:35:07 [0001-hello] stub-worker: 0001-hello -> done
 2026-07-10T11:35:07 [0001-hello] worker finished (exit 0); status is now 'done'
@@ -119,7 +123,7 @@ Run it again. Nothing is `ready`, so it is a no-op: exit 0, no process
 spawned, only the start/stop log lines:
 
 ```powershell
-mf-watch --project C:\tmp\mfwatch-smoketest\proj --config C:\tmp\mfwatch-smoketest\proj\mf-watch.yml --once
+mf-watch --project C:\tmp\mfwatch-smoketest\proj --config C:\tmp\mfwatch-smoketest\magnaflow.yml --once
 ```
 
 ## 3. The real thing — dispatching mf-worker
@@ -139,11 +143,12 @@ does not resolve in a spawned child process unless it is on `PATH`:
 
 ```powershell
 @'
-worker:
-  command: C:\GIT\magnaflow\tools\worker-controller\src\MagnaFlow.WorkerController\bin\Debug\net10.0\MagnaFlow.WorkerController.exe
-'@ | Set-Content C:\tmp\hello-website\mf-watch.yml
+watch:
+  worker:
+    command: C:\GIT\magnaflow\tools\worker-controller\src\MagnaFlow.WorkerController\bin\Debug\net10.0\MagnaFlow.WorkerController.exe
+'@ | Set-Content C:\tmp\hello-website.magnaflow.yml
 
-mf-watch --project C:\tmp\hello-website --config C:\tmp\hello-website\mf-watch.yml --once
+mf-watch --project C:\tmp\hello-website --config C:\tmp\hello-website.magnaflow.yml --once
 ```
 
 This runs exactly what `mf-worker run 0001-hello-page` would; mf-watch just
@@ -170,7 +175,7 @@ stops mf-watch hard. Caveat: in a terminal, `Ctrl+C` also reaches the worker
 or another service host this does not happen:
 
 ```powershell
-mf-watch --project C:\tmp\hello-website --config C:\tmp\hello-website\mf-watch.yml
+mf-watch --project C:\tmp\hello-website --config C:\tmp\hello-website.magnaflow.yml
 ```
 
 To use an OS scheduler instead, run `--once` from Task Scheduler (or cron on
@@ -178,7 +183,7 @@ Linux/macOS). The lockfile still refuses an overlapping run:
 
 ```powershell
 schtasks /create /tn "mf-watch hello-website" /sc minute /mo 5 `
-  /tr "C:\GIT\magnaflow\tools\mf-watch\src\MagnaFlow.MfWatch\bin\Debug\net10.0\MagnaFlow.MfWatch.exe --project C:\tmp\hello-website --once"
+  /tr "C:\GIT\magnaflow\tools\mf-watch\src\MagnaFlow.MfWatch\bin\Debug\net10.0\MagnaFlow.MfWatch.exe --project C:\tmp\hello-website --config C:\tmp\hello-website.magnaflow.yml --once"
 ```
 
 The daemon adapts its interval (`interval_min_minutes`,
@@ -212,13 +217,16 @@ notify_command: notify-send "{title}" "{message}"
 notify_command: osascript -e 'display notification "{message}" with title "{title}"'
 ```
 
+These go under `watch:` in `magnaflow.yml`, indented like `worker:`.
+
 To trigger one without a real run, use a stand-in that appends to a file.
 Avoid nested quotes in `notify_command` (shell and PowerShell quoting stack
-fast); plain redirection is safest:
+fast); plain redirection is safest. The two leading spaces put the line
+inside the `watch:` section of §2's file:
 
 ```powershell
-Add-Content C:\tmp\mfwatch-smoketest\proj\mf-watch.yml `
-  'notify_command: echo {title} -- {message} >> C:\tmp\mfwatch-smoketest\notifications.log'
+Add-Content C:\tmp\mfwatch-smoketest\magnaflow.yml `
+  '  notify_command: echo {title} -- {message} >> C:\tmp\mfwatch-smoketest\notifications.log'
 ```
 
 Then fake a crashed run: set a command to `status: running` without
@@ -230,7 +238,7 @@ to the human instead of ignoring it:
   -replace 'status: done', 'status: running' |
   Set-Content C:\tmp\mfwatch-smoketest\proj\docs\prompts\0001-cmd-hello.md
 
-mf-watch --project C:\tmp\mfwatch-smoketest\proj --config C:\tmp\mfwatch-smoketest\proj\mf-watch.yml --once
+mf-watch --project C:\tmp\mfwatch-smoketest\proj --config C:\tmp\mfwatch-smoketest\magnaflow.yml --once
 cat C:\tmp\mfwatch-smoketest\notifications.log
 # 0001-hello: stale running -- a previous run may have been interrupted; inspect and reset status manually
 ```
@@ -265,10 +273,11 @@ git push -u origin main
 git --git-dir=C:\tmp\gitsync-demo\remote.git symbolic-ref HEAD refs/heads/main
 
 @'
-git_sync: true
-worker:
-  command: C:\tmp\mfwatch-smoketest\stub-worker.cmd
-'@ | Set-Content mf-watch.yml
+watch:
+  git_sync: true
+  worker:
+    command: C:\tmp\mfwatch-smoketest\stub-worker.cmd
+'@ | Set-Content C:\tmp\gitsync-demo\magnaflow.yml
 
 # "The other machine" — pushes a ready command upstream:
 git clone C:\tmp\gitsync-demo\remote.git C:\tmp\gitsync-demo\other
@@ -292,7 +301,7 @@ git push
 Now run mf-watch on `local`. One `--once` pulls, runs and pushes:
 
 ```powershell
-mf-watch --project C:\tmp\gitsync-demo\local --config C:\tmp\gitsync-demo\local\mf-watch.yml --once
+mf-watch --project C:\tmp\gitsync-demo\local --config C:\tmp\gitsync-demo\magnaflow.yml --once
 ```
 
 ```text
@@ -325,8 +334,9 @@ mf-watch --project C:\tmp\hello-website --once
 # exit code 3
 ```
 
-If the lock is genuinely stale (rare: the OS releases the handle the moment
-the process dies), delete the lock file by hand.
+A lock file left behind by a hard kill or a second `Ctrl+C` does not block:
+the OS released the lock when the process died, and the next instance takes
+the file over. Only a live process holds it.
 
 **`git_sync` enabled but no git on this machine.** Refused before anything
 runs:

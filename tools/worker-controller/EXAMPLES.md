@@ -2,9 +2,10 @@
 
 A hands-on tour of every command, using the example project in
 [`examples/hello-website/`](examples/hello-website/): three commands that let
-the AI agent build a hello-world website. Reference: [README.md](README.md)
-and the file-format contracts
-(`git show c0e1353:specs/002-plan-questions-feedback/contracts/file-formats.md`).
+the AI agent build a hello-world website. Reference: [README.md](README.md),
+the behavior specs in [docs/specs/worker/](../../docs/specs/worker/) and,
+for the cmd/pln/qa/rst file formats,
+[command lifecycle](../../docs/specs/concepts/command-lifecycle.md).
 
 Commands are PowerShell on Windows; the tool itself is cross-platform.
 
@@ -28,6 +29,7 @@ Any git repository with `docs/prompts/` and `.magnaflow/`:
 
 ```text
 my-project/                          # a git repo, on a branch, clean working tree
+├── .gitignore                       # recommended: .magnaflow/* and !.magnaflow/config.yml
 ├── docs/
 │   ├── prompts/
 │   │   └── 0001-cmd-short-name.md   # REQUIRED per command: NNNN-name = ID = execution order
@@ -62,8 +64,12 @@ A homepage at `src/index.html` that greets visitors with "Hello, world!".
 
 All other frontmatter (`branch`, `base`, `group`, `fresh_session`, `resume`,
 `specs`, `max_attempts`, `created`) is optional; see §6. Without `branch:` the
-command runs *branchless*: work is committed directly on the branch you run
+command runs *branchless*: the run lands as one commit on the branch you run
 from.
+
+Everything in `.magnaflow/` except `config.yml` (logs, `session.yml`) is
+machine-local. Gitignore it, or the worker commits it with every outcome
+([evidence layout](../../docs/specs/concepts/evidence-layout.md)).
 
 ## 2. Set up the example project
 
@@ -91,8 +97,8 @@ mf-worker status
 │ Command           │ Title                        │ Status  │ Attempts │
 ├───────────────────┼──────────────────────────────┼─────────┼──────────┤
 │ 0001-hello-page   │ Create the hello world page  │ ready   │ 0/3      │
-│ 0002-add-styling  │ Add shared styling            │ ready   │ 0/3      │
-│ 0003-about-page   │ Add an about page             │ ready   │ 0/3      │
+│ 0002-add-styling  │ Add shared styling           │ ready   │ 0/3      │
+│ 0003-about-page   │ Add an about page            │ ready   │ 0/3      │
 └───────────────────┴──────────────────────────────┴─────────┴──────────┘
 ```
 
@@ -104,25 +110,32 @@ mf-worker run 0001-hello-page
 
 What happens (all visible in git afterwards):
 
-1. Preconditions: valid config → git + agent available → clean tree → command
-   `ready` → linked specs exist → base branch exists (if a new work branch is
-   needed). A refusal changes **nothing**.
+1. Preconditions: valid config, not on a work branch, well-formed command,
+   git + agent available, clean tree, command `ready`, linked specs exist,
+   `resume:` resolves, base branch exists (if a new work branch is needed).
+   A refusal changes **nothing**. Exact order:
+   [preconditions](../../docs/specs/concepts/worker-run.md#preconditions).
 2. `status: running` is committed on your current branch (`main`).
 3. **Plan phase**: the agent reads the command, its linked specs and the
    project's conventions (`CLAUDE.md` and/or a constitution file, if present)
    and plans, in the session it will implement from. This command is
    well-specified, so no `0001-pln-hello-page.md` is written and the run goes
    on. A `pln` appears only when the agent has a question for you; the run
-   then pauses.
-4. Branch `task/0001-hello-page` is created from the default branch.
+   then pauses (§6a).
+4. Branch `task/0001-hello-page` is created from the default branch. (If the
+   project configures `run.services`, `mf-run stop` runs just before this.)
 5. The agent implements the goal. Build and test run; failures go back to the
    agent (up to `max_attempts`).
-6. The agent's work is committed on the command branch. On `main`, the plan,
-   the report (`0001-rst-hello-page.md`), the logs, `session.yml`, final
-   `attempts` and `status: done` are committed.
+6. The agent's work is committed on the command branch, which is pushed if
+   the repo has a remote. Back on `main`, the report
+   (`0001-rst-hello-page.md`), final `attempts` and `status: done` are
+   committed and pushed. The logs and `session.yml` stay on disk only
+   (gitignored).
 
-Exit code `0` = done (or a legitimate pause), `1` = aborted after max attempts
-(all codes: §9).
+Full order, including `mf-run start` and the push rules:
+[worker run](../../docs/specs/concepts/worker-run.md#the-run). Exit code `0`
+= done (or a legitimate pause), `1` = aborted; all codes in the
+[README](README.md#exit-codes).
 
 ### Running from another directory
 
@@ -144,7 +157,7 @@ git log --oneline main                                  # the orchestration audi
 git show --stat task/0001-hello-page                     # the agent's work: pure code, no bookkeeping
 ls docs\prompts\0001-pln-hello-page.md                   # absent — this command raised no questions
 cat docs\prompts\0001-rst-hello-page.md                  # the report: what was done, and why
-cat .magnaflow\0001-hello-page\session.yml               # the agent session ID this run ended with
+cat .magnaflow\0001-hello-page\session.yml               # the agent session ID this run ended with (local only)
 cat .magnaflow\0001-hello-page\claude.log                # raw agent output (plan phase + every attempt)
 cat .magnaflow\0001-hello-page\build.log                 # build output per attempt
 cat .magnaflow\0001-hello-page\test.log                  # test output per attempt
@@ -173,17 +186,18 @@ mf-worker run-all    # drains ALL ready commands sequentially, prints a summary,
 ```
 
 ```text
-┌───────────────────┬─────────┐
-│ Command           │ Outcome │
-├───────────────────┼─────────┤
-│ 0002-add-styling  │ done    │
-│ 0003-about-page   │ done    │
-└───────────────────┴─────────┘
+┌───────────────────┬────────┬──────┐
+│ Command           │ Status │ Exit │
+├───────────────────┼────────┼──────┤
+│ 0002-add-styling  │ done   │ 0    │
+│ 0003-about-page   │ done   │ 0    │
+└───────────────────┴────────┴──────┘
 ```
 
-`run-all` never waits for new work, continues past an `aborted` command, and
-stops early only on systemic problems (dirty tree, missing environment). A
-command paused at `questions` is **not** picked up automatically; see §6a.
+`run-all` never waits for new work, continues past an `aborted` command or a
+per-command usage error, and stops early only on systemic problems (exit 3 or
+4: dirty tree, `mf-run stop` failed, missing environment). A command paused at
+`questions` is **not** picked up again automatically; see §6a.
 
 ## 6. Command frontmatter recipes
 
@@ -224,8 +238,9 @@ resume: 6a1f0e6e-9c1d-4f5a-b0e2-3d8f19a7c44e
 ```
 
 `resume:` beats group continuity and the default self-resume (§6a). Combining
-it with `fresh_session: true` is rejected. Referencing a command that never
-completed a run is an error before anything is touched.
+it with `fresh_session: true` is rejected. Referencing a command that has no
+recorded session on this machine (`session.yml` is machine-local) is an error
+(exit 2) before anything is touched.
 
 **Force a fresh session** despite a matching group (e.g. a big context
 switch):
@@ -250,10 +265,13 @@ crashes and build/test retries share the budget; a clean pause never counts:
 max_attempts: 1    # e.g. a mechanical rename that should work first try
 ```
 
-**No branching** — omit `branch:` and the work is committed directly on the
-branch you run from (its own commit, separate from the status commits). Handy
-for solo projects or low-risk chores; you lose the review branch, but git
-history stays complete:
+**No branching** — omit `branch:` and the run lands on the branch you run
+from as a single commit, `command <id>: <title>`: the claim commit is amended
+to carry the work, the report and the final status. Only when amending is
+unsafe (the agent committed itself, or the claim already reached a remote) do
+you get a separate work commit plus a status commit
+([README](README.md#git-branches)). Handy for solo projects or low-risk
+chores; you lose the review branch, but git history stays complete:
 
 ```markdown
 ---
@@ -296,14 +314,14 @@ Should the banner link to the pricing page or the signup page?
 ```
 
 Write your answer beneath it, then set the command's `status:` back to
-`ready`:
+`ready` and commit both files (the worker refuses a dirty tree):
 
 ```markdown
 **Answer**: The signup page — that's this quarter's growth goal.
 ```
 
 Run it again. The controller resumes the *exact* session that paused,
-re-plans by updating the same plan file with your answer, and continues:
+re-plans with your answer (rewriting the same pln in place), and continues:
 
 ```powershell
 mf-worker run 0004-add-banner
@@ -400,19 +418,17 @@ reused, so nothing is lost.
 
 **Aborted after all attempts**: the command ends `aborted` (exit 1), every
 attempt's logs are in `.magnaflow/<id>/`, and the report (`NNNN-rst-*.md`)
-names the reason. Fix the command (or the code) and reset the status to
-`ready` to retry.
+names the last failing phase. Whatever the agent left behind is committed too
+(on the work branch, or branchless on your branch), so you can inspect it.
+Fix the command (or the code) and reset the status to `ready` to retry; the
+re-run gets a fresh `max_attempts` budget.
 
 ## 9. Exit codes — scripting and composition
 
-```text
-0  requested work succeeded, or a legitimate pause occurred (command done / paused at
-   questions / batch done / status shown / nothing ready)
-1  command(s) ended aborted after max attempts
-2  usage or configuration error (unknown command, invalid config, missing spec/base branch)
-3  precondition refusal, nothing mutated (dirty tree, command not ready)
-4  environment error (git or agent executable unavailable)
-```
+The codes are listed once, in the [README](README.md#exit-codes) (owned by
+the [run spec](../../docs/specs/worker/run.md#exit-codes)). In short: `0` done
+or paused, `1` aborted, `2` usage/config error, `3` refused with nothing
+changed, `4` environment error.
 
 A minimal dispatcher that drains the queue and alerts on trouble:
 
