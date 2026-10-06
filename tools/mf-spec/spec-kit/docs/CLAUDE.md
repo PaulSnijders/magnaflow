@@ -1,8 +1,9 @@
 # Design plane — working in docs/
 
-A docs-only session (e.g. Cowork mounted on `docs/`) is the thinking
-half of a spec-first workflow: implementation happens elsewhere (Claude
-Code or a worker) against these same files. Full conventions:
+A docs-only session (e.g. Claude Code running `/brainstorm` or
+`/architect`) is the thinking half of a spec-first workflow:
+implementation happens elsewhere (Claude Code or a worker) against
+these same files. Full conventions:
 `docs/specs/README.md` — read it before touching specs.
 
 - Start each session by checking `docs/specs/STATUS.md` (exception

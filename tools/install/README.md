@@ -1,95 +1,65 @@
 # MagnaFlow machine install
 
-One-time setup of the MagnaFlow tools on a Windows machine (re-runnable — also
-how you roll out tool updates and config changes).
+## TL;DR
 
 ```powershell
+# Windows
 powershell -ExecutionPolicy Bypass -File C:\GIT\magnaflow\tools\install\install.ps1
 ```
 
-What it does: publishes **mf-run / mf-worker / mf-watch / mf-cockpit** (Release,
-renamed to those short exe names) to `C:\Tools\MagnaFlow\<tool>\`, **seeds**
-the machine config into `%APPDATA%\MagnaFlow\magnaflow.yml` (the one place
-every tool looks) only if that file doesn't exist yet — once it's there it's
-your live config (projects added via the cockpit, hand edits, etc.) and a
-re-run never touches it — puts the tool folders on the user PATH, and creates
-a **MagnaFlow** shortcut (desktop + Start menu, with the square MagnaFlow
-logo) that runs `start-magnaflow.ps1`: cockpit + watcher, each minimized in
-its own console window, then opens <http://localhost:5210>.
-
-**Updating = the same one command.** Tool code changed (e.g. a MagnaFlow cmd
-just landed)? Just re-run the script: it stops running daemons first (a
-running exe is locked, and daemons keep old code in memory anyway),
-re-publishes, and restarts everything on the new version — your
-`magnaflow.yml` is left alone. To pick up a machine-config change, edit
-`%APPDATA%\MagnaFlow\magnaflow.yml` directly (or delete it and re-run to
-re-seed from the repo copy).
-
-Different install dir / config source / watched project: see the `param(...)`
-blocks of `install.ps1` and `start-magnaflow.ps1`.
-
-Requires the .NET 10 SDK. Stopping a daemon = close its console window (restore
-it from the taskbar first).
-
-## Linux (worker machine)
-
-One-time setup — also the update path, same as Windows:
-
 ```bash
-tools/install/install.sh --config tools/install/magnaflow.linux.yml
+# Linux
+tools/install/install.sh
 ```
 
-What it does: publishes **mf-run / mf-worker / mf-watch / mf-cockpit**
-(Release, renamed to those short names) to `~/tools/magnaflow/<tool>/`,
-symlinks them into `~/.local/bin/` (warns if that's not on `PATH`), **seeds**
-the machine config into `~/.config/magnaflow/magnaflow.yml` from the given
-`--config` only if that file doesn't exist yet — once it's there it's your
-live config and a re-run never touches it — and generates + installs two
-`systemd --user` unit files:
+Same command for the first install and every update: it stops the running
+tools, re-publishes them and starts them again. Your machine config
+(`magnaflow.yml`) is never overwritten. Requires the .NET 10 SDK.
 
-- `mf-cockpit.service` — the dashboard + chat daemon, `Restart=on-failure`,
-  enabled so it starts at login.
-- `mf-watch@.service` — a *template* unit, one instance per watched project.
-  Enable one per project you want watched (`%i`/`%I` become the project path):
-  ```bash
-  systemctl --user enable --now mf-watch@$(systemd-escape /path/to/project).service
-  ```
-  `Restart=no` — mf-watch's exit codes are meaningful (it isn't a crash loop
-  to paper over).
+## What you get
 
-**Updating = the same one command.** Re-running `install.sh` stops whatever
-was running (`systemctl --user stop`, falling back to `pkill` on exact process
-names for anything started outside systemd), re-publishes, and restarts
-exactly what was running before — cockpit and/or any watch instances — on the
-new version. Your `magnaflow.yml` is left alone; edit it directly (or delete
-it and re-run to re-seed from `--config`) to pick up a machine-config change.
+| | Windows | Linux |
+|---|---|---|
+| Tools (mf-run, mf-worker, mf-watch, mf-cockpit) | `C:\Tools\MagnaFlow\<tool>\`, on the user PATH | `~/tools/magnaflow/<tool>/`, symlinked into `~/.local/bin/` |
+| Machine config (seeded once) | `%APPDATA%\MagnaFlow\magnaflow.yml` | `~/.config/magnaflow/magnaflow.yml` |
+| How it runs | **MagnaFlow** shortcut (desktop + Start menu): cockpit + watcher in minimized consoles, opens <http://localhost:5210> | `systemd --user` units: `mf-cockpit.service` + one `mf-watch@<project>` per watched project |
 
-**Headless machine**: user services stop at logout unless lingering is
-enabled — `install.sh` reminds you at the end:
+To change the machine config: edit `magnaflow.yml` directly (or delete it and
+re-run to re-seed it).
+
+## First install on a new machine
+
+**Windows** — the defaults point at Paul's setup (config seeded from
+`C:\GIT\wozzol2\.magnaflow\magnaflow.yml`, watcher on `C:\GIT\wozzol2`).
+Elsewhere, pass your own config source with `-MachineConfig <path>`, and set
+the watched project via `start-magnaflow.ps1 -Project <path>` (see the
+`param(...)` blocks of both scripts). To stop a tool, close its console
+window (restore it from the taskbar first).
+
+**Linux** — the config is seeded from `tools/install/magnaflow.linux.yml`
+(override with `--config <path>`). Then:
 
 ```bash
+# watch a project (once per project; %i becomes the path)
+systemctl --user enable --now mf-watch@$(systemd-escape /path/to/project).service
+
+# headless machine: keep the services running after logout
 loginctl enable-linger "$USER"
 ```
 
-**Logs**: `systemd --user` captures stdout/stderr in the journal —
+No sudo anywhere — user-level install only.
 
-```bash
-journalctl --user -u mf-cockpit -f
-journalctl --user -u mf-watch@<escaped-instance> -f
-```
+## Linux reference
 
-**Dry run**: `install.sh --dry-run` prints every action (publish, symlink,
-config sync, unit generation, service start/stop) without doing any of it —
-safe to sanity-check on a machine without the .NET SDK, or on Windows via Git
-Bash/WSL.
-
-**mf-run stays out of scope of systemd/PM2.** These units supervise
-MagnaFlow's own daemons only — never the *target project's* dev/debug
-instance, whose crashes must stay visible to the worker (that's what
-`mf-run`, driven by `mf-worker`, is for). Supervising the target app under
-systemd too would hide the very failures the worker needs to see and act on.
-
-Different install dir / config source: `install.sh --help`.
-
-Requires the .NET 10 SDK and a user systemd instance (`systemctl --user`). No
-sudo anywhere — user-level install only.
+- **Logs**: `journalctl --user -u mf-cockpit -f` /
+  `journalctl --user -u mf-watch@<escaped-instance> -f`
+- **Dry run**: `install.sh --dry-run` prints every action without doing it
+  (works without the .NET SDK, or on Windows via Git Bash/WSL).
+- **Other options**: `install.sh --help`.
+- **Update** restarts exactly what was running before (cockpit and/or watch
+  instances); processes started outside systemd are stopped with `pkill`.
+- `mf-watch@` has `Restart=no` on purpose: its exit codes mean something.
+- **systemd supervises MagnaFlow's own daemons only** — never the target
+  project's dev/debug process. That one is `mf-run`'s job, driven by the
+  worker, so its crashes stay visible to the worker instead of being
+  restarted away.

@@ -8,12 +8,13 @@ the prompt lane (`docs/prompts/`) and two record genres
 (`docs/decisions/`, `docs/context/`). Design rationale lives in the
 magnaflow repo under `tools/mf-spec/`.
 
-To adopt: copy this folder into the target repo as `docs/spec-kit/` and
-run `0001-adopt-spec-system.md` as a prompt with Claude Code there (it
-derives the surface config from the repo). To update an already-adopted
-repo: copy the folder again and run `0002-update-spec-system.md`. Delete
-the copy when done — the master lives in the magnaflow repo
-(`tools/mf-spec/spec-kit/`); improvements flow back there.
+- **Adopt**: copy this folder into the target repo as `docs/spec-kit/`
+  and run `0001-adopt-spec-system.md` there as a prompt in Claude Code
+  (it derives the surface config from the repo).
+- **Update**: copy the folder again and run
+  `0002-update-spec-system.md`.
+- Delete the copy when done. The master lives in the magnaflow repo
+  (`tools/mf-spec/spec-kit/`); improvements flow back there.
 
 The version is also stamped in `docs/specs/README.md`; the update prompt
 reads that stamp. Repos on any 0.x or 1.0 version are brought to 1.1 in
@@ -28,7 +29,7 @@ kept mistakes standing.
 The kit is tool-neutral: it installs the spec system and nothing else.
 The MagnaFlow hooks (`.magnaflow/config.yml` for the worker, its
 gitignore lines) are one optional question in the adopt and update
-prompts. Coexists with GitHub Spec Kit: we own `docs/specs/` and
+prompts. It coexists with GitHub Spec Kit: we own `docs/specs/` and
 `/spec*`, they own `specs/` and `/speckit.*`.
 
 ## Contents
@@ -48,10 +49,9 @@ prompts. Coexists with GitHub Spec Kit: we own `docs/specs/` and
 ## Deliberately not in the kit
 
 Considered and rejected, so the next adopter does not re-derive them.
-The common thread: each guards something that only starts to matter at
-dozens of files or in a real PR workflow, and until then costs more than
-it returns. Every check is also something that can fail for the wrong
-reason.
+Each guards something that only matters at dozens of files or in a real
+PR workflow, and until then costs more than it returns. Every check is
+also something that can fail for the wrong reason.
 
 | Rejected | Why |
 |---|---|

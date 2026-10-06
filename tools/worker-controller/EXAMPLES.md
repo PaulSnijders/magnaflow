@@ -1,11 +1,12 @@
 # mf-worker — Examples
 
-A hands-on tour of every command, using the ready-made example project in
-[`examples/hello-website/`](examples/hello-website/): three commands that let the AI agent
-build a hello-world website. Reference docs: [README.md](README.md) and the
-file-format contracts (`git show c0e1353:specs/002-plan-questions-feedback/contracts/file-formats.md`).
+A hands-on tour of every command, using the example project in
+[`examples/hello-website/`](examples/hello-website/): three commands that let
+the AI agent build a hello-world website. Reference: [README.md](README.md)
+and the file-format contracts
+(`git show c0e1353:specs/002-plan-questions-feedback/contracts/file-formats.md`).
 
-Commands below are PowerShell on Windows; the tool itself is cross-platform.
+Commands are PowerShell on Windows; the tool itself is cross-platform.
 
 ## 0. Prerequisites
 
@@ -23,7 +24,7 @@ Set-Alias mf-worker "C:\GIT\magnaflow\tools\worker-controller\src\MagnaFlow.Work
 
 ## 1. What a target project must contain
 
-`mf-worker` operates on any git repository with `docs/prompts/` and `.magnaflow/` folders:
+Any git repository with `docs/prompts/` and `.magnaflow/`:
 
 ```text
 my-project/                          # a git repo, on a branch, clean working tree
@@ -59,9 +60,10 @@ attempts: 0
 A homepage at `src/index.html` that greets visitors with "Hello, world!".
 ```
 
-Everything else in the frontmatter (`branch`, `base`, `group`, `fresh_session`, `resume`,
-`specs`, `max_attempts`, `created`) is optional — see §6. Without `branch:` the command runs
-*branchless*: work is committed directly on the branch you run from.
+All other frontmatter (`branch`, `base`, `group`, `fresh_session`, `resume`,
+`specs`, `max_attempts`, `created`) is optional; see §6. Without `branch:` the
+command runs *branchless*: work is committed directly on the branch you run
+from.
 
 ## 2. Set up the example project
 
@@ -78,7 +80,7 @@ git add -A
 git commit -m "hello-website: project skeleton + commands"
 ```
 
-You now have three ready commands. Check:
+You now have three ready commands:
 
 ```powershell
 mf-worker status
@@ -100,26 +102,27 @@ mf-worker status
 mf-worker run 0001-hello-page
 ```
 
-What happens, step by step (all visible in git afterwards):
+What happens (all visible in git afterwards):
 
-1. Preconditions: valid config → git + agent available → clean tree → command `ready` →
-   linked specs exist → base branch exists (when a new work branch is needed). Refusals
-   change **nothing**.
+1. Preconditions: valid config → git + agent available → clean tree → command
+   `ready` → linked specs exist → base branch exists (if a new work branch is
+   needed). A refusal changes **nothing**.
 2. `status: running` is committed on your current branch (`main`).
-3. **Plan phase**: the agent reads the command, its linked specs, and the project's own
-   conventions (a `CLAUDE.md` and/or constitution file, if present) and plans, in the session it
-   will implement from. For a well-specified command like this one nothing is left open, so no
-   `0001-pln-hello-page.md` is written and the run continues immediately; a `pln` appears only
-   when the agent has a question for you, and the run then pauses on it.
+3. **Plan phase**: the agent reads the command, its linked specs and the
+   project's conventions (`CLAUDE.md` and/or a constitution file, if present)
+   and plans, in the session it will implement from. This command is
+   well-specified, so no `0001-pln-hello-page.md` is written and the run goes
+   on. A `pln` appears only when the agent has a question for you; the run
+   then pauses.
 4. Branch `task/0001-hello-page` is created from the default branch.
-5. The agent implements the goal. Build and test commands run; failures are fed back to the
+5. The agent implements the goal. Build and test run; failures go back to the
    agent (up to `max_attempts`).
-6. The agent's work is committed on the command branch; back on `main`, the plan, the report
-   (`0001-rst-hello-page.md`), the logs, `session.yml`, final `attempts`, and `status: done`
-   are committed.
+6. The agent's work is committed on the command branch. On `main`, the plan,
+   the report (`0001-rst-hello-page.md`), the logs, `session.yml`, final
+   `attempts` and `status: done` are committed.
 
-Exit code `0` = done (or a legitimate pause), `1` = aborted after max attempts (see §9 for all
-codes).
+Exit code `0` = done (or a legitimate pause), `1` = aborted after max attempts
+(all codes: §9).
 
 ### Running from another directory
 
@@ -147,17 +150,17 @@ cat .magnaflow\0001-hello-page\build.log                 # build output per atte
 cat .magnaflow\0001-hello-page\test.log                  # test output per attempt
 ```
 
-Review the work like any branch, and merge it yourself when satisfied — mf-worker never merges:
+Review the work like any branch and merge it yourself; mf-worker never merges:
 
 ```powershell
 git diff main...task/0001-hello-page
 git merge task/0001-hello-page
 ```
 
-Prefer reviewing *without* checking the work branch out (`git diff`/`git show`): a work branch
-carries a frozen mid-run snapshot of the bookkeeping, so mf-worker refuses to run from one (see
-§8). If you do check it out to try the result in a browser, switch back to `main` before the next
-mf-worker command.
+Review *without* checking out the work branch (`git diff`/`git show`): it
+carries a frozen mid-run snapshot of the bookkeeping, so mf-worker refuses to
+run from it (§8). If you check it out to view the page, switch back to `main`
+before the next mf-worker command.
 
 ## 5. `next` and `run-all` — queue-driven execution
 
@@ -178,16 +181,17 @@ mf-worker run-all    # drains ALL ready commands sequentially, prints a summary,
 └───────────────────┴─────────┘
 ```
 
-`run-all` never waits for new work (one-shot by design), continues past an `aborted` command,
-and stops early only on systemic problems (dirty tree, missing environment). A command paused at
-`questions` is **not** picked up automatically — see §6a.
+`run-all` never waits for new work, continues past an `aborted` command, and
+stops early only on systemic problems (dirty tree, missing environment). A
+command paused at `questions` is **not** picked up automatically; see §6a.
 
 ## 6. Command frontmatter recipes
 
-The example's commands 0002 and 0003 demonstrate the two most useful options:
+Commands 0002 and 0003 of the example use the first two options.
 
-**Stacking on unmerged work — `base:`.** Command 0002 needs the page 0001 created, but you
-haven't merged `task/0001-hello-page` yet. Point its branch base at the predecessor:
+**Stack on unmerged work — `base:`.** Command 0002 needs the page from 0001,
+but `task/0001-hello-page` isn't merged yet. Base its branch on the
+predecessor:
 
 ```yaml
 branch: task/0002-add-styling
@@ -196,40 +200,42 @@ base: task/0001-hello-page
 
 Without `base:`, branches start from the repository's default branch.
 
-**Shared agent session — `group:`.** Consecutive commands with the same group reuse one Claude
-session during a single `run-all`, so command 0003's agent still remembers the context of 0002:
+**Share an agent session — `group:`.** Consecutive commands with the same
+group reuse one Claude session within a single `run-all`, so 0003's agent
+remembers 0002:
 
 ```yaml
 group: website
 ```
 
-**Continue context across invocations — `resume:`.** Every run records the session ID it ended
-with in `.magnaflow/<id>/session.yml`. Point a later command at it — even days later, in a fresh
-invocation:
+**Continue context across invocations — `resume:`.** Every run records its
+final session ID in `.magnaflow/<id>/session.yml`. A later command can point
+at it, even days later:
 
 ```yaml
 resume: 0002-add-styling             # a command ID: continue that command's recorded session
 ```
 
-Or continue a specific Claude session directly (any value that is not a command ID is passed to
-the agent verbatim — e.g. a session from an interactive `claude` conversation):
+Any value that is not a command ID is passed to the agent verbatim, e.g. a
+session from an interactive `claude` conversation:
 
 ```yaml
 resume: 6a1f0e6e-9c1d-4f5a-b0e2-3d8f19a7c44e
 ```
 
-`resume:` beats group continuity and the default self-resume (§6a); combining it with
-`fresh_session: true` is rejected. Referencing a command that never completed a run is a clear
-error before anything is touched.
+`resume:` beats group continuity and the default self-resume (§6a). Combining
+it with `fresh_session: true` is rejected. Referencing a command that never
+completed a run is an error before anything is touched.
 
-**Force a fresh session** despite a matching group (e.g. a big context switch):
+**Force a fresh session** despite a matching group (e.g. a big context
+switch):
 
 ```yaml
 fresh_session: true
 ```
 
-**Give the agent background reading** — file contents are inlined into every phase's prompt; a
-missing path aborts the run before the agent starts:
+**Give the agent background reading.** The files are inlined into every
+phase's prompt; a missing path aborts the run before the agent starts:
 
 ```yaml
 specs:
@@ -237,16 +243,17 @@ specs:
   - docs/decisions/0004-css-conventions.md
 ```
 
-**Tune retries per command** (overrides `defaults.max_attempts` from config.yml; shared by
-planning crashes and build/test retries alike — a clean pause never counts against it):
+**Tune retries per command.** Overrides `defaults.max_attempts`. Planning
+crashes and build/test retries share the budget; a clean pause never counts:
 
 ```yaml
 max_attempts: 1    # e.g. a mechanical rename that should work first try
 ```
 
-**No branching at all** — omit `branch:` and the work is committed directly on the branch you run
-from (its own commit, separate from the status commits). Handy for solo projects or low-risk
-chores; you lose the reviewable branch, git history is still complete:
+**No branching** — omit `branch:` and the work is committed directly on the
+branch you run from (its own commit, separate from the status commits). Handy
+for solo projects or low-risk chores; you lose the review branch, but git
+history stays complete:
 
 ```markdown
 ---
@@ -262,8 +269,8 @@ The footer says "Copyrigth"; make it "Copyright".
 
 ### 6a. When the plan raises a genuine question
 
-Suppose a command's goal is genuinely ambiguous — nothing in its specs, the code, or the
-project's conventions settles it. The run pauses instead of guessing:
+Suppose a goal is ambiguous and nothing in the specs, code or conventions
+settles it. The run pauses instead of guessing:
 
 ```powershell
 mf-worker run 0004-add-banner
@@ -288,28 +295,30 @@ Should the banner link to the pricing page or the signup page?
 **Answer**:
 ```
 
-Write your answer beneath it, then set the command's own `status:` back to `ready`:
+Write your answer beneath it, then set the command's `status:` back to
+`ready`:
 
 ```markdown
 **Answer**: The signup page — that's this quarter's growth goal.
 ```
 
-Run it again — the controller resumes the *exact* agent session that paused (no re-explaining
-context), re-plans by updating the same plan file with your answer, and continues:
+Run it again. The controller resumes the *exact* session that paused,
+re-plans by updating the same plan file with your answer, and continues:
 
 ```powershell
 mf-worker run 0004-add-banner
 # [0004-add-banner] resuming this command's own recorded session (self-resume)
 ```
 
-If the plan raises a further question, the same cycle repeats — a second round is appended to
-the same `qa` file rather than starting a new one. Running a command while it is still `questions`
-(before you've reset it to `ready`) is refused, the same as any other non-`ready` status.
+A further question repeats the cycle: round 2 is appended to the same `qa`
+file. Running a command that is still `questions` is refused, like any other
+non-`ready` status.
 
 ## 7. config.yml recipes
 
-**Full autonomy on your own machine** (skips Claude Code's per-action permission prompts —
-deliberate opt-in, keep it out of shared projects unless the team agrees):
+**Full autonomy on your own machine.** Skips Claude Code's per-action
+permission prompts. A deliberate opt-in; keep it out of shared projects unless
+the team agrees:
 
 ```yaml
 agent:
@@ -317,8 +326,8 @@ agent:
   args: [--dangerously-skip-permissions]
 ```
 
-**A different agent entirely** — anything that reads a prompt on stdin and behaves headless can
-be dropped in; mf-worker contains no Claude-specific logic beyond flags:
+**A different agent.** Anything headless that reads a prompt on stdin can be
+dropped in; mf-worker has no Claude-specific logic beyond flags:
 
 ```yaml
 agent:
@@ -336,8 +345,8 @@ defaults:
   command_timeout_minutes: 45   # slow test suite? raise the per-command timeout
 ```
 
-**Monorepo with more than one stack** — `commands:` runs each entry in order and stops at the
-first failure, whose output becomes the feedback:
+**Monorepo with more than one stack.** `commands:` runs each entry in order
+and stops at the first failure, whose output becomes the feedback:
 
 ```yaml
 build:
@@ -349,14 +358,13 @@ test:
     - dotnet test web/Wozzol.Tests/Wozzol.Tests.csproj
 ```
 
-**Project conventions** — drop a `CLAUDE.md` at the repository root and/or a constitution file
-at `.specify/memory/constitution.md` (or `docs/constitution.md`); mf-worker includes whichever
-exists in every phase's agent instructions automatically. No config needed, and no error if
-neither exists.
+**Project conventions** need no config: a root `CLAUDE.md` and/or
+`.specify/memory/constitution.md` (or `docs/constitution.md`) is included
+automatically when present (see [README](README.md#project-conventions)).
 
 ## 8. When things go wrong
 
-**Dirty working tree** — runs are refused before anything changes:
+**Dirty working tree**: the run is refused before anything changes.
 
 ```powershell
 echo x > notes.txt
@@ -365,8 +373,8 @@ mf-worker next
 # exit code 3
 ```
 
-**Standing on a work branch** — every command refuses (or warns, for `status`), because a work
-branch's bookkeeping is a frozen mid-run snapshot, not the live queue:
+**On a work branch**: every command refuses (`status` only warns), because a
+work branch's bookkeeping is a frozen mid-run snapshot, not the live queue.
 
 ```powershell
 git checkout task/0001-hello-page   # e.g. to view the page
@@ -378,7 +386,7 @@ mf-worker next
 # exit code 3
 ```
 
-**Command stuck in `running`** (controller was killed mid-run):
+**Command stuck in `running`** (the controller was killed mid-run):
 
 ```powershell
 mf-worker run 0002-add-styling
@@ -386,13 +394,14 @@ mf-worker run 0002-add-styling
 # inspect the command and reset status to ready manually if appropriate
 ```
 
-Recovery is a plain-text edit: look at the logs and git history, set `status: running` back to
-`status: ready` in the command file, commit, and run again. The work branch is reused, so nothing
-is lost.
+To recover, check the logs and git history, set `status: running` back to
+`status: ready` in the command file, commit, and run again. The work branch is
+reused, so nothing is lost.
 
-**Aborted after all attempts** — the command ends `aborted` (exit 1), every attempt's logs are in
-`.magnaflow/<id>/`, and the report (`NNNN-rst-*.md`) names the specific reason. Fix the command
-description (or the code) and reset the status to `ready` to try again.
+**Aborted after all attempts**: the command ends `aborted` (exit 1), every
+attempt's logs are in `.magnaflow/<id>/`, and the report (`NNNN-rst-*.md`)
+names the reason. Fix the command (or the code) and reset the status to
+`ready` to retry.
 
 ## 9. Exit codes — scripting and composition
 
@@ -405,7 +414,7 @@ description (or the code) and reset the status to `ready` to try again.
 4  environment error (git or agent executable unavailable)
 ```
 
-Example: a poor man's dispatcher that drains the queue and alerts on trouble:
+A minimal dispatcher that drains the queue and alerts on trouble:
 
 ```powershell
 mf-worker run-all --project C:\tmp\hello-website
