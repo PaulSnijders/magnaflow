@@ -9,8 +9,13 @@ Appearance follows [design](../concepts/design.md#shared-conventions).
 `path` is relative to `docs/specs/`, with `/` separators. Each segment
 of the header breadcrumb links back up the tree. A directory lists its
 folders first, then its files, each alphabetically (case-insensitive).
-A file is fetched as text and rendered as markdown, whatever its
-extension.
+A file is fetched as text. A `.md` file (case-insensitive) is rendered
+as markdown, including tables and heading ids (see
+[chat](chat.md#markdown-rendering)). Any other file, such as
+`config.yml`, is shown as written in an escaped, preformatted block,
+never as markdown. In `.yml`/`.yaml` files a comment is dimmed: a `#`
+at line start or after whitespace, outside quotes, up to the end of
+the line.
 
 `GET /api/projects/{name}/specs[/{**path}]` answers
 `{type: "dir", entries: [{name, isDirectory}]}` or
@@ -31,6 +36,16 @@ None for the tree itself, because `docs/specs/` is not watched. Only the
 summary bar follows `lane` and `watch` events. An open spec is as fresh
 as its page load.
 
+## Anchors
+
+The rendered spec arrives after the page has loaded, so the page itself
+scrolls to the element named by `location.hash` once a spec renders,
+and again whenever the hash changes. The lookup stays inside the
+rendered spec. So `concepts/machine-config.md#lookup-order` opens at
+"Lookup order", whether the target is the explicit `{#lookup-order}` or
+the heading's GitHub slug. A same-page link (`#why`) jumps within the
+page.
+
 ## Cross-links
 
 A relative `.md` link in a rendered spec is resolved against the open
@@ -39,7 +54,10 @@ keeping any `#anchor`. So `../concepts/design.md` from
 `cockpit/index.md` opens `concepts/design.md`. A link that climbs out
 of `docs/specs/`, or is rooted (`/x.md`), renders as plain text. Other
 relative targets are left as written. Link schemes follow the renderer's
-rule (see [chat](chat.md#link-safety)). Links open in a new tab.
+rule (see [chat](chat.md#link-safety)). A rewritten spec link and a
+same-page `#anchor` are navigation inside the cockpit and open in the
+same tab. External links (`http:`, `https:`, `mailto:`) and other
+relative targets open in a new tab.
 
 DRAFT: generated from code, not human-reviewed.
 

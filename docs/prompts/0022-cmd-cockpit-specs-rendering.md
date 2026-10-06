@@ -1,7 +1,8 @@
 ---
 title: "mf-cockpit: the specs page renders tables, anchors and non-markdown files properly"
-status: ready
+status: done
 created: 2026-10-06
+attempts: 1
 ---
 
 ## Context

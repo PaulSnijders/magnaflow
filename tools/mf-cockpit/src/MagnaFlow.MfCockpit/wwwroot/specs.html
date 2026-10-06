@@ -79,6 +79,38 @@
     return pathUrl(parts.join("/")) + anchor;
   }
 
+  // A non-markdown file (config.yml, ...) is shown as written: escaped and preformatted. YAML gets
+  // one touch - a `#` at line start or after whitespace, outside quotes, starts a dimmed comment.
+  function plainFileHtml(path, content) {
+    const yaml = /\.ya?ml$/i.test(path);
+    const lines = content.split("\n").map((line) => {
+      if (!yaml) return Cockpit.escapeHtml(line);
+      let quote = null;
+      for (let i = 0; i < line.length; i++) {
+        const c = line[i];
+        if (quote) { if (c === quote) quote = null; continue; }
+        if (c === '"' || c === "'") { quote = c; continue; }
+        if (c === "#" && (i === 0 || /\s/.test(line[i - 1]))) {
+          return Cockpit.escapeHtml(line.slice(0, i)) + '<span class="yaml-comment">' + Cockpit.escapeHtml(line.slice(i)) + "</span>";
+        }
+      }
+      return Cockpit.escapeHtml(line);
+    });
+    return '<pre class="spec-file"><code>' + lines.join("\n") + "</code></pre>";
+  }
+
+  // The rendered spec arrives after the page has loaded, so the browser's own jump to
+  // location.hash finds nothing; scroll to it once rendered and on every hash change. Looked up
+  // inside the view only, so a heading slug equal to a page id (`live`) still lands on the heading.
+  function scrollToHash() {
+    if (location.hash.length < 2) return;
+    let id;
+    try { id = decodeURIComponent(location.hash.slice(1)); } catch { return; }
+    const target = document.getElementById("specs-view").querySelector(`[id="${CSS.escape(id)}"]`);
+    if (target) target.scrollIntoView();
+  }
+  window.addEventListener("hashchange", scrollToHash);
+
   function renderBreadcrumbs(path) {
     const parts = path.split("/").filter(Boolean);
     const crumbs = [`<a href="${pathUrl("")}">docs/specs</a>`];
@@ -107,8 +139,11 @@
           const label = e.isDirectory ? "📁 " + Cockpit.escapeHtml(e.name) : "📄 " + Cockpit.escapeHtml(e.name);
           return `<li><a href="${pathUrl(childPath)}">${label}</a></li>`;
         }).join("") + "</ul>";
-      } else {
+      } else if (/\.md$/i.test(path)) {
         view.innerHTML = renderMarkdown(result.content, { rewriteLink: (target) => specLink(path, target) });
+        scrollToHash();
+      } else {
+        view.innerHTML = plainFileHtml(path, result.content);
       }
     } catch (err) {
       view.innerHTML = `<span class="muted">${Cockpit.escapeHtml(err.message)}</span>`;

@@ -32,7 +32,9 @@ body only, because its frontmatter is the header. A malformed cmd shows
 the raw file instead, so it stays diagnosable. Other files' frontmatter
 renders as a key/value block, the body as markdown. Links to sibling
 lane files (`./NNNN-{cmd,pln,qa,rst}-name.md`) are rewritten to this
-page; every other link opens in a new tab.
+page, and a same-page `#anchor` jumps within it. Every other link opens
+in a new tab. Tables and heading ids follow the shared renderer (see
+[chat](chat.md#markdown-rendering)).
 
 ## Evidence
 

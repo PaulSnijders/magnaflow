@@ -126,6 +126,17 @@ th { color: var(--muted); font-weight: 600; }
 
 tr:hover td { background: rgba(255, 140, 26, 0.06); }
 
+/* Markdown pipe tables (md.js): bordered cells sized to their content, a raised header row, and the
+   .table-wrap scroll so a wide spec table never breaks the layout on a narrow screen. */
+.md-table { margin: 0.75rem 0; }
+.md-table table { width: auto; }
+.md-table th, .md-table td { border: 1px solid var(--border); vertical-align: top; }
+.md-table th { background: var(--bg-raised); color: var(--text); }
+.md-table tr:hover td { background: none; }
+
+/* Non-markdown files on the specs page: YAML comments dimmed, everything else as written. */
+.yaml-comment { color: var(--muted); }
+
 /* Follow-up commands (0005B, 0005C, ...) group subtly under their parent — v0.2. */
 tr.followup-row td:first-child { padding-left: 1.4rem; }
 .followup-marker { font-size: 0.85em; }

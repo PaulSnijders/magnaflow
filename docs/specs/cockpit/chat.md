@@ -62,7 +62,27 @@ Replies are model output, so the shared markdown renderer (`md.js`)
 vets every link target. Only `http:`, `https:`, `mailto:` and relative
 targets become links. Any other scheme (`javascript:`, `data:`, …)
 renders as its plain label. The same rule holds on every page that
-renders markdown.
+renders markdown. External links open in a new tab. A same-page
+`#anchor`, or a link the page itself rewrote into cockpit navigation,
+opens in the same tab.
+
+## Markdown rendering {#markdown-rendering}
+
+`md.js` is the one renderer for every page. It is deliberately not
+CommonMark: headings, emphasis, inline code, fenced code blocks, links,
+lists, blockquotes, paragraphs and GitHub-style pipe tables.
+
+- **Tables**: a header row, a delimiter row (`---`, with `:---`,
+  `---:`, `:---:` alignment), then body rows. Cells take inline markdown,
+  and their links follow the same vetting. `\|` is a literal pipe. A
+  table scrolls horizontally inside its own box when it is wider than
+  the page.
+- **Heading ids** follow the spec kit's lint rule (`ANCHOR` and
+  `ghSlug` in `scripts/spec_lint.mjs`), so every anchor the lint accepts
+  resolves. A `{#slug}` is removed from the visible heading and becomes
+  its id. The GitHub-style slug of the heading is a second target when
+  it differs. Ids are unique within one rendered text: a duplicate gets
+  `-1`, `-2`, … as on GitHub.
 
 DRAFT: generated from code, not human-reviewed.
 
