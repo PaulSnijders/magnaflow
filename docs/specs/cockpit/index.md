@@ -131,6 +131,15 @@ flat at the root (move them under `cockpit:`). When no file was loaded,
 a new `magnaflow.yml` is created in the user config directory. See
 [machine config](../concepts/machine-config.md).
 
+## Serving {#serving}
+
+Every static file from `wwwroot/` (the `.html` pages, `/` itself, and
+`assets/`) is sent with `Cache-Control: no-cache` next to its `ETag`.
+The browser revalidates on every load and gets a `304` when nothing
+changed, so after an install it never mixes an old `app.js` with a new
+`style.css`. API responses are not static files and are not covered by
+this rule.
+
 ## Live updates
 
 SSE kinds `lane`, `projects`, `watch` and `run` from any project

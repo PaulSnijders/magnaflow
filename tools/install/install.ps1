@@ -3,10 +3,13 @@
 MagnaFlow one-time (re-runnable) machine install.
 
 What it does, in order:
-  1. Publishes the four tools (Release) to $InstallDir\<tool>\, renamed to their
-     canonical short names (mf-run.exe, mf-worker.exe, mf-watch.exe,
+  1. Publishes the four tools (Release) to $InstallDir\.staging\<tool>\, renamed
+     to their canonical short names (mf-run.exe, mf-worker.exe, mf-watch.exe,
      mf-cockpit.exe) — so the bare names in configs ("mf-run", "claude"-style
-     seams) resolve once the folders are on PATH.
+     seams) resolve once the folders are on PATH. The daemons keep running
+     meanwhile; a failed publish removes the staging folder and stops the script
+     with nothing stopped or replaced. Only then are the daemons stopped and each
+     $InstallDir\<tool>\ swapped for its staged copy.
   2. Seeds the machine config (magnaflow.yml) into %APPDATA%\MagnaFlow\ — the
      one location every tool checks regardless of where its binary lives.
      Only happens the first time, when that file doesn't exist yet: once it's
@@ -21,9 +24,9 @@ Usage:
   powershell -ExecutionPolicy Bypass -File C:\GIT\magnaflow\tools\install\install.ps1
 
 Re-run any time — this is also the update path: after tool code changes or a
-machine-config edit, one run stops the daemons (a running exe is locked and
-holds old code/config in memory anyway), re-publishes, re-syncs, and restarts
-them automatically.
+machine-config edit, one run publishes, stops the daemons (a running exe is
+locked and holds old code/config in memory anyway), swaps in the new build,
+re-syncs, and restarts them automatically.
 
 Requires the .NET 10 SDK (the tools target net10.0).
 #>
@@ -41,11 +44,38 @@ $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 
 Write-Host "== MagnaFlow install (repo: $repoRoot -> $InstallDir) =="
 
-# --- 0. stop running daemons (restarted again at the end) --------------------
-# Two reasons: Windows locks the exe of a running process, so publishing over
-# it would fail — and a running daemon keeps its old code and config in memory
-# anyway, so an update only lands after a restart. Old pre-install builds ran
-# under their assembly names, hence the extra two entries.
+# --- 1. publish the tools into staging (daemons keep running) ----------------
+$tools = @(
+    @{ Name = 'mf-run';     Csproj = 'tools\mf-run\src\MagnaFlow.MfRun\MagnaFlow.MfRun.csproj' },
+    @{ Name = 'mf-worker';  Csproj = 'tools\worker-controller\src\MagnaFlow.WorkerController\MagnaFlow.WorkerController.csproj' },
+    @{ Name = 'mf-watch';   Csproj = 'tools\mf-watch\src\MagnaFlow.MfWatch\MagnaFlow.MfWatch.csproj' },
+    @{ Name = 'mf-cockpit'; Csproj = 'tools\mf-cockpit\src\MagnaFlow.MfCockpit\MagnaFlow.MfCockpit.csproj' }
+)
+$stagingDir = Join-Path $InstallDir '.staging'
+# A leftover from an interrupted run would otherwise mix into this one.
+if (Test-Path $stagingDir) { Remove-Item -Recurse -Force $stagingDir }
+foreach ($t in $tools) {
+    $out = Join-Path $stagingDir $t.Name
+    Write-Host "-- publishing $($t.Name) -> $out"
+    dotnet publish (Join-Path $repoRoot $t.Csproj) -c Release -o $out "-p:AssemblyName=$($t.Name)" --nologo
+    if ($LASTEXITCODE -ne 0) {
+        Remove-Item -Recurse -Force -ErrorAction SilentlyContinue $stagingDir
+        Write-Host "error: dotnet publish failed for $($t.Name) - nothing was stopped, the installed tools in $InstallDir are untouched" -ForegroundColor Red
+        exit 1
+    }
+}
+
+# The cockpit build copies a default mf-cockpit.yml next to its binary (legacy
+# pre-fase-7 config). Remove it from the install so %APPDATA%\MagnaFlow\
+# magnaflow.yml is unambiguously the config in use.
+Remove-Item -ErrorAction SilentlyContinue (Join-Path $stagingDir 'mf-cockpit\mf-cockpit.yml')
+
+# --- 1b. stop running daemons (restarted again at the end), swap in the build -
+# Only now that every publish succeeded. Two reasons: Windows locks the exe of
+# a running process, so replacing it would fail — and a running daemon keeps
+# its old code and config in memory anyway, so an update only lands after a
+# restart. Old pre-install builds ran under their assembly names, hence the
+# extra two entries.
 $daemonNames = @('mf-cockpit', 'mf-watch', 'MagnaFlow.MfCockpit', 'MagnaFlow.MfWatch')
 $wasRunning = [bool](Get-Process -Name $daemonNames -ErrorAction SilentlyContinue)
 
@@ -72,24 +102,13 @@ if ($wasRunning) {
     Start-Sleep -Seconds 1
 }
 
-# --- 1. publish the tools ---------------------------------------------------
-$tools = @(
-    @{ Name = 'mf-run';     Csproj = 'tools\mf-run\src\MagnaFlow.MfRun\MagnaFlow.MfRun.csproj' },
-    @{ Name = 'mf-worker';  Csproj = 'tools\worker-controller\src\MagnaFlow.WorkerController\MagnaFlow.WorkerController.csproj' },
-    @{ Name = 'mf-watch';   Csproj = 'tools\mf-watch\src\MagnaFlow.MfWatch\MagnaFlow.MfWatch.csproj' },
-    @{ Name = 'mf-cockpit'; Csproj = 'tools\mf-cockpit\src\MagnaFlow.MfCockpit\MagnaFlow.MfCockpit.csproj' }
-)
 foreach ($t in $tools) {
-    $out = Join-Path $InstallDir $t.Name
-    Write-Host "-- publishing $($t.Name) -> $out"
-    dotnet publish (Join-Path $repoRoot $t.Csproj) -c Release -o $out "-p:AssemblyName=$($t.Name)" --nologo
-    if ($LASTEXITCODE -ne 0) { throw "dotnet publish failed for $($t.Name)" }
+    $target = Join-Path $InstallDir $t.Name
+    if (Test-Path $target) { Remove-Item -Recurse -Force $target }
+    Move-Item (Join-Path $stagingDir $t.Name) $target
 }
-
-# The cockpit build copies a default mf-cockpit.yml next to its binary (legacy
-# pre-fase-7 config). Remove it from the install so %APPDATA%\MagnaFlow\
-# magnaflow.yml is unambiguously the config in use.
-Remove-Item -ErrorAction SilentlyContinue (Join-Path $InstallDir 'mf-cockpit\mf-cockpit.yml')
+Remove-Item -Recurse -Force $stagingDir
+Write-Host "-- installed into ${InstallDir}: $(($tools | ForEach-Object { $_.Name }) -join ', ')"
 
 # --- 2. machine config -> %APPDATA%\MagnaFlow (seeded once, never overwritten) --
 $appDataDir = Join-Path $env:APPDATA 'MagnaFlow'

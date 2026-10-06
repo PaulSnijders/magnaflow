@@ -12,8 +12,9 @@ powershell -ExecutionPolicy Bypass -File C:\GIT\magnaflow\tools\install\install.
 tools/install/install.sh
 ```
 
-Same command for the first install and every update: it stops the running
-tools, re-publishes them and starts them again. Your machine config
+Same command for the first install and every update: it publishes the tools
+first, and only when that succeeded stops the running ones, swaps in the new
+build and starts them again. A failed build changes nothing. Your machine config
 (`magnaflow.yml`) is never overwritten. Requires the .NET 10 SDK.
 
 ## What you get
@@ -53,6 +54,14 @@ No sudo anywhere — user-level install only.
 
 - **Logs**: `journalctl --user -u mf-cockpit -f` /
   `journalctl --user -u mf-watch@<escaped-instance> -f`
+- **Self-update** (opt-in): `install.sh --self-update` also installs
+  `mf-selfupdate.timer`. Every 2 minutes it re-runs the install when the
+  repo's `HEAD` has a new commit that changed `tools/` and no command is
+  `running` in any watched project (or this repo). It never fetches; the
+  watcher's `git_sync` pulls. A failed install is retried only after the next
+  commit. One line per decision in `~/tools/magnaflow/selfupdate.log` and in
+  `journalctl --user -u mf-selfupdate`. Off again:
+  `systemctl --user disable --now mf-selfupdate.timer`.
 - **Dry run**: `install.sh --dry-run` prints every action without doing it
   (works without the .NET SDK, or on Windows via Git Bash/WSL).
 - **Other options**: `install.sh --help`.

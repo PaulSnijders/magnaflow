@@ -46,5 +46,8 @@ Tools are published and wired up by `tools/install/`, see
 
 MagnaFlow is built with itself. This repo is a MagnaFlow project with its
 own lane and specs. The kit master in `tools/mf-spec/spec-kit/` is also
-installed here. Rolling out new tool code stays a manual
-`install.ps1` / `install.sh`.
+installed here. Rolling out new tool code is a manual
+`install.ps1` / `install.sh`, or on Linux the opt-in
+[self-update](concepts/machine-install.md#self-update) timer, which
+installs a new `tools/` commit once no command is running. A worker run
+never installs.

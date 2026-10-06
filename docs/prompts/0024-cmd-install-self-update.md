@@ -1,7 +1,8 @@
 ---
 title: "install: publish before stopping, opt-in self-update on Linux, no stale cockpit assets"
-status: ready
+status: done
 created: 2026-10-06
+attempts: 1
 ---
 
 ## Context

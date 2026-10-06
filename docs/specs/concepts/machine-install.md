@@ -7,15 +7,25 @@ two small scripts, one per OS, kept apart on purpose: two honest
 scripts beat one clever one. Neither needs admin or sudo. Both need the
 .NET 10 SDK.
 
-**Installing and updating are the same command.** A re-run stops the
-daemons, re-publishes, and restarts what it stopped. A running binary
-can be locked, and a running daemon keeps its old code and config in
-memory, so an update only lands after a restart.
+**Installing and updating are the same command.** A re-run publishes
+first, then stops the daemons, swaps in the new build and restarts what
+it stopped. A running binary can be locked, and a running daemon keeps
+its old code and config in memory, so an update only lands after a
+restart.
+
+**Publish first, stop second.** All four tools are published into
+`<install-dir>/.staging/<tool>/` while the daemons keep running. Only
+when every publish succeeded are the daemons stopped and each
+`<install-dir>/<tool>/` replaced by its staged copy. A failed publish
+removes the staging dir, names the tool that failed and exits non-zero,
+with the running daemons and the installed tools untouched. A broken
+build never takes MagnaFlow down, which is what makes an unattended
+install (the Linux [self-update](#self-update)) safe.
 
 ## Shared rules
 
-- Each tool is published in Release to `<install-dir>/<tool>/`, with
-  `AssemblyName` set to the short name: `mf-run`, `mf-worker`,
+- Each tool is published in Release (via `.staging/`) to
+  `<install-dir>/<tool>/`, with `AssemblyName` set to the short name: `mf-run`, `mf-worker`,
   `mf-watch`, `mf-cockpit`. The bare names used as config defaults then
   resolve via `PATH`.
 - The flat `mf-cockpit.yml` that the cockpit build drops next to its
@@ -65,7 +75,7 @@ used to make every config change look ignored.
 ## Linux: `install.sh`
 
 ```text
-install.sh [--install-dir <dir>] [--config <path>] [--dry-run]
+install.sh [--install-dir <dir>] [--config <path>] [--self-update] [--dry-run]
 ```
 
 | | |
@@ -75,7 +85,8 @@ install.sh [--install-dir <dir>] [--config <path>] [--dry-run]
 | Config seed | `~/.config/magnaflow/magnaflow.yml` from `--config`, default `tools/install/magnaflow.linux.yml` |
 | Daemons | systemd `--user` units: `mf-cockpit.service` (`Restart=on-failure`, enabled) and the template `mf-watch@.service` (`Restart=no`) |
 | Stop | `systemctl --user stop` for the cockpit and every running `mf-watch@*` instance, then `pkill -x` on exact names for anything outside systemd |
-| Logs | the journal: `journalctl --user -u mf-cockpit`, `-u mf-watch@<escaped>` |
+| Logs | the journal: `journalctl --user -u mf-cockpit`, `-u mf-watch@<escaped>`, `-u mf-selfupdate` |
+| Installed commit | `<install-dir>/installed-commit`: the repo's `HEAD`, read before publishing, written by every successful run (manual or automatic) |
 
 - The template `magnaflow.linux.yml` is the worker-machine posture:
   `git_sync: true` and the cockpit bound to `0.0.0.0` (no auth; firewall
@@ -93,11 +104,52 @@ install.sh [--install-dir <dir>] [--config <path>] [--dry-run]
   see [watch supervision](watch-supervision.md).
 - A re-run restarts exactly the cockpit and the watch instances that
   were running before it.
+- `--self-update` additionally installs the self-update timer, see
+  below. Without it an existing timer is left exactly as it is, neither
+  rewritten nor removed.
 - `--dry-run` prints every action and changes nothing. It works without
   the SDK, or from Git Bash on Windows.
 - A headless machine needs `loginctl enable-linger $USER`, or the user
   services stop at logout. The script prints that hint and does not run
   it.
+
+### Self-update (opt-in) {#self-update}
+
+`install.sh --self-update` installs `mf-selfupdate.timer` (every 2
+minutes, first tick 2 minutes after boot) and the oneshot
+`mf-selfupdate.service`, which runs `<install-dir>/mf-selfupdate.sh`
+(copied from `tools/install/`) with the repo root, install dir and
+config of that install on its command line. It is its own unit, never
+inside a watcher's control group, so the install stopping the watchers
+does not stop it.
+
+Each tick takes exactly one decision, in this order:
+
+1. No `installed-commit` → skipped.
+2. `HEAD` equals the installed commit → skipped.
+3. `git diff --name-only <installed>..HEAD -- tools/` is empty → skipped.
+   Docs-only commits never install. A diff that fails (the installed
+   commit left the history) counts as a change.
+4. `HEAD` is the commit whose install failed last
+   (`<install-dir>/selfupdate-failed-commit`) → skipped. A failed
+   install is retried only after a new commit, not every tick.
+5. Any `docs/prompts/*-cmd-*.md` with `status: running` in its
+   frontmatter, in the project of every running `mf-watch@` instance
+   (unescaped like `%I`) or in the repo itself → skipped. Stopping a
+   watcher kills its worker, so a stale `running` left by a killed
+   worker blocks self-update until a human resets it.
+6. Otherwise it runs the repo's `install.sh --self-update` with the same
+   install dir and config. Success clears the failed-commit file; a
+   failure writes `HEAD` into it. Publish-first means a failure leaves
+   everything running.
+
+It reads the local `HEAD` only and never fetches. Pulling is the
+watcher's `git_sync`. Every decision is one line, timestamped, on stdout
+(the journal) and in `<install-dir>/selfupdate.log`, which is cut back
+to its last 1000 lines: `skipped: <why>`, `installed: <old>..<new>`,
+`failed: <why>`. `install.sh`'s own output goes to the journal only.
+Every tick exits 0, failures included; the log carries the verdict.
+Switching it off is `systemctl --user disable --now mf-selfupdate.timer`.
 
 ## Scope
 
@@ -112,9 +164,11 @@ This repo is a MagnaFlow project, so its own watcher dispatches workers
 that change tool code. A worker run must **never** trigger an install. An
 install stops every watcher, including the one running that worker, and
 on Windows `Stop-Process` does not take the child with it. This is why
-this repo's `.magnaflow/config.yml` has no `run:` section, and why
-rolling out new tool code stays a manual `install.ps1` / `install.sh`.
+this repo's `.magnaflow/config.yml` has no `run:` section. Rolling out
+new tool code is a manual `install.ps1` / `install.sh`, or on Linux the
+opt-in [self-update](#self-update) timer: a separate actor outside every
+watcher, which installs only once no command is `running`.
 
 DRAFT: generated from code, not human-reviewed.
 
-Code: tools/install/install.ps1, tools/install/install.sh, tools/install/start-magnaflow.ps1, tools/install/magnaflow.linux.yml
+Code: tools/install/install.ps1, tools/install/install.sh, tools/install/mf-selfupdate.sh, tools/install/start-magnaflow.ps1, tools/install/magnaflow.linux.yml

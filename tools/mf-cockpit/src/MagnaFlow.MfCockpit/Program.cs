@@ -74,7 +74,12 @@ builder.Services.AddHostedService(sp => sp.GetRequiredService<ProjectWatchersHos
 var app = builder.Build();
 
 app.UseDefaultFiles();
-app.UseStaticFiles();
+// no-cache = always revalidate (the ETag still saves the body): without it the browser's heuristic
+// cache served an old app.js next to a new style.css after an install (docs/prompts/0024).
+app.UseStaticFiles(new StaticFileOptions
+{
+    OnPrepareResponse = ctx => ctx.Context.Response.Headers.CacheControl = "no-cache",
+});
 
 app.MapProjectsApi();
 app.MapOverviewApi();
