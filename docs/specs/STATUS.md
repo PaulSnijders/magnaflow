@@ -24,7 +24,7 @@ none
 
 ## Open prompts
 
-- 0021 cockpit-bug-fixes — ready
+- 0022 cockpit-specs-rendering — ready
 
 ## Format problems
 
