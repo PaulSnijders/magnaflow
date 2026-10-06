@@ -24,7 +24,7 @@ none
 
 ## Open prompts
 
-- 0022 cockpit-specs-rendering — ready
+- 0023 cockpit-rendering-polish — ready
 
 ## Format problems
 
