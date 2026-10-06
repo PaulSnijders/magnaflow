@@ -82,7 +82,7 @@ optional; a missing file or field uses the default shown:
 
 ```yaml
 watch:
-  git_sync: false            # pull before scanning, push after dispatching
+  git_sync: false            # pull --rebase before scanning, push after dispatching
   worker:
     command: mf-worker       # executable to spawn per ready command; swap for a stub in tests
     args: []                 # extra argv appended after "run --project <root> <id>"
@@ -108,7 +108,8 @@ location and legacy names:
 
 `notify_command` fires (on top of the console/log line) when the human is
 next at bat: a run finished (`done`/`aborted`), a run raised `questions`, or
-an error occurred (git pull/push failure, worker exited unexpectedly, a
+an error occurred (git pull conflict or failure, once per state; push
+failure; worker exited unexpectedly; a
 `running` command left stuck by an earlier crash). `{title}` and `{message}`
 are substituted verbatim. Titles and timing:
 [Notifications](../../docs/specs/watch/mf-watch.md#notifications).

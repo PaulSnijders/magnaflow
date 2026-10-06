@@ -76,7 +76,7 @@
         <select id="branch-select" title="Branches in this working copy"></select>
         <button id="branch-switch-btn" class="secondary">Switch</button>
         <button id="branch-refresh-btn" class="secondary" title="git fetch, then reload the list — the only control here that reaches the network. Needed to see a branch another machine pushed.">&#8635;</button>
-        <button id="git-pull-btn" class="secondary" title="git pull --ff-only (Ctrl+Enter on the message field commits)">Pull</button>
+        <button id="git-pull-btn" class="secondary" title="git pull --ff-only">Pull</button>
       </span>
     </h2>
     <div id="git-info" class="muted">Loading…</div>
@@ -132,8 +132,11 @@
     try {
       const info = await Cockpit.api(`/api/projects/${encodeURIComponent(project)}/git`);
       if (!info.available) { el.textContent = "git not available for this project"; return; }
+      // Ahead/behind are against the upstream as last fetched (↻), so a divergence shows after one.
+      const tracking = info.ahead == null ? "" :
+        ` <span class="muted" title="commits ahead of / behind the upstream, as last fetched">&#8593;${info.ahead} &#8595;${info.behind}</span>`;
       const header = `branch <strong>${Cockpit.escapeHtml(info.branch || "-")}</strong>` +
-        (info.dirty ? ' <span class="pill aborted">dirty</span>' : ' <span class="pill done">clean</span>');
+        (info.dirty ? ' <span class="pill aborted">dirty</span>' : ' <span class="pill done">clean</span>') + tracking;
       const commits = (info.commits || []).map((c) => `
         <li><code>${Cockpit.escapeHtml(c.hash.slice(0, 7))}</code> ${Cockpit.escapeHtml(c.message)}
           <span class="muted">— ${Cockpit.escapeHtml(c.author)}, ${Cockpit.formatDate(c.date)}</span></li>`).join("");
@@ -142,6 +145,7 @@
       document.getElementById("commit-message").value = info.defaultCommitMessage || "";
       document.getElementById("commit-all-btn").disabled = !info.dirty;
       gitDirty = !!info.dirty;
+      gitDiverged = info.ahead > 0 && info.behind > 0;
       updateSwitchControls();
     } catch (err) {
       el.textContent = err.message;
@@ -157,6 +161,7 @@
   // loadLane, watcherAlive from loadWatch, servicesRunning from loadRun — so neither the disabled
   // state nor the post-switch warning costs a request of its own.
   let gitDirty = false;
+  let gitDiverged = false;
   let laneRunning = false;
   let watcherAlive = false;
   let servicesRunning = false;
@@ -172,6 +177,23 @@
       : (laneRunning ? "a command is running — switching would swap the tree under it" : "");
     btn.disabled = !!reason || branchList.length === 0;
     btn.title = reason || "git switch <branch> — the lane lives on the branch, not on the project";
+    updatePullControl();
+  }
+
+  // Pull, or Sync when the copy is both ahead of and behind its upstream (docs/prompts/0025):
+  // --ff-only refuses exactly that state, a rebase-pull plus push heals it. Same guards as the
+  // switch, said up front in `title`; the server enforces both (409) either way.
+  function updatePullControl() {
+    const btn = document.getElementById("git-pull-btn");
+    if (btn.dataset.busy) return;
+    btn.textContent = gitDiverged ? "Sync" : "Pull";
+    const reason = gitDirty
+      ? `the working tree is dirty — commit or discard first ("Commit all"), then ${gitDiverged ? "sync" : "pull"}`
+      : (laneRunning ? "a command is running — wait until it finishes" : "");
+    btn.disabled = !!reason;
+    btn.title = reason || (gitDiverged
+      ? "diverged from the upstream: git pull --rebase (replays your local commits on top), then git push"
+      : "git pull --ff-only");
   }
 
   // One local ref read (no `git status`, no `git log`), so it is not on the GET .../git TTL cache
@@ -517,26 +539,37 @@
     }
   });
 
-  // Write #8: exactly `git pull --ff-only` (ontwerp-v0.5.md item 7). The server refuses a dirty
-  // tree or a running command; git's own exit code and output ("Already up to date.", "not possible
-  // to fast-forward") are shown inline, never swallowed. On success the lane changes on disk, so the
-  // watcher/SSE refreshes the rest of the page; loadGit() refreshes the card's own commit list.
+  // Write #8: exactly `git pull --ff-only` (ontwerp-v0.5.md item 7) — or, on a diverged copy, Sync:
+  // `git pull --rebase` then `git push` (docs/prompts/0025). The server refuses a dirty tree or a
+  // running command; git's own exit code and output ("Already up to date.", "not possible to
+  // fast-forward", a rebase CONFLICT) are shown inline, never swallowed. A conflicting rebase was
+  // already aborted server-side, so the tree is as it was. On success the lane changes on disk, so
+  // the watcher/SSE refreshes the rest of the page; loadGit() refreshes the card's own commit list.
   document.getElementById("git-pull-btn").addEventListener("click", async (e) => {
     const btn = e.currentTarget;
+    const sync = btn.textContent === "Sync";
     const resultEl = document.getElementById("pull-result");
     btn.disabled = true;
+    btn.dataset.busy = "1";
     resultEl.className = "run-result muted";
-    resultEl.textContent = "pulling…";
+    resultEl.textContent = sync ? "syncing…" : "pulling…";
     try {
-      const result = await Cockpit.api(`/api/projects/${encodeURIComponent(project)}/git/pull`, { method: "POST" });
-      resultEl.textContent = `pull: exit ${result.exitCode}${result.timedOut ? " (timed out)" : ""} — ${result.output || "(no output)"}`;
-      resultEl.className = "run-result " + (result.success ? "muted" : "run-error");
+      const result = await Cockpit.api(`/api/projects/${encodeURIComponent(project)}/git/${sync ? "sync" : "pull"}`, { method: "POST" });
+      const lines = [`${sync ? "pull --rebase" : "pull"}: exit ${result.exitCode}${result.timedOut ? " (timed out)" : ""} — ${result.output || "(no output)"}`];
+      if (result.conflicts && result.conflicts.length)
+        lines.push(`conflict in: ${result.conflicts.join(", ")} — rebase aborted, the tree is as it was; resolve it by hand`);
+      if (result.push)
+        lines.push(`push: exit ${result.push.exitCode}${result.push.timedOut ? " (timed out)" : ""} — ${result.push.output || "(no output)"}`);
+      resultEl.textContent = lines.join("\n");
+      const ok = result.success && (!result.push || result.push.success);
+      resultEl.className = "run-result " + (ok ? "muted" : "run-error");
       await loadGit();
     } catch (err) {
       resultEl.textContent = err.message;
       resultEl.className = "run-result run-error";
     } finally {
-      btn.disabled = false;
+      delete btn.dataset.busy;
+      updatePullControl();
     }
   });
 

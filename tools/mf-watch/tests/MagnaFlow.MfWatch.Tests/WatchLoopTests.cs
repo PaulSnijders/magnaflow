@@ -239,28 +239,118 @@ public class WatchLoopTests
         Assert.Contains("push", git.Operations);
     }
 
+    private static FakeProcessRunner WorkerThatFinishes(TempProject project, string id) => new()
+    {
+        OnRunExecutable = (_, _) =>
+        {
+            File.WriteAllText(project.CmdPath(id), TempProject.CmdMarkdown(status: "done"));
+            return new ProcessResult(0, "", "", false);
+        },
+    };
+
     [Fact]
-    public async Task GitPullFailureIsNotifiedButPollContinues()
+    public async Task GitPullFailureIsNotifiedAndSkipsDispatchAndPush()
     {
         using var project = new TempProject();
         project.WriteCmd("0001-hello", status: "ready");
         var git = new FakeGitClient { PullFails = true };
-        var processes = new FakeProcessRunner
-        {
-            OnRunExecutable = (_, _) =>
-            {
-                File.WriteAllText(project.CmdPath("0001-hello"), TempProject.CmdMarkdown(status: "done"));
-                return new ProcessResult(0, "", "", false);
-            },
-        };
+        var processes = WorkerThatFinishes(project, "0001-hello");
         var notifier = new FakeNotifier();
         var loop = new WatchLoop(Config(gitSync: true), git, processes, project.Root, _ => { }, notifier);
 
         var activity = await loop.PollOnceAsync();
 
-        Assert.True(activity); // the run still happened despite the pull failure
+        Assert.False(activity);
         Assert.Contains(notifier.Notifications, n => n.Title.Contains("git pull failed"));
-        Assert.Single(processes.ExecutableCalls); // scan/run still proceeded on-disk
+        Assert.Empty(processes.ExecutableCalls); // never dispatch on a tree that could not be synced
+        Assert.Equal(["pull (failed)"], git.Operations); // and no push either
+    }
+
+    [Fact]
+    public async Task GitPullUsesRebase()
+    {
+        using var project = new TempProject();
+        var processes = new FakeProcessRunner();
+        var git = new GitClient(processes, project.Root);
+
+        await git.PullAsync();
+
+        Assert.Contains(processes.ExecutableCalls,
+            c => c.Executable == "git" && c.Arguments.Take(2).SequenceEqual(["pull", "--rebase"]));
+    }
+
+    [Fact]
+    public async Task RejectedPushLeadsToOneRebasePullAndOneRetry()
+    {
+        using var project = new TempProject();
+        var git = new FakeGitClient();
+        git.PushOutcomes.Enqueue(PushOutcome.RejectedNonFastForward);
+        var notifier = new FakeNotifier();
+        var loop = new WatchLoop(Config(gitSync: true), git, new FakeProcessRunner(), project.Root, _ => { }, notifier);
+
+        await loop.PollOnceAsync();
+
+        Assert.Equal(["pull (brought-commits=False)", "push (rejected)", "pull (brought-commits=False)", "push"], git.Operations);
+        Assert.Empty(notifier.Notifications);
+    }
+
+    [Fact]
+    public async Task PushRejectedTwiceIsNotifiedWithoutAThirdAttempt()
+    {
+        using var project = new TempProject();
+        var git = new FakeGitClient();
+        git.PushOutcomes.Enqueue(PushOutcome.RejectedNonFastForward);
+        git.PushOutcomes.Enqueue(PushOutcome.RejectedNonFastForward);
+        var notifier = new FakeNotifier();
+        var loop = new WatchLoop(Config(gitSync: true), git, new FakeProcessRunner(), project.Root, _ => { }, notifier);
+
+        await loop.PollOnceAsync();
+
+        Assert.Equal(2, git.Operations.Count(o => o.StartsWith("push")));
+        Assert.Contains(notifier.Notifications, n => n.Title.Contains("git push failed"));
+    }
+
+    [Fact]
+    public async Task RebaseConflictSkipsDispatchAndNotifiesOnceWhileTheStateIsUnchanged()
+    {
+        using var project = new TempProject();
+        project.WriteCmd("0001-hello", status: "ready");
+        var git = new FakeGitClient { PullConflict = ["docs/a.md"] };
+        var processes = WorkerThatFinishes(project, "0001-hello");
+        var notifier = new FakeNotifier();
+        var log = new List<string>();
+        var loop = new WatchLoop(Config(gitSync: true), git, processes, project.Root, log.Add, notifier);
+
+        await loop.PollOnceAsync();
+        await loop.PollOnceAsync();
+
+        Assert.Empty(processes.ExecutableCalls);
+        var notification = Assert.Single(notifier.Notifications);
+        Assert.Equal("mf-watch: git pull conflict", notification.Title);
+        Assert.Contains("docs/a.md", notification.Message);
+        Assert.Contains(log, l => l.Contains("conflict in docs/a.md"));
+        Assert.Contains(log, l => l.Contains("still failing"));
+
+        git.SyncState = "local1..remote2"; // the remote moved: a new state is said once more
+        await loop.PollOnceAsync();
+        Assert.Equal(2, notifier.Notifications.Count);
+    }
+
+    [Fact]
+    public async Task SuccessfulPullClearsTheFailureSoTheNextFailureNotifiesAgain()
+    {
+        using var project = new TempProject();
+        var git = new FakeGitClient { PullFails = true };
+        var notifier = new FakeNotifier();
+        var loop = new WatchLoop(Config(gitSync: true), git, new FakeProcessRunner(), project.Root, _ => { }, notifier);
+
+        await loop.PollOnceAsync();
+        git.PullFails = false;
+        await loop.PollOnceAsync();
+        git.PullFails = true;
+        await loop.PollOnceAsync();
+
+        Assert.Equal(2, notifier.Notifications.Count(n => n.Title.Contains("git pull failed")));
     }
 
     [Fact]

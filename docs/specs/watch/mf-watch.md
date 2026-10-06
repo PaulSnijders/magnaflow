@@ -50,26 +50,65 @@ remote worker machine, pull is the inbox and push the outbox.
 
 ## One poll
 
-1. `git_sync`: `git pull --quiet`. "New commits" means `HEAD` moved.
+1. `git_sync`: `git pull --rebase --quiet`. The flag is explicit, so the
+   repo's own `pull.rebase` does not matter. "New commits" means `HEAD`
+   moved. See [git sync](#git-sync) for a failed pull.
 2. Scan `docs/prompts/` for `NNNN[B-Z]?-cmd-<name>.md`, in ordinal
    filename order. The id is `NNNN[B-Z]?-<name>`, so a follow-up such as
    `0005B` is just another id. Only the frontmatter `status` and `title`
    are read. Status is trimmed and lowercased. A file with missing or
    invalid frontmatter is skipped with a `scan warning:` log line.
+   The scan runs even when the pull failed.
 3. Every `running` command not seen before by this process is reported
    once as stale (logged and notified). mf-watch never picks it up
    again. Resetting it is the human's job, as with `questions`.
-4. Each `ready` command, strictly one at a time: spawn
+4. Only when the pull succeeded (or `git_sync` is off): each `ready`
+   command, strictly one at a time: spawn
    `<worker.command> run --project <root> <id> <worker.args...>` in the
    project root. Each output line is logged prefixed `[<id>]`. Then
    re-read that one file's status. A worker exit of 0 or 1 that leaves
    `questions`, `done` or `aborted` is normal. Anything else is an error:
    another exit code, a timeout after `worker_timeout_minutes`, or any
    other status.
-5. `git_sync`: `git push --quiet`, after every poll, even when nothing ran.
+5. `git_sync`: `git push --quiet`, after every poll whose pull succeeded,
+   even when nothing ran.
 
-A failed pull or push is logged and notified but never stops the poll.
-Whatever is on disk is still scanned and run.
+## Git sync
+
+`main` has two writers: the worker here and whoever pushes from another
+machine. git sync is built for that, with one rule: only local, unpushed
+commits are ever replayed. Nothing on the remote is rewritten, there is
+never a force-push, and never a merge commit.
+
+- **Diverged on pull**: the rebase replays the local commits onto the
+  remote's. Commits that touch different files go through without a
+  word. That is the normal case.
+- **Push rejected** as non-fast-forward (`fetch first` /
+  `non-fast-forward`; a hook's `remote rejected` is not this): log it,
+  `git pull --rebase` once, push once more. A second rejection is a
+  `git push failed` notification. Any other push failure is notified
+  as before.
+- **Conflict**: the rebase stopped. mf-watch runs `git rebase --abort`,
+  so the tree is back where it was, logs `git pull --rebase: conflict
+  in <files>; rebase aborted, tree unchanged` and notifies once.
+  Resolving it is the human's job.
+- **No dispatch on an unsynced tree**: when the pull fails, for a
+  conflict or any other reason (offline, no upstream, a dirty tree,
+  which a rebase refuses), the poll still scans and reports stale
+  `running`, then logs `dispatch skipped: the working copy could not be
+  synced` and runs nothing. It does not push either: the push would only
+  be rejected again. The next poll whose pull succeeds dispatches and
+  pushes.
+- **Once, not every poll**: a pull failure notifies once per state. The
+  state is the failure kind (conflict or other) plus local `HEAD` and
+  upstream `HEAD`. A later poll with the same state logs `git pull still
+  failing, state unchanged since the last notice` and does not notify.
+  A changed state (the remote moved, the human committed) notifies once
+  more. A successful pull clears the state. It is per-process memory,
+  like stale-running.
+- A rebase that cannot even be aborted is a plain pull failure. The
+  tree stays mid-rebase, so every next pull fails too and nothing is
+  dispatched until a human cleans it up.
 
 Edge: a worker that refuses a command and leaves it `ready` (for example
 a dirty tree, exit 3) gets the command dispatched again on every poll.
@@ -134,7 +173,9 @@ stalls the loop.
 | `<id>: questions` | the human must answer |
 | `<id>: error` | unexpected exit, timeout or status |
 | `<id>: stale running` | found `running` without having started it |
-| `mf-watch: git pull failed` / `git push failed` | sync failure |
+| `mf-watch: git pull conflict` | the rebase stopped on a conflict and was aborted; the files are in the message. Once per state |
+| `mf-watch: git pull failed` | any other pull failure. Once per state |
+| `mf-watch: git push failed` | push failed (also after the rebase-retry) |
 
 The message carries the command's `title:` from its frontmatter. A title
 with shell metacharacters reaches the shell as-is.

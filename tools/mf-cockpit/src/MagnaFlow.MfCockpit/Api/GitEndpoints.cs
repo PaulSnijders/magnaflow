@@ -29,7 +29,7 @@ public static class GitEndpoints
             {
                 var info = await git.GetInfoAsync(project.Path);
                 var defaultMessage = GitCommitMessageSuggester.SuggestDefault(info.ChangedFiles);
-                return new ProjectGitInfoDto(info.Available, info.Branch, info.Dirty, info.Commits, defaultMessage);
+                return new ProjectGitInfoDto(info.Available, info.Branch, info.Dirty, info.Commits, defaultMessage, info.Ahead, info.Behind);
             });
             return Results.Ok(dto);
         });
@@ -90,6 +90,35 @@ public static class GitEndpoints
             var result = await git.PullFastForwardAsync(project.Path);
             cache.Invalidate(project.Name); // new commits (or none) — either way the card refetches for real
             return Results.Ok(new GitPullResponse(result.Succeeded, result.ExitCode, result.Output, result.TimedOut));
+        });
+
+        // Sync (docs/prompts/0025): `git pull --rebase`, then `git push` — what the Pull button
+        // becomes when the copy is both ahead of and behind its upstream, which --ff-only refuses.
+        // Guards identical to the pull's, in the same order and for the same reasons. A rebase
+        // that stops on a conflict is aborted by the client, so the tree is left as it was; the
+        // files and git's own output come back for inline rendering.
+        app.MapPost("/api/projects/{name}/git/sync", async (string name, ProjectRegistry registry, IGitClient git,
+            TtlCache<ProjectGitInfoDto> cache) =>
+        {
+            var project = ProjectResolver.Find(registry, name);
+            if (project is null)
+                return Results.NotFound();
+            if (!Directory.Exists(project.Path))
+                return Results.BadRequest(new { error = "project path is missing on disk" });
+            if (ProjectResolver.HasRunningCommand(project))
+                return Results.Conflict(new { error = "a command is currently running — sync would rewrite the tree under the live run; wait until it finishes" });
+
+            var info = await git.GetInfoAsync(project.Path);
+            if (!info.Available)
+                return Results.BadRequest(new { error = "git is not available for this project" });
+            if (info.Dirty)
+                return Results.Conflict(new { error = "the working tree is dirty — commit or discard your changes first (use \"Commit all\"), then sync" });
+
+            var result = await git.SyncRebaseAsync(project.Path);
+            cache.Invalidate(project.Name);
+            var pull = result.Pull;
+            return Results.Ok(new GitSyncResponse(pull.Succeeded, pull.ExitCode, pull.Output, pull.TimedOut, result.Conflicts,
+                result.Push is null ? null : new GitPullResponse(result.Push.Succeeded, result.Push.ExitCode, result.Push.Output, result.Push.TimedOut)));
         });
 
         // Write #10, the read half (docs/prompts/0014): what the Git card's branch dropdown offers,

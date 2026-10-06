@@ -318,8 +318,14 @@ git -C C:\tmp\gitsync-demo\remote.git log --oneline main
 # seed
 ```
 
-A failed pull or push is logged and notified but never stops the poll; what
-is on disk is still scanned and run.
+The pull is `git pull --rebase`: if `local` had unpushed commits of its own
+when the other machine pushed, they are replayed on top, and a push rejected
+because the remote moved in the meantime gets one rebase-pull and one retry.
+A failed pull (a rebase conflict is aborted first, so the tree is unchanged)
+means the poll dispatches nothing and does not push. It notifies once, and
+later polls with the same local and remote `HEAD` only log
+`git pull still failing, ...`. Details:
+[git sync](../../docs/specs/watch/mf-watch.md#git-sync).
 
 ## 7. When things go wrong
 

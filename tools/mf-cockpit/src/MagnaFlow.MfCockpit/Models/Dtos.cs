@@ -35,7 +35,9 @@ public sealed record ProjectGitInfoDto(
     string? Branch,
     bool Dirty,
     IReadOnlyList<GitCommit> Commits,
-    string? DefaultCommitMessage);
+    string? DefaultCommitMessage,
+    int? Ahead = null,
+    int? Behind = null);
 
 public sealed record CommandSummaryDto(
     string Id,
@@ -112,6 +114,12 @@ public sealed record CommitAllResponse(bool Committed, GitPullResponse? Push = n
 /// ExitCode==0 &amp;&amp; !TimedOut; Output is git's merged stdout+stderr, rendered inline whether the
 /// pull succeeded, fast-forwarded nothing, or was refused by git itself.</summary>
 public sealed record GitPullResponse(bool Success, int ExitCode, string Output, bool TimedOut);
+
+/// <summary>POST /api/projects/{name}/git/sync (docs/prompts/0025): the `git pull --rebase` in the
+/// GitPullResponse shape, the conflicting files when the rebase stopped (and was aborted), and the
+/// `git push` that followed a successful pull (null when it failed, or with no remote).</summary>
+public sealed record GitSyncResponse(bool Success, int ExitCode, string Output, bool TimedOut,
+    IReadOnlyList<string> Conflicts, GitPullResponse? Push);
 
 /// <summary>GET /api/projects/{name}/git/branches — write #10 (docs/prompts/0014). Current is the
 /// branch the working copy is on; Branches is what the dropdown offers and, for the checkout below,

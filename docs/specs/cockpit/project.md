@@ -68,8 +68,21 @@ blocks the rest of the page.
   refuses, when a watcher or services are still up.
 - **↻** runs `git fetch` and reloads the list. It is the only control on
   the page that reaches the network.
+- The header shows the branch, dirty or clean, and `↑N ↓M`: commits
+  ahead of and behind the upstream as last fetched (`git rev-list
+  --left-right --count HEAD...@{u}`, local only). Without an upstream it
+  is left out. A divergence shows after **↻**, or after a refused Pull,
+  since a pull fetches too.
 - **Pull** runs exactly `git pull --ff-only`. It is refused on a dirty
-  tree or while a command runs.
+  tree or while a command runs. The button is then disabled and its
+  `title` says why.
+- **Sync** takes the Pull button's place when the copy is both ahead and
+  behind, which `--ff-only` refuses. It runs `git pull --rebase`, then
+  `git push`. Only local commits are replayed, never a merge or a
+  force-push. Same guards as Pull (409, disabled with a `title`). On a
+  conflict the rebase is aborted, so the tree is as it was, and the
+  conflicting files are shown inline with git's own output. When only
+  behind, the button stays Pull.
 - **Commit all** commits everything and pushes, and is disabled on a
   clean tree. It reports one of: nothing to commit, committed (no
   remote), or committed and pushed.

@@ -71,27 +71,43 @@ public sealed class FakeGitClient : IGitClient
     public bool Available = true;
     public Queue<bool> PullResults = new();
     public bool PullFails;
+    /// <summary>Non-null: every pull throws a conflict on these files (the rebase already aborted).</summary>
+    public string[]? PullConflict;
     public bool PushFails;
+    /// <summary>Consumed one per push; empty means Pushed.</summary>
+    public Queue<PushOutcome> PushOutcomes = new();
+    public string SyncState = "local1..remote1";
     public List<string> Operations = [];
 
     public Task<bool> IsAvailableAsync() => Task.FromResult(Available);
 
     public Task<bool> PullAsync()
     {
+        if (PullConflict is not null)
+        {
+            Operations.Add("pull (conflict)");
+            throw new GitConflictException(PullConflict, "conflict");
+        }
         if (PullFails)
+        {
+            Operations.Add("pull (failed)");
             throw new GitException("pull rejected");
+        }
         var pulled = PullResults.Count > 0 && PullResults.Dequeue();
         Operations.Add($"pull (brought-commits={pulled})");
         return Task.FromResult(pulled);
     }
 
-    public Task PushAsync()
+    public Task<PushOutcome> PushAsync()
     {
         if (PushFails)
             throw new GitException("push rejected");
-        Operations.Add("push");
-        return Task.CompletedTask;
+        var outcome = PushOutcomes.Count > 0 ? PushOutcomes.Dequeue() : PushOutcome.Pushed;
+        Operations.Add(outcome == PushOutcome.Pushed ? "push" : "push (rejected)");
+        return Task.FromResult(outcome);
     }
+
+    public Task<string> SyncStateAsync() => Task.FromResult(SyncState);
 }
 
 /// <summary>Runs a delegate instead of a real process, so tests can simulate the worker mutating

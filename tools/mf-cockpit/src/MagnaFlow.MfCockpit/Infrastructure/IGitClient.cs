@@ -2,7 +2,11 @@ namespace MagnaFlow.MfCockpit.Infrastructure;
 
 public sealed record GitCommit(string Hash, string Author, string Date, string Message);
 
-public sealed record GitInfo(bool Available, string? Branch, bool Dirty, IReadOnlyList<GitCommit> Commits, IReadOnlyList<string> ChangedFiles);
+/// <summary>Ahead/Behind count against the upstream as last fetched (`rev-list --left-right
+/// --count HEAD...@{u}`, local only); both null without an upstream. Both non-zero is the diverged
+/// state the Git card offers Sync for (docs/prompts/0025).</summary>
+public sealed record GitInfo(bool Available, string? Branch, bool Dirty, IReadOnlyList<GitCommit> Commits, IReadOnlyList<string> ChangedFiles,
+    int? Ahead = null, int? Behind = null);
 
 /// <summary>The exit code plus captured stdout+stderr of exactly one git invocation, handed back
 /// rather than interpreted — write #8's `git pull --ff-only` (ontwerp-v0.5.md item 7) and write
@@ -18,6 +22,11 @@ public sealed record GitCommandResult(int ExitCode, string Output, bool TimedOut
 /// type after `git switch`: for a branch that exists only as `origin/&lt;name&gt;` here, that is the
 /// short name — `git switch` creates the local tracking branch from it, which is exactly the worker
 /// case. RemoteOnly is only there so the UI can say so.</summary>
+/// <summary>Sync's outcome (docs/prompts/0025): Pull is the `git pull --rebase` itself; Conflicts is
+/// non-empty when the rebase stopped and was aborted (the tree is back where it was); Push is the
+/// `git push` that followed a successful pull, null when the pull failed or there is no remote.</summary>
+public sealed record GitSyncResult(GitCommandResult Pull, IReadOnlyList<string> Conflicts, GitCommandResult? Push);
+
 public sealed record GitBranch(string Name, bool RemoteOnly);
 
 /// <summary>Current is `git rev-parse --abbrev-ref HEAD` ("HEAD" on a detached head, which the
@@ -57,6 +66,13 @@ public interface IGitClient
     /// the exit code and captured output inline, so "not possible to fast-forward" is shown, not
     /// swallowed. The endpoint enforces the dirty-tree and running-command guards before calling.</summary>
     Task<GitCommandResult> PullFastForwardAsync(string projectRoot);
+
+    /// <summary>Sync (docs/prompts/0025): `git pull --rebase`, then `git push` — for a working copy
+    /// that is both ahead of and behind its upstream, which `--ff-only` refuses. Only local,
+    /// unpushed commits are replayed; never a merge commit, never a force-push. A rebase that stops
+    /// on a conflict is aborted (`git rebase --abort`) and its files reported. Never throws for a
+    /// git-level failure; the endpoint enforces the same guards as the pull.</summary>
+    Task<GitSyncResult> SyncRebaseAsync(string projectRoot);
 
     /// <summary>Write #10: exactly `git fetch --quiet`. The one network call in the branch flow, and
     /// therefore an explicit human action (the Git card's refresh control) — never on page load and

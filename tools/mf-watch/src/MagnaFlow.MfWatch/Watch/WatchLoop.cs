@@ -26,6 +26,10 @@ public sealed class WatchLoop(
     // every subsequent poll for something already handed to the human (ontwerp-v0.1.md "Guards").
     private readonly HashSet<string> _notifiedStaleIds = [];
 
+    // The last pull failure that was notified (docs/prompts/0025): a diverged or unreachable remote
+    // is said once, not every poll. Cleared by the next successful pull.
+    private string? _pullFailureKey;
+
     /// <summary>True while a worker spawn is awaited — the Ctrl+C handler uses it to say a second
     /// Ctrl+C aborts the worker.</summary>
     public bool IsDispatching { get; private set; }
@@ -62,14 +66,24 @@ public sealed class WatchLoop(
     public async Task<bool> PollOnceAsync(CancellationToken cancellationToken = default)
     {
         var activity = false;
+        var synced = true;
 
         if (config.GitSync)
-            activity |= await PullAsync();
+        {
+            var pulled = await PullAsync();
+            synced = pulled is not null;
+            activity |= pulled == true;
+        }
 
         var commands = PromptStatusScanner.Scan(projectRoot, warning => log($"scan warning: {warning}"));
         NotifyNewStaleRunning(commands);
 
-        foreach (var cmd in commands.Where(c => c.IsReady))
+        // A tree that could not be synced may be behind the remote: never dispatch on it
+        // (docs/prompts/0025). The next poll whose pull succeeds picks the ready commands up.
+        if (!synced)
+            log("dispatch skipped: the working copy could not be synced");
+
+        foreach (var cmd in commands.Where(c => synced && c.IsReady))
         {
             // Shutdown means no new dispatch; the poll still ends normally so the push below
             // carries whatever the worker that just finished committed.
@@ -79,25 +93,49 @@ public sealed class WatchLoop(
             activity = true;
         }
 
-        if (config.GitSync)
+        // No push after a failed pull either: a diverged push is only rejected, and its retry
+        // would run into the same failure again. The next successful poll pushes.
+        if (config.GitSync && synced)
             await PushAsync();
 
         return activity;
     }
 
-    private async Task<bool> PullAsync()
+    /// <summary>`git pull --rebase`. Returns whether HEAD moved, or null when the pull failed (the
+    /// tree is not synced). A failure notifies once per distinct state (failure kind + local and
+    /// upstream HEAD); the same state on later polls is one log line, no notification.</summary>
+    private async Task<bool?> PullAsync()
     {
         try
         {
             var pulled = await git.PullAsync();
             log(pulled ? "git pull: new commits" : "git pull: up to date");
+            _pullFailureKey = null;
             return pulled;
         }
         catch (GitException ex)
         {
-            log($"git pull failed: {ex.Message}");
-            await notifier.NotifyAsync("mf-watch: git pull failed", ex.Message);
-            return false;
+            var conflict = ex as GitConflictException;
+            var key = $"{(conflict is null ? "failed" : "conflict")} {await git.SyncStateAsync()}";
+            if (key == _pullFailureKey)
+            {
+                log($"git pull still failing, state unchanged since the last notice: {ex.Message}");
+                return null;
+            }
+
+            _pullFailureKey = key;
+            if (conflict is not null)
+            {
+                log($"git pull --rebase: conflict in {string.Join(", ", conflict.Files)}; rebase aborted, tree unchanged");
+                await notifier.NotifyAsync("mf-watch: git pull conflict",
+                    $"rebase conflict in {string.Join(", ", conflict.Files)}; aborted, nothing dispatched until it is resolved by hand");
+            }
+            else
+            {
+                log($"git pull failed: {ex.Message}");
+                await notifier.NotifyAsync("mf-watch: git pull failed", ex.Message);
+            }
+            return null;
         }
     }
 
@@ -105,8 +143,25 @@ public sealed class WatchLoop(
     {
         try
         {
-            await git.PushAsync();
-            log("git push: ok");
+            if (await git.PushAsync() == PushOutcome.Pushed)
+            {
+                log("git push: ok");
+                return;
+            }
+
+            // Someone else pushed in the meantime: replay our commits on top and try once more.
+            log("git push: rejected (remote has new commits); pulling with rebase and retrying once");
+            if (await PullAsync() is null)
+                return;
+
+            if (await git.PushAsync() == PushOutcome.Pushed)
+            {
+                log("git push: ok (after rebase)");
+                return;
+            }
+
+            log("git push failed: rejected again after the rebase-pull");
+            await notifier.NotifyAsync("mf-watch: git push failed", "rejected as non-fast-forward, also after a rebase-pull");
         }
         catch (GitException ex)
         {

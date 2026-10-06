@@ -46,7 +46,15 @@ public sealed class GitClient(IProcessRunner processRunner) : IGitClient
             }
         }
 
-        return new GitInfo(true, branch, dirty, commits, changedFiles);
+        // Local only: against the remote-tracking ref as last fetched, so a divergence shows after
+        // the card's ↻ (or a refused ff-only pull, which fetches too). No upstream: both null.
+        int? ahead = null, behind = null;
+        var counts = await RunAsync(projectRoot, "rev-list", "--left-right", "--count", "HEAD...@{u}");
+        var countParts = counts.Succeeded ? counts.StdOut.Split('\t', StringSplitOptions.TrimEntries) : [];
+        if (countParts.Length == 2 && int.TryParse(countParts[0], out var a) && int.TryParse(countParts[1], out var b))
+            (ahead, behind) = (a, b);
+
+        return new GitInfo(true, branch, dirty, commits, changedFiles, ahead, behind);
     }
 
     public async Task CommitFileAsync(string projectRoot, string relativePath, string message)
@@ -97,6 +105,40 @@ public sealed class GitClient(IProcessRunner processRunner) : IGitClient
         var result = await processRunner.RunExecutableAsync(
             "git", ["--no-pager", "pull", "--ff-only"], projectRoot, timeout: NetworkTimeout);
         return Merged(result);
+    }
+
+    public async Task<GitSyncResult> SyncRebaseAsync(string projectRoot)
+    {
+        // --rebase explicitly, so the repo's own pull.rebase setting does not matter. Same
+        // GIT_TERMINAL_PROMPT=0 + NetworkTimeout reasoning as the ff-only pull above.
+        var pull = Merged(await processRunner.RunExecutableAsync(
+            "git", ["--no-pager", "pull", "--rebase"], projectRoot, timeout: NetworkTimeout));
+        if (!pull.Succeeded)
+        {
+            if (!await RebaseInProgressAsync(projectRoot))
+                return new GitSyncResult(pull, [], null);
+
+            var conflicts = await RunAsync(projectRoot, "diff", "--name-only", "--diff-filter=U");
+            var files = conflicts.StdOut.Split('\n', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+            var abort = await RunAsync(projectRoot, "rebase", "--abort");
+            var output = abort.Succeeded
+                ? pull.Output
+                : pull.Output + "\n" + Merged(abort).Output; // the tree is mid-rebase: say so, verbatim
+            return new GitSyncResult(pull with { Output = output }, files, null);
+        }
+
+        return new GitSyncResult(pull, [], await PushAsync(projectRoot));
+    }
+
+    private async Task<bool> RebaseInProgressAsync(string projectRoot)
+    {
+        foreach (var dir in new[] { "rebase-merge", "rebase-apply" })
+        {
+            var path = await RunAsync(projectRoot, "rev-parse", "--git-path", dir);
+            if (path.Succeeded && Directory.Exists(Path.Combine(projectRoot, path.StdOut.Trim())))
+                return true;
+        }
+        return false;
     }
 
     public async Task<GitCommandResult> FetchAsync(string projectRoot)

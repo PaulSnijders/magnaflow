@@ -1,7 +1,8 @@
 ---
 title: "git sync heals a diverged main: mf-watch rebases, cockpit gets a Sync button"
-status: ready
+status: done
 created: 2026-10-06
+attempts: 1
 ---
 
 ## Context

@@ -105,8 +105,10 @@ rule the button shows fails). In short:
   draft on a `done`/`aborted` command, a draft from a chat reply.
 - **Project config**: the `.magnaflow/config.yml` editor (hash check
   against concurrent edits, YAML must parse; committed).
-- **Git**: branch switch, `git pull --ff-only`, commit all + push. Switch
-  and pull are refused on a dirty tree or while a command runs.
+- **Git**: branch switch, `git pull --ff-only`, Sync (`git pull --rebase`
+  + push, offered when the copy is both ahead and behind), commit all +
+  push. Switch, pull and sync are refused on a dirty tree or while a
+  command runs.
 - **Processes**: start/stop/restart services via `mf-run`, start/stop
   the watcher, Check now (writes `.magnaflow/mf-watch.wake`).
 - **Machine config**: Add project (existing or newly scaffolded) and

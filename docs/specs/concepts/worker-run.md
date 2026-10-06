@@ -131,7 +131,10 @@ abort is always two commits (claim plus outcome).
 **Push**: when a remote exists (`origin`, else the first one), the work
 branch is pushed after its commit and the invoking branch after each
 outcome commit, with `--set-upstream`. A failed push is a warning. The
-commits stay local and the exit code is unchanged.
+commits stay local and the exit code is unchanged. On the invoking
+branch, mf-watch's `git_sync` carries them out later: its pull replays
+them onto the remote (rebase) and its push sends them, see
+[mf-watch](../watch/mf-watch.md#git-sync).
 
 **Lost terminal commit**: if staging cmd, pln or rst, or the commit
 itself, fails, the run says on stderr which command it was, that its

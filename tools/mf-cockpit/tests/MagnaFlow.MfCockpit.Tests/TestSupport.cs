@@ -224,6 +224,15 @@ public sealed class FakeGitClient : IGitClient
         SwitchCalls.Add((projectRoot, branch));
         return Task.FromResult(SwitchResult);
     }
+
+    public GitSyncResult SyncResult = new(new GitCommandResult(0, "", false), [], new GitCommandResult(0, "", false));
+    public List<string> SyncCalls { get; } = [];
+
+    public Task<GitSyncResult> SyncRebaseAsync(string projectRoot)
+    {
+        SyncCalls.Add(projectRoot);
+        return Task.FromResult(SyncResult);
+    }
 }
 
 /// <summary>Swaps IRunClient for endpoint-wiring tests that have no business spawning a real
