@@ -115,7 +115,7 @@ install.sh [--install-dir <dir>] [--config <path>] [--self-update] [--dry-run]
 
 ### Self-update (opt-in) {#self-update}
 
-`install.sh --self-update` installs `mf-selfupdate.timer` (every 2
+`install.sh --self-update` installs `mf-selfupdate.timer` (every 5
 minutes, first tick 2 minutes after boot) and the oneshot
 `mf-selfupdate.service`, which runs `<install-dir>/mf-selfupdate.sh`
 (copied from `tools/install/`) with the repo root, install dir and
@@ -147,7 +147,9 @@ It reads the local `HEAD` only and never fetches. Pulling is the
 watcher's `git_sync`. Every decision is one line, timestamped, on stdout
 (the journal) and in `<install-dir>/selfupdate.log`, which is cut back
 to its last 1000 lines: `skipped: <why>`, `installed: <old>..<new>`,
-`failed: <why>`. `install.sh`'s own output goes to the journal only.
+`failed: <why>`. A skip identical to the last logged decision is not
+written again, so a quiet repo shows one `skipped: no new commit` line
+until something changes. `install.sh`'s own output goes to the journal only.
 Every tick exits 0, failures included; the log carries the verdict.
 Switching it off is `systemctl --user disable --now mf-selfupdate.timer`.
 

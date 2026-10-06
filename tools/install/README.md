@@ -55,7 +55,7 @@ No sudo anywhere — user-level install only.
 - **Logs**: `journalctl --user -u mf-cockpit -f` /
   `journalctl --user -u mf-watch@<escaped-instance> -f`
 - **Self-update** (opt-in): `install.sh --self-update` also installs
-  `mf-selfupdate.timer`. Every 2 minutes it re-runs the install when the
+  `mf-selfupdate.timer`. Every 5 minutes it re-runs the install when the
   repo's `HEAD` has a new commit that changed `tools/` and no command is
   `running` in any watched project (or this repo). It never fetches; the
   watcher's `git_sync` pulls. A failed install is retried only after the next

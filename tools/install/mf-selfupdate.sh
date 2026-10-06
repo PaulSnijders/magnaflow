@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
 # MagnaFlow self-update tick — run by mf-selfupdate.service (a oneshot unit on
-# mf-selfupdate.timer, every 2 minutes), installed by `install.sh --self-update`.
+# mf-selfupdate.timer, every 5 minutes), installed by `install.sh --self-update`.
 # One decision per tick, one log line per decision:
 #
 #   skipped: no installed-commit       install.sh never recorded a commit here
@@ -48,9 +48,15 @@ log_file="$install_dir/selfupdate.log"
 log_keep=1000
 
 # log writes one decision to stdout (the journal) and to the log file, which is
-# cut back to its last $log_keep lines — a skip every 2 minutes adds up.
+# cut back to its last $log_keep lines. A skip identical to the last logged
+# decision is not repeated: a quiet repo logs one "no new commit" line, not one
+# per tick, so installs and failures stay easy to find.
 log() {
-    local line
+    local line last
+    if [[ "$*" == skipped:* && -f "$log_file" ]]; then
+        last="$(tail -n 1 "$log_file" | cut -d' ' -f2-)"
+        [[ "$last" == "$*" ]] && return 0
+    fi
     line="$(date -Is) $*"
     echo "$line"
     mkdir -p "$install_dir"

@@ -48,7 +48,7 @@ Usage: $(basename "$0") [--install-dir <dir>] [--config <path>] [--self-update] 
   --install-dir <dir>  Where the published tools land (default: $HOME/tools/magnaflow)
   --config <path>      Source machine config used to seed ~/.config/magnaflow/magnaflow.yml
                         the first time it doesn't exist yet (default: tools/install/magnaflow.linux.yml)
-  --self-update        Also install the mf-selfupdate timer: every 2 minutes it re-runs this
+  --self-update        Also install the mf-selfupdate timer: every 5 minutes it re-runs this
                         install when a new commit changed tools/ and no command is running
   --dry-run            Print the actions that would be taken without doing them
   -h, --help           Show this help
@@ -295,11 +295,11 @@ TimeoutStartSec=15min
 EOF
         cat > "$selfupdate_timer" <<EOF
 [Unit]
-Description=MagnaFlow self-update check, every 2 minutes
+Description=MagnaFlow self-update check, every 5 minutes
 
 [Timer]
 OnBootSec=2min
-OnUnitInactiveSec=2min
+OnUnitInactiveSec=5min
 
 [Install]
 WantedBy=timers.target
