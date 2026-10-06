@@ -62,8 +62,14 @@ scripts/spec_lint.mjs  # format lint (Node, no deps), run by /spec-drift
   none. Tracked for drift via a trailing `Code:` line. The threshold is
   positive: a mechanism that determines behavior and cannot be read off
   one module gets a concept, even if only one page shows it.
-  `concepts/design.md` is the design system reference: page specs never
-  describe appearance; they reference it and record deviations.
+  `concepts/design.md` is the design system reference, in two halves:
+  engineering principles (layering, dependency policy, security basics,
+  reuse before new code — `/architect` checks every cmd against them)
+  and, when there is a UI, appearance. Page specs never describe
+  appearance; they reference it and record deviations. Its Quality
+  baseline section records which mechanical checks (warnings as errors,
+  analyzers, linter, vulnerability scan) are on and which were only
+  advised — asked once at adoption.
 
 ## File format
 
@@ -104,6 +110,14 @@ unreviewed generated specs greppable.
   `/spec-drift`. Findings are fixed at their enforcement gap, never
   accepted into a side list (kit 1.0 dropped the sha-pinned
   `ACCEPTED.md`).
+- **Quality pass** (kit 1.2): per pull request, or about monthly on a
+  repo without PRs, `/security-review` and `/code-review` (built-in
+  Claude Code skills) on the change; a human triages each finding, the
+  record is `docs/context/YYYY-MM-DD-quality-pass.md`, real findings
+  become cmds via `/architect` — never automatically. `/spec-drift`
+  writes `Quality pass: <date> (<N> days ago)` (or `none`) under
+  `Generated:`; older than 30 days is a finding, `none` is not. Why:
+  `docs/decisions/0017-quality-pass.md`.
 - **Format lint** (`scripts/spec_lint.mjs`, run by `/spec-drift`):
   split-marker shape, surface folders vs `config.yml`, anchor
   uniqueness and resolution, concept `Code:` paths. Mechanical. A
@@ -196,7 +210,7 @@ the pressure is proportional instead of a wall. Design:
 Master kit: `tools/mf-spec/spec-kit/`; its contents and install/update
 steps are in [KIT.md](spec-kit/KIT.md). The version stamp in the
 conventions README travels with every update; `0002` is idempotent and
-brings any older install to the current version (1.1) in one run. The
+brings any older install to the current version (1.2) in one run. The
 kit is tool-neutral: MagnaFlow's worker config and ignore lines are one
 optional question in 0001/0002. Phase 0: copy folder + prompt. Phase 1:
 `mf-spec init`/`update` automates the same. Installation order relative

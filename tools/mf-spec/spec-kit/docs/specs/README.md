@@ -1,6 +1,6 @@
 # Specs — conventions
 
-<!-- spec-kit version: 1.1 — do not edit; used by the update prompt -->
+<!-- spec-kit version: 1.2 — do not edit; used by the update prompt -->
 
 One markdown file per page, grouped per surface. The file path is the
 identity, git history is the timestamp. No frontmatter.
@@ -107,9 +107,14 @@ Code: src/billing/Invoice.cs, src/billing/Rounding.cs
 Why: decisions/0012-invoice-rounding.md
 ```
 
-**`concepts/design.md` always exists**: the design system reference.
-Page specs never describe appearance in prose; they reference this file
-and record only deviations.
+**`concepts/design.md` always exists**: the design system reference,
+in two halves — **engineering principles** (layering, dependency policy,
+security basics, reuse before new code; `/architect` checks every cmd
+against them) and, when there is a UI, **appearance**. Page specs never
+describe appearance in prose; they reference this file and record only
+deviations. A short `Quality baseline` section records which mechanical
+checks (warnings as errors, analyzers, linter, vulnerability scan) are
+on and which were only advised.
 
 ## Writing rules
 
@@ -226,3 +231,8 @@ Its `Generated: <date>` line is the freshness mechanism: **older than 14
 days, or missing, is itself a finding** on the next `/spec-drift`. A
 quiet project comes back green in seconds — a confirmation, not a false
 alarm.
+
+Below it, `Quality pass: <date> (<N> days ago)` names the newest
+`docs/context/*-quality-pass.md` (see "Quality pass" in CLAUDE.md), or
+reads `Quality pass: none`. Older than 30 days is a finding; `none` is
+not, so a fresh adoption does not nag.

@@ -19,6 +19,12 @@ Steps:
    noticed. Report it as the first line of the final summary, with how
    many days overdue. It needs no section of its own; this run resolves
    it by rewriting the header.
+0b. Find the last quality pass: the newest `docs/context/*-quality-pass.md`
+   by the date in its filename (`YYYY-MM-DD-quality-pass.md`, see
+   "Quality pass" in CLAUDE.md). Older than 30 days is a finding: report
+   it in the final summary like the expired `Generated:` date, with how
+   many days old, no section of its own. No record at all (`none`) is
+   **not** a finding — a fresh adoption must not nag.
 1. Read `docs/specs/config.yml`. Per surface: enumerate units via
    `root` + `routes` glob; enumerate spec files under
    `docs/specs/<surface>/` (excluding `_group.md`).
@@ -52,6 +58,8 @@ Steps:
    # Spec status
 
    Generated: <date> by /spec-drift
+
+   Quality pass: <date> (<N> days ago)    # or: Quality pass: none
 
    ## Missing specs
    ## Specs without a page

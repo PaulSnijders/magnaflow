@@ -64,6 +64,18 @@ holds gets a successor rather than a rewrite. Context is managed: one
 conversation is one file, corrected and cleaned up, never changed in
 substance. Conventions in each folder's README; both may stay empty.
 
+## Quality pass
+
+When: per pull request; when the repo works on `main` without PRs,
+about monthly over the commits since the last pass. Run
+`/security-review` and `/code-review` (built-in Claude Code skills) on
+the change; on `main`, `/code-review` on the range. Triage every
+finding — real or not, one line why — together with a senior where
+there is one. Record it in `docs/context/YYYY-MM-DD-quality-pass.md`:
+the range reviewed, the findings with their verdict; short. Real
+findings become cmds via `/architect` in the same conversation, never
+automatically. Habit: `/simplify` on your own diff before opening a PR.
+
 Language: converse in the user's language; write all artifacts (specs'
 `# Technical`, prompt files, STATUS.md, commit messages) in English.
 Only a spec's Help section follows its surface's `help_language`.

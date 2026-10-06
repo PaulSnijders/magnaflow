@@ -9,7 +9,7 @@ changes nothing the second time.
 1. **Read the installed version** from the comment at the top of the OLD
    `docs/specs/README.md`: `spec-kit version: 1.x`, or the older form
    `mf-spec kit version: 0.x` (no comment at all = 0.1). Note it for the
-   summary; the repairs below cover every path to 1.1.
+   summary; the repairs below cover every path to 1.2.
 
 2. **Overwrite** (system-owned, safe to replace):
    - `spec-kit/docs/specs/README.md` → `docs/specs/README.md`
@@ -65,7 +65,27 @@ changes nothing the second time.
 7. **NEVER touch** (project-owned): `docs/specs/config.yml`, all specs
    under `docs/specs/`, `docs/specs/STATUS.md`, `docs/specs/ACCEPTED.md`,
    `docs/prompts/`, and the contents of `docs/decisions/` and
-   `docs/context/` (the context README repair below excepted).
+   `docs/context/` (the context README repair below excepted). One
+   more exception: `docs/specs/concepts/design.md` may get a missing
+   section added per "From 1.1 to 1.2" below — never a rewrite of its
+   existing text.
+
+## From 1.1 to 1.2
+
+design.md now carries engineering principles and a Quality baseline
+(`0001-adopt-spec-system.md` steps 7 and 6). Read the installed
+`docs/specs/concepts/design.md`:
+
+- **No engineering principles** (architecture/layering, dependency
+  policy, security basics, reuse before new code)? Ask the user whether
+  to add them. If yes, derive them from the code as in `0001` step 7,
+  show them, and add the section once confirmed.
+- **No `Quality baseline` section?** Ask the user whether to add it. If
+  yes, run `0001` step 6 (its one question: set it up, or advise only)
+  and add the section with the outcome.
+
+Add a section only; never rewrite text that is already there. A section
+that exists — whatever its wording — means the question was answered.
 
 ## From 1.0 to 1.1
 

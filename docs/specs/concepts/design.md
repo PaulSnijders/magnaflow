@@ -107,5 +107,23 @@ are open and vendor-neutral, readable without MagnaFlow.
 - Changing a principle here is a decision: write it in
   `docs/decisions/` and cite it below.
 
+## Quality baseline
+
+Advise only (decision 0017); recorded 2026-10-06 on the spec-kit 1.2
+update.
+
+- **On today**: nothing beyond the SDK defaults — no
+  `TreatWarningsAsErrors`, no `AnalysisLevel`, no `Directory.Build.props`.
+  All four tool solutions build with 0 warnings at those defaults.
+- **Advised, as a separate cmd**: a `Directory.Build.props` at the repo
+  root with `TreatWarningsAsErrors` and `AnalysisLevel`. At
+  `latest-recommended` the build reports (unique warnings) mf-cockpit
+  321, worker-controller 253, mf-watch 29, mf-run 3 — mostly CA1707
+  (underscores in xUnit test names), then CA1051, CA1310, CA1305,
+  CA1816. So the cmd decides per rule (e.g. CA1707 off for test
+  projects) before switching errors on.
+- **Vulnerability scan**: none — there is no CI here.
+  `dotnet list package --vulnerable` by hand is the stand-in.
+
 Code: tools/
 Why: decisions/0001-worker-workflow-v0-1.md

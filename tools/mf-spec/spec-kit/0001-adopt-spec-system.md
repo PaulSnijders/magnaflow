@@ -1,7 +1,7 @@
 # 0001 — Adopt the spec system in this repo
 
 The `docs/spec-kit/` folder next to this prompt is a copy of the spec
-kit (1.1, spec-first): one markdown spec per page grouped per surface,
+kit (1.2, spec-first): one markdown spec per page grouped per surface,
 `concepts/` for cross-cutting logic (always including `design.md`),
 split by a `# Technical` marker into user help and developer notes,
 guarded by a spec-first rule, a drift audit and a format lint. Install
@@ -18,8 +18,8 @@ Steps:
    draft to the user for confirmation — surface names, `help` /
    `help_language` and anything you could not infer are their call.
    Only continue after confirmation. If the project has no code yet,
-   there is nothing to derive: leave `surfaces: {}`, still do steps 2–5,
-   then skip step 6 — configure real surfaces the first time code
+   there is nothing to derive: leave `surfaces: {}`, still do steps 2–6,
+   then skip step 7 — configure real surfaces the first time code
    lands, per the deepen-on-touch rule.
 
    If the repo already has specs in an older layout (`docs/specs/pages/`
@@ -169,7 +169,29 @@ Steps:
    `git rm -r --cached .magnaflow` followed by
    `git add .magnaflow/config.yml`.
 
-6. **Write the initial specs (brownfield sync).** Skip this step
+6. **Quality baseline.** Check what the repo already has to catch
+   problems mechanically:
+   - warnings as errors and analyzers — .NET: `TreatWarningsAsErrors`
+     and `AnalysisLevel`, ideally once in `Directory.Build.props`;
+   - a linter — Angular/JS: eslint;
+   - a dependency vulnerability scan in CI — `dotnet list package
+     --vulnerable`, `npm audit`.
+
+   Then ask the user one question: **set it up, or advise only?** The
+   user decides. Set up means only what keeps the build green today: if
+   switching something on would turn the build red, do not fix the
+   warnings here — leave it off, note the warning count, and suggest a
+   separate cmd for it.
+
+   Either way, record the outcome in a short `## Quality baseline`
+   section of `docs/specs/concepts/design.md`: what is on, what was
+   advised (with the count where one was taken). Then the question is
+   asked once, and `0002` can see it was answered. If design.md does not
+   exist yet, create it with `# Technical` as its only h1 and just this
+   section; step 7 fills in the rest. A project without code yet records
+   the advice only.
+
+7. **Write the initial specs (brownfield sync).** Skip this step
    entirely if step 1 found no code yet. Otherwise: if the project has
    existing hand-written help content (e.g. in a database), ask the
    user to export it to files first and use it as source material for
@@ -184,16 +206,26 @@ Steps:
    through the missing list in batches (~10 units), committing per batch
    so the sync is restartable — pages must be complete per surface.
    Write `docs/specs/_overview.md` (the application as a whole) and
-   `docs/specs/concepts/design.md` (the design system: layout rules,
-   components, tone — page specs will reference it instead of describing
-   appearance). Add a concept for every mechanism that determines
-   behavior and cannot be read off one module.
+   `docs/specs/concepts/design.md`, the design system, in two halves:
+   - **engineering principles** — architecture and layering, dependency
+     policy, security basics (secrets never in code, parameterised
+     queries), reuse before writing new code. Derive the principles the
+     code already follows, show them to the user and let them confirm or
+     adjust: a handful of short rules, not a handbook. `/architect`
+     checks every cmd against design.md, so a principle written there
+     steers every change.
+   - **appearance**, when there is a UI — layout rules, components,
+     tone. Page specs reference it instead of describing appearance.
 
-7. **Verify.** Finish with another `/spec-drift`; STATUS.md must be
+   Keep the Quality baseline section from step 6. Add a concept for
+   every mechanism that determines behavior and cannot be read off one
+   module.
+
+8. **Verify.** Finish with another `/spec-drift`; STATUS.md must be
    clean (all sections "none" except Recent spec updates), "Format
    problems" included.
 
 When done, delete the `docs/spec-kit/` copy (the master lives in the
 magnaflow repo under `tools/mf-spec/spec-kit/`) and show a summary: where
 each file went, the surfaces configured, whether the MagnaFlow step ran,
-and the final STATUS.md.
+the quality baseline outcome, and the final STATUS.md.

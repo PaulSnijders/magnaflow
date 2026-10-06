@@ -1,7 +1,8 @@
 ---
 title: "spec-kit 1.2: engineering principles in design.md, quality baseline question, quality pass"
-status: ready
+status: done
 created: 2026-10-06
+attempts: 1
 ---
 
 ## Context

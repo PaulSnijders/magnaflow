@@ -1,4 +1,4 @@
-# spec-kit — version 1.1
+# spec-kit — version 1.2
 
 A self-contained copy of the spec system: one markdown spec per page,
 grouped per surface; `concepts/` for cross-cutting logic; a `# Technical`
@@ -17,14 +17,24 @@ magnaflow repo under `tools/mf-spec/`.
   (`tools/mf-spec/spec-kit/`); improvements flow back there.
 
 The version is also stamped in `docs/specs/README.md`; the update prompt
-reads that stamp. Repos on any 0.x or 1.0 version are brought to 1.1 in
-one run of `0002-update-spec-system.md`.
+reads that stamp. Repos on any 0.x, 1.0 or 1.1 version are brought to 1.2
+in one run of `0002-update-spec-system.md`.
 
 1.1: context is managed, not only appended — one conversation is one
 file, corrections and cleanup are expected, substance stays (see
 `docs/context/README.md`). The earlier "never updated; new information
 is a new file" rule scattered one conversation over many fragments and
 kept mistakes standing.
+
+1.2: code quality is steered through what the kit already has
+(decision 0017 in the magnaflow repo). design.md carries engineering
+principles next to appearance, so `/architect` checks every cmd against
+them; adoption asks once whether to set up a strict build/linter or
+only advise, and records the answer in design.md's Quality baseline;
+a quality pass per PR (or monthly on `main`) with the built-in
+`/security-review` and `/code-review`, triaged by a human and filed as
+`docs/context/YYYY-MM-DD-quality-pass.md`; `/spec-drift` shows the date
+of the last pass and flags one older than 30 days.
 
 The kit is tool-neutral: it installs the spec system and nothing else.
 The MagnaFlow hooks (`.magnaflow/config.yml` for the worker, its
@@ -66,6 +76,7 @@ also something that can fail for the wrong reason.
 | An index README per folder | `ls` is the index until a folder passes roughly fifteen files. |
 | A `TEMPLATE.md` per genre | The folder README is a dozen lines — the agent writes the file from it. |
 | A `/decision` command | Creating one file with a sequence number does not need a command. |
+| A `/quality` command or quality scores | Overlaps the built-in `/security-review` and `/code-review` and adds a report to ignore; LLM-assigned scores are noisy. The quality pass uses the built-ins (decision 0017). |
 | A `/spec-fold-in` command | Folding a delta into the specs is ordinary spec-first work with the diff in front of you; a command only made it look like a separate phase. |
 | `HANDOVER.md` | Overlaps almost entirely with CLAUDE.md; the cadence belongs there. |
 | Year subfolders in `context/` | Below about three years they add a level without adding findability. |
