@@ -35,9 +35,7 @@ Steps:
    Verify `design.md` and `_overview.md` exist.
 7. Check for unpaid hotfix debt: `git log --oneline --grep="^hotfix:"`
    since the newest STATUS.md update; list any not yet folded into specs.
-8. List open prompts: every `docs/prompts/*-cmd-*.md` whose status is
-   not `done`/`aborted`, one line each (number, name, status).
-9. Run the format lint: `node scripts/spec_lint.mjs`. Its stdout is the
+8. Run the format lint: `node scripts/spec_lint.mjs`. Its stdout is the
    body of the "Format problems" section verbatim (one `- ` bullet per
    problem, or `none`). This is mechanical validation — split-marker
    shape, surface folders vs config.yml, anchor uniqueness,
@@ -47,7 +45,7 @@ Steps:
    stale spec. Because the output lands in STATUS.md verbatim, the lint
    skips STATUS.md itself — otherwise the next run would read every
    `file.md#anchor` it just reported as a broken anchor a second time.
-10. Overwrite `docs/specs/STATUS.md`, keeping the "Recent spec updates"
+9. Overwrite `docs/specs/STATUS.md`, keeping the "Recent spec updates"
    log (trim to ~10 entries). No frontmatter. Structure:
 
    ```markdown
@@ -60,12 +58,11 @@ Steps:
    ## Stale specs (code ahead — enforcement gap)
    ## Spec ahead (implementation pending)
    ## Hotfix debt
-   ## Open prompts
    ## Format problems
    ## Recent spec updates
    ```
 
    One line per item; empty sections get "none". End the body with the
    cosmetic count as a single line ("12 cosmetic diffs, not listed").
-11. Show the same lists in the chat. Report only — no fixes; the user
+10. Show the same lists in the chat. Report only — no fixes; the user
    decides what to act on.

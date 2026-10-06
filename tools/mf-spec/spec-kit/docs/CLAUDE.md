@@ -7,7 +7,8 @@ these same files. Full conventions:
 `docs/specs/README.md` — read it before touching specs.
 
 - Start each session by checking `docs/specs/STATUS.md` (exception
-  report: open items, unanswered questions, hotfix debt).
+  report: drift, hotfix debt, format problems) and the lane
+  (`docs/prompts/`) for commands at `ready`, `running` or `questions`.
 - The state specs in `docs/specs/` are the truth about the product.
   Design work = editing them. Spec ahead of code is a work order, not
   an error.

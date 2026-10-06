@@ -53,7 +53,7 @@ Two ways in:
 - Pick the weight by risk, not by code size:
   - **small** (default): edit the state spec → implement → done;
   - **medium**: prompt files in `docs/prompts/`, all committed (no
-    central status file; STATUS.md gives the overview):
+    central status file; the lane itself is the overview):
     - `NNNN-cmd-name.md` — goal, decisions, tasks; frontmatter status
       draft → ready → running → questions/done/aborted (after answers:
       back to ready);

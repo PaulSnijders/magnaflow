@@ -22,10 +22,6 @@ none
 
 none
 
-## Open prompts
-
-- 0025 git-sync-rebase — ready
-
 ## Format problems
 
 none

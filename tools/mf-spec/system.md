@@ -40,8 +40,8 @@ scripts/spec_lint.mjs  # format lint (Node, no deps), run by /spec-drift
     Its frontmatter carries a one-line `summary:`, the human-sized
     layer that the cockpit renders in its lane.
   - `NNNN-qa-name.md` — question/answer dialogue, only when needed.
-  - Overviews are generated (STATUS.md); there is no central status
-    file.
+  - The lane itself is the overview (status in each cmd's frontmatter,
+    rendered by the cockpit); there is no central status file.
 - **Delta-lane numbering**: `NNNN` is the highest number on disk in
   `docs/prompts/` plus one, never a number the conversation remembers.
   Follow-ups keep the parent's number and add a letter.
