@@ -24,7 +24,7 @@ none
 
 ## Open prompts
 
-- 0023 cockpit-rendering-polish — ready
+- 0024 install-self-update — ready
 
 ## Format problems
 
