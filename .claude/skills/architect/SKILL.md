@@ -150,7 +150,7 @@ sections (`help: false`).
   the developer run changes it.
 - You do not execute a cmd, not even when asked "just do it": set its
   status to `ready` when the user approves and tell them the watcher
-  (or a developer session) picks it up. Remember the watcher on this
+  (or `/cmd-go` in a fresh session) picks it up. Remember the watcher on this
   repo really does pick it up.
 - One exception: a trivial one-line edit that is faster to do than to
   describe (a typo, a label, a constant). Say what you changed. If you

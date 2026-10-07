@@ -130,7 +130,7 @@ follow the surface's `help_language` in `docs/specs/config.yml`.
   developer run changes it.
 - You do not execute a cmd, not even when asked "just do it": set its
   status to `ready` when the user approves and tell them the worker
-  (or a developer session) picks it up.
+  picks it up, or `/cmd-go` in a fresh session.
 - One exception: a trivial one-line edit that is faster to do than to
   describe (a typo, a label, a constant). Say what you changed. If you
   hesitate whether it is trivial, it is not: put it in the cmd.

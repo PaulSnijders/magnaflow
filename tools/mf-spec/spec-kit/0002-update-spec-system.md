@@ -13,8 +13,8 @@ changes nothing the second time.
 
 2. **Overwrite** (system-owned, safe to replace):
    - `spec-kit/docs/specs/README.md` → `docs/specs/README.md`
-   - `spec-kit/commands/spec.md` and `commands/spec-drift.md` →
-     `.claude/commands/`
+   - `spec-kit/commands/spec.md`, `commands/spec-drift.md` and
+     `commands/cmd-go.md` → `.claude/commands/`
    - `spec-kit/skills/specs/SKILL.md` → `.claude/skills/specs/SKILL.md`
    - `spec-kit/scripts/spec_lint.mjs` → `scripts/spec_lint.mjs`
    - `spec-kit/docs/CLAUDE.md` → `docs/CLAUDE.md` (merge, don't

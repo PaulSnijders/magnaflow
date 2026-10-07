@@ -83,11 +83,11 @@ installed skills live in `.claude/skills/` (masters in `spec-kit/skills/`).
 |---|---|---|
 | Explore an idea | `/brainstorm` | Challenges the premise, 2–3 directions, writes a scratch note in `.scratch/brainstorm/`. No code, no specs. |
 | Design the change | `/architect` | Reads specs first, decides with you, writes the spec edits, a decision record if needed, and the `NNNN-cmd-*.md` (set `ready` when you approve). Does not implement. |
-| Execute | the worker (mf-watch → mf-worker), or a plain Claude Code session: "execute `docs/prompts/NNNN-cmd-*.md`" | Implements, updates specs, writes the rst. |
+| Execute | the worker (mf-watch → mf-worker), or by hand: `/cmd-go [NNNN]` in a fresh Claude Code session | Picks the next `ready` cmd (or the one named), claims it (`running`, pushed), implements, updates specs, writes the rst. One cmd per run. |
 | Review | `cc-review` ("review cmd NNNN") | Lays the rst against the cmd, checks the code with git, exercises the app, reports. |
 | Specs and behavior | `specs` | Loads automatically whenever behavior or specs change — carries the spec-first rule. |
 
-`/brainstorm` and `/architect` only start when you type them; `cc-review`
+`/brainstorm`, `/architect` and `/cmd-go` only start when you type them; `cc-review`
 and `specs` also trigger on their own. Small changes can skip the lane:
 any session that edits code follows the one rule above.
 
@@ -95,6 +95,7 @@ any session that edits code follows the one rule above.
 
 - `/spec <surface>/<route> | concepts/<slug>` — one-time draft from
   code (new pages, brownfield gaps), or an explicit spec work order.
+- `/cmd-go [NNNN]` — execute the next `ready` cmd by hand (see *Skills*).
 - `/spec-drift` — the audit. Writes STATUS.md (an exception report) and
   runs `scripts/spec_lint.mjs` for its "Format problems" section.
   Cosmetic diffs are counted, not listed. It also shows the date of the

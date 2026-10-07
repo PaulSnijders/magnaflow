@@ -179,7 +179,8 @@ specs: [docs/specs/app/orders.md]   # optional: state specs this touches
 ---
 ```
 
-`draft` — being shaped, do not pick up. `ready` — may be picked up.
+`draft` — being shaped, do not pick up. `ready` — may be picked up
+(by the worker, or by hand with `/cmd-go`).
 `running` — picked up; the executor creates/updates the `rst-` file.
 `questions` — paused, questions in the `qa-` file; answer beneath each
 and set the cmd back to `ready` (rounds append). `done` — implemented,

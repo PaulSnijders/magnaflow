@@ -220,6 +220,7 @@ to other tooling must never matter.
 
 Thinking happens in a Claude Code session under the `/brainstorm` and
 `/architect` skills, which write to `docs/` only. Execution happens in
-Claude Code or via the Worker Controller (`tools/worker-controller/`,
+Claude Code (`/cmd-go` picks up the next `ready` cmd) or via the
+Worker Controller (`tools/worker-controller/`,
 see `docs/decisions/0005-worker-v0-2-direction.md`). The state specs
 are the shared truth both planes work against.

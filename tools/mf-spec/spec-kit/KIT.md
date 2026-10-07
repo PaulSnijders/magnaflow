@@ -48,7 +48,7 @@ prompts. It coexists with GitHub Spec Kit: we own `docs/specs/` and
 |---|---|---|
 | `docs/specs/README.md` | `docs/specs/README.md` | kit (overwritten on update) |
 | `docs/specs/config.yml` | `docs/specs/config.yml` | project (derived once) |
-| `commands/spec.md`, `commands/spec-drift.md` | `.claude/commands/` | kit |
+| `commands/spec.md`, `commands/spec-drift.md`, `commands/cmd-go.md` | `.claude/commands/` | kit |
 | `skills/specs/SKILL.md` | `.claude/skills/specs/SKILL.md` | kit |
 | `skills/brainstorm/SKILL.md`, `skills/architect/SKILL.md`, `skills/cc-review/SKILL.md` | `.claude/skills/<name>/SKILL.md` | project (starting point, adapt to the project) |
 | `scripts/spec_lint.mjs` | `scripts/spec_lint.mjs` | kit |

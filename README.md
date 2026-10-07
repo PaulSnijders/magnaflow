@@ -4,8 +4,8 @@ A spec-first, git-native way to build software with an AI coding agent.
 State specs (`docs/specs/`) are the AI's memory: a projection of the
 code, ~20× smaller, that doubles as in-app help and team docs. Change
 requests go through a git-committed lane (`docs/prompts/`). A worker
-executes them (plan → implement → build → test, bounded retries), and
-a human gates every merge. Everything is plain text; git is the
+executes them (plan → implement → build → test, bounded retries) — or
+you do, in a Claude Code session — and a human gates every merge. Everything is plain text; git is the
 database. Full picture: `tools/mf-spec/README.md`; governing rules:
 `docs/specs/concepts/design.md`.
 
@@ -47,10 +47,22 @@ MagnaFlow is built with its own spec system (`docs/specs/README.md`):
 
 ## Where to start
 
-1. Install the tools per
-   [`tools/install/README.md`](tools/install/README.md) (one script,
-   Windows or Linux).
-2. Run mf-cockpit and add a project with `+`. It registers an existing
-   working copy or scaffolds a new one, and seeds the adopt prompt as a
-   draft (see `docs/decisions/0009-cockpit-add-project.md`). Or adopt
-   the spec kit by hand per `tools/mf-spec/README.md`.
+Two ways in; the spec kit works on its own, the tools build on it.
+
+- **Specs only** — no tools, just Claude Code. Copy
+  `tools/mf-spec/spec-kit/` into the target repo's `docs/` and run its
+  `0001-adopt-spec-system.md` as a prompt; answer "no" to the MagnaFlow
+  question. You get the specs, the lane, `/architect`, `/brainstorm`,
+  `/spec`, `/spec-drift` and `cc-review`. You execute a `ready` cmd
+  yourself: `/cmd-go` in a fresh Claude Code session picks up the next
+  one. Details: `tools/mf-spec/README.md`.
+- **Full MagnaFlow** — the worker picks up `ready` cmds unattended.
+  1. Install the tools per
+     [`tools/install/README.md`](tools/install/README.md) (one script,
+     Windows or Linux).
+  2. Run mf-cockpit and add a project with `+`. It registers an
+     existing working copy or scaffolds a new one, and seeds the adopt
+     prompt as a draft (see `docs/decisions/0009-cockpit-add-project.md`).
+
+You can start with specs only and add the tools later: rerun the kit's
+`0002-update-spec-system.md` and answer "yes" to the MagnaFlow question.
