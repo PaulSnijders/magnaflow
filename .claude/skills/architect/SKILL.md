@@ -48,7 +48,8 @@ recommendation and the precise order.
    cmd needs a concrete detail: a class, a command option, a config
    key, an endpoint, a file in the evidence layout. Say so when you do:
    "checking code because the spec does not say X". Never start from the
-   code, and do not read code to confirm what the spec already states.
+   code, and do not read code to confirm what the spec already states —
+   unless the user suspects the two disagree; then checking is the job.
 
 Where spec and code disagree, that is a finding, not something to
 settle quietly: name it and ask which side is the truth (spec ahead is
