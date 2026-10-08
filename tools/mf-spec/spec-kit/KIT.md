@@ -1,4 +1,4 @@
-# spec-kit — version 1.2
+# spec-kit — version 1.3
 
 A self-contained copy of the spec system: one markdown spec per page,
 grouped per surface; `concepts/` for cross-cutting logic; a `# Technical`
@@ -13,11 +13,14 @@ magnaflow repo under `tools/mf-spec/`.
   (it derives the surface config from the repo).
 - **Update**: copy the folder again and run
   `0002-update-spec-system.md`.
-- Delete the copy when done. The master lives in the magnaflow repo
+- Delete the copy when done — and any other copy of the kit (a folder
+  holding this `KIT.md`) that ended up somewhere in the repo: a stray
+  copy carries its own `docs/CLAUDE.md`, which agents load as if it were
+  the project's. The master lives in the magnaflow repo
   (`tools/mf-spec/spec-kit/`); improvements flow back there.
 
 The version is also stamped in `docs/specs/README.md`; the update prompt
-reads that stamp. Repos on any 0.x, 1.0 or 1.1 version are brought to 1.2
+reads that stamp. Repos on any 0.x or 1.x version are brought to 1.3
 in one run of `0002-update-spec-system.md`.
 
 1.1: context is managed, not only appended — one conversation is one
@@ -35,6 +38,15 @@ a quality pass per PR (or monthly on `main`) with the built-in
 `/security-review` and `/code-review`, triaged by a human and filed as
 `docs/context/YYYY-MM-DD-quality-pass.md`; `/spec-drift` shows the date
 of the last pass and flags one older than 30 days.
+
+1.3: weight. Docs cost reading — for the human reviewing and for the
+agent's context — and every word in a spec is one the next change has
+to keep true. `/spec` no longer drafts by "adding what is missing" from
+code (that retold the code: field lists, schema concepts copying the
+entities); `# Technical` aims for under ~800 words. A decision is one
+choice in a few hundred words; investigations stay in the rst or
+`context/`. `spec_lint` reports specs that link into scratch folders.
+Adopt and update remove every stray copy of the kit.
 
 The kit is tool-neutral: it installs the spec system and nothing else.
 The MagnaFlow hooks (`.magnaflow/config.yml` for the worker, its

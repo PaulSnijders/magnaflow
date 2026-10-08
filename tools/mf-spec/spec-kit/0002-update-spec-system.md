@@ -9,7 +9,7 @@ changes nothing the second time.
 1. **Read the installed version** from the comment at the top of the OLD
    `docs/specs/README.md`: `spec-kit version: 1.x`, or the older form
    `mf-spec kit version: 0.x` (no comment at all = 0.1). Note it for the
-   summary; the repairs below cover every path to 1.2.
+   summary; the repairs below cover every path to 1.3.
 
 2. **Overwrite** (system-owned, safe to replace):
    - `spec-kit/docs/specs/README.md` → `docs/specs/README.md`
@@ -68,7 +68,27 @@ changes nothing the second time.
    `docs/context/` (the context README repair below excepted). One
    more exception: `docs/specs/concepts/design.md` may get a missing
    section added per "From 1.1 to 1.2" below — never a rewrite of its
-   existing text.
+   existing text — and `docs/decisions/README.md` and the architect
+   skill get the bullets of "From 1.2 to 1.3".
+
+## From 1.2 to 1.3
+
+Weight. The overwritten README, `/spec` and `spec_lint` carry most of
+it; two project-owned files get a line added, never a rewrite:
+
+- `docs/decisions/README.md`: if it has no rule on size or on
+  investigations, add the kit's two bullets ("One choice, a few hundred
+  words" and "An investigation is not a decision") after the frontmatter
+  bullet.
+- `.claude/skills/architect/SKILL.md`: if its decision-record step does
+  not say "one choice per record", append the kit's sentence (one
+  choice, a few hundred words; the design goes in the spec edits, an
+  investigation in the rst).
+
+Existing specs and decisions are left alone. If the new lint check
+reports specs linking into scratch, list them in the summary; promoting
+or dropping is the project's call. Say in the summary which specs are
+over ~800 words in `# Technical` — as information, not a task.
 
 ## From 1.1 to 1.2
 
@@ -113,5 +133,6 @@ Two things are left as they are on purpose:
   deleted by hand.
 
 Then: show a short diff summary of what changed in the system files,
-delete the `docs/spec-kit/` copy, and commit with message
+delete the `docs/spec-kit/` copy and any other copy of the kit in the
+repo (a folder holding `KIT.md`), and commit with message
 `chore: update spec system`.

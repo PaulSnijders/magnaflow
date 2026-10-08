@@ -91,7 +91,11 @@ Specify decisions, not defaults; unspecified means it may vary, so pin
 what must stay stable (URLs, data formats, user-facing terms). Short
 beats complete. Symbol names, not line numbers; anchor slugs, not
 section numbers. `BUG:` and `DRAFT:` prefixes keep known bugs and
-unreviewed generated specs greppable.
+unreviewed generated specs greppable. Weight is a cost even when the
+reader is an agent: every word is read in review and in context, and
+must be kept true by the next change. So `# Technical` aims under ~800
+words and never retells the code (no field or schema lists), and a
+decision is one choice in a few hundred words (kit 1.3).
 
 ## Keeping specs true
 
@@ -120,7 +124,8 @@ unreviewed generated specs greppable.
   `docs/decisions/0017-quality-pass.md`.
 - **Format lint** (`scripts/spec_lint.mjs`, run by `/spec-drift`):
   split-marker shape, surface folders vs `config.yml`, anchor
-  uniqueness and resolution, concept `Code:` paths. Mechanical. A
+  uniqueness and resolution, concept `Code:` paths, and no spec linking
+  into a scratch folder (kit 1.3). Mechanical. A
   format problem outranks a stale spec, because a broken marker leaks
   admin content.
 - **Brownfield**: spec-first is a property of changes, not of the
@@ -210,7 +215,7 @@ the pressure is proportional instead of a wall. Design:
 Master kit: `tools/mf-spec/spec-kit/`; its contents and install/update
 steps are in [KIT.md](spec-kit/KIT.md). The version stamp in the
 conventions README travels with every update; `0002` is idempotent and
-brings any older install to the current version (1.2) in one run. The
+brings any older install to the current version (1.3) in one run. The
 kit is tool-neutral: MagnaFlow's worker config and ignore lines are one
 optional question in 0001/0002. Phase 0: copy folder + prompt. Phase 1:
 `mf-spec init`/`update` automates the same. Installation order relative

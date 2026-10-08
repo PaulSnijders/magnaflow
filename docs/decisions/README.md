@@ -24,5 +24,14 @@ and did nothing".
   superseded`, optional `supersedes`. Then `# NNNN — <title>` and four
   sections: **Situation**, **Options** (only the ones genuinely on the
   table), **Measurement** (what decided it), **Choice**.
+- **One choice, a few hundred words.** Past ~1,000 you are writing a
+  design or an investigation. A design belongs in the specs (spec ahead
+  of code is a work order); several independent choices are several
+  decisions, or are small enough to live in the cmd.
+- **An investigation is not a decision.** The research that led to a
+  choice — measurements, comparisons, a spike — stays where it was done:
+  the cmd's `rst` report, or `docs/context/` when it is material from
+  outside. The decision cites it under Measurement and keeps only the
+  figures that decided it.
 
 This folder may stay empty forever; `ls` is the index.

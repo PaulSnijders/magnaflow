@@ -24,6 +24,9 @@
 // 5. Each concept's Technical section ends with a `Code:` line whose
 //    path-like tokens all exist on disk (only `Why:` and `DRAFT:` lines
 //    may follow it).
+// 6. No spec links into a scratch folder (`scratch/`, `.scratch/`,
+//    `temp/`, `tmp/`): a spec that relies on unaudited notes turns them
+//    into state nobody checks. Promote what it relies on, or drop the link.
 //
 // Usage: node scripts/spec_lint.mjs [repo-root]
 //   repo-root defaults to the parent of this script's folder.
@@ -67,6 +70,11 @@ const FENCE = /^\s*(```|~~~)/;
 const HEADING = /^(#{1,6})\s+(.*)$/;
 const ANCHOR = /\{#([a-z0-9-]+)\}/;
 const FILE_REF = /([\w./-]+\.md)#([a-z0-9-]+)/g;
+// A document reference through a scratch folder: a `.md` path with a
+// scratch segment, or any `docs/…/scratch/…` path. Runtime paths the app
+// itself uses (`tmp/uploads/`) are not documents and stay out of it.
+const SCRATCH_REF =
+  /(?<![\w-])((?:[\w.-]+\/)*\.?(?:scratch|temp|tmp)\/[\w./-]*\.md|docs\/(?:[\w.-]+\/)*\.?(?:scratch|temp|tmp)\/[\w./-]*)/g;
 const LINK = /\]\(([^)]+)\)/g;
 
 const rel = (p) => path.relative(ROOT, p).replaceAll("\\", "/");
@@ -320,6 +328,13 @@ function main() {
       if (!fs.existsSync(path.join(ROOT, token))) {
         problems.push(`${rel(p)} — \`Code:\` path not found: ${token}`);
       }
+    }
+  }
+
+  // --- Check 6: no spec depends on scratch ---
+  for (const p of specFiles) {
+    for (const m of textOf.get(p).matchAll(SCRATCH_REF)) {
+      problems.push(`${rel(p)} — points into scratch: \`${m[1]}\` (promote it to a spec or record, or drop the link)`);
     }
   }
 

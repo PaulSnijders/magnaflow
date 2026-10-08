@@ -1,6 +1,6 @@
 # Specs — conventions
 
-<!-- spec-kit version: 1.2 — do not edit; used by the update prompt -->
+<!-- spec-kit version: 1.3 — do not edit; used by the update prompt -->
 
 One markdown file per page, grouped per surface. The file path is the
 identity, git history is the timestamp. No frontmatter.
@@ -122,9 +122,16 @@ on and which were only advised.
   differently here, do I care?" If not, leave it out. Unspecified = may
   vary, so do pin what must stay stable even when obvious: URLs, data
   formats, user-facing terminology.
-- Keep it short. Help sections aim for under 300 words. Technical
-  sections record what the code cannot say — decisions and reasons,
-  quirks, edge cases, one-line data contracts — and never retell it.
+- Keep it short. Help sections aim for under 300 words, Technical
+  sections for under ~800. Technical sections record what the code
+  cannot say — decisions and reasons, quirks, edge cases, one-line data
+  contracts — and never retell it: no field, column or endpoint lists
+  the code already shows (a schema concept names the entities and
+  records only what the code does not enforce or explain). Every word
+  in a spec is one the next behavior change has to keep true.
+- A spec never depends on scratch: no links into `scratch/`, `temp/`
+  or `tmp/` folders. What a spec relies on is promoted into a spec or a
+  record first; `spec_lint` reports such links.
 - Refer to code by symbol name, never line numbers; to docs by anchor
   slug (`file.md#rounding-rules`), never section numbers.
 - `BUG:` prefix for known bugs; say "standard CRUD, nothing special" for

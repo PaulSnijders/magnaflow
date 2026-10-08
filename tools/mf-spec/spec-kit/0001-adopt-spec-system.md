@@ -1,7 +1,7 @@
 # 0001 — Adopt the spec system in this repo
 
 The `docs/spec-kit/` folder next to this prompt is a copy of the spec
-kit (1.2, spec-first): one markdown spec per page grouped per surface,
+kit (1.3, spec-first): one markdown spec per page grouped per surface,
 `concepts/` for cross-cutting logic (always including `design.md`),
 split by a `# Technical` marker into user help and developer notes,
 guarded by a spec-first rule, a drift audit and a format lint. Install
@@ -202,7 +202,9 @@ Steps:
    first time a human works with that spec).
    Run `/spec-drift` to get the full missing list. **Calibrate first**:
    write 2–3 specs, show them to the user, and adjust tone/length/level
-   of detail to their feedback before writing the rest. Then work
+   of detail to their feedback before writing the rest. Drafting a whole
+   repo from code is where specs bloat: hold each `# Technical` to what
+   the code cannot say (see `/spec` step 3), under ~800 words. Then work
    through the missing list in batches (~10 units), committing per batch
    so the sync is restartable — pages must be complete per surface.
    Write `docs/specs/_overview.md` (the application as a whole) and
@@ -225,7 +227,8 @@ Steps:
    clean (all sections "none" except Recent spec updates), "Format
    problems" included.
 
-When done, delete the `docs/spec-kit/` copy (the master lives in the
+When done, delete the `docs/spec-kit/` copy and any other copy of the
+kit in the repo (a folder holding `KIT.md`; the master lives in the
 magnaflow repo under `tools/mf-spec/spec-kit/`) and show a summary: where
 each file went, the surfaces configured, whether the MagnaFlow step ran,
 the quality baseline outcome, and the final STATUS.md.

@@ -118,7 +118,9 @@ Pick the weight by risk, as `docs/specs/README.md` describes:
      lean on (what, why, what was considered and rejected). Follow the
      folder README; cite it from the concept's `Why:` line and from the
      cmd. A smaller trade-off is explained in the cmd itself — the
-     decisions folder must not sprawl.
+     decisions folder must not sprawl. One choice per record, a few
+     hundred words; the design goes in the spec edits, an investigation
+     in the rst that did it.
   3. **The cmd** `docs/prompts/NNNN-cmd-slug.md`. Match the latest cmd
      in that folder for shape: frontmatter `title`, `status: draft`,
      `created`, optional `branch:`/`base:` and `resume:`/`group:` (only
