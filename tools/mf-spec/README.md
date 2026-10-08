@@ -99,8 +99,8 @@ any session that edits code follows the one rule above.
 - `/spec-drift` — the audit. Writes STATUS.md (an exception report) and
   runs `scripts/spec_lint.mjs` for its "Format problems" section.
   Cosmetic diffs are counted, not listed. It also shows the date of the
-  last quality pass (`docs/context/*-quality-pass.md`, see the CLAUDE
-  section); older than 30 days is a finding, none yet is not.
+  last quality pass (`docs/context/*-quality-pass.md`, see
+  `docs/specs/README.md#quality-pass`); older than 30 days is a finding, none yet is not.
 
 Run `/spec-drift` when the repo has moved. Steady state: every
 STATUS.md section reads "none" and its `Generated:` date is under 14

@@ -21,13 +21,28 @@ which does not implement).
    [skip ci]` and push before any other work, so a second executor
    cannot pick the same cmd. Push rejected: pull, re-read the status,
    and continue only if it is still yours.
-5. **Execute** per "When executing a cmd" in `CLAUDE.md` and the lane
-   conventions in `docs/specs/README.md`: read the cmd in full (and the
-   `rst` of the cmd named in `resume:`/`group:`, if set), keep
-   `NNNN-rst-name.md` up to date, follow `branch:`/`base:`, update the
-   specs with the code. Before `done`, run the verification the cmd
-   names — its tests, plus the build/test commands in
-   `.magnaflow/config.yml` if the repo has one.
-6. **Finish** with `done`, `questions` (with `NNNN-qa-name.md`) or
-   `aborted` (reason in the rst). Commit and push. One cmd per run: do
-   not start the next one; report the result and the paths written.
+5. **Execute** per the lane conventions in `docs/specs/README.md`
+   (frontmatter, rst shape, branches):
+   - Read the cmd in full, and the `rst` of the cmd named in
+     `resume:`/`group:`, if set.
+   - Create `NNNN-rst-name.md` and keep it up to date as you go — it is
+     the report the next conversation reads.
+   - With `branch:`: bookkeeping (cmd status, rst, qa) commits on the
+     branch you were started from; code and its spec updates on the
+     work branch, created from `base:`. Never change prompt statuses on
+     the checked-out work branch.
+   - Update the owning specs with the code, in the same commit.
+   - Before `done`, run the verification the cmd names — its tests,
+     plus the build/test commands in `.magnaflow/config.yml` if the
+     repo has one.
+6. **Finish** with one of:
+   - `done` — implemented, rst written, specs updated;
+   - `questions` — a decision that is genuinely the human's: write the
+     questions to `NNNN-qa-name.md` (they answer beneath each and set
+     the cmd back to `ready`);
+   - `aborted` — reason in the rst.
+
+   Commit everything (status/rst/qa-only commits as `lane: … [skip
+   ci]`) and push — both branches with `branch:`. Do not open a pull
+   request; that and merging are the human's. One cmd per run: do not
+   start the next one; report the result and the paths written.

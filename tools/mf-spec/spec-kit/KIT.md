@@ -46,7 +46,15 @@ code (that retold the code: field lists, schema concepts copying the
 entities); `# Technical` aims for under ~800 words. A decision is one
 choice in a few hundred words; investigations stay in the rst or
 `context/`. `spec_lint` reports specs that link into scratch folders.
-Adopt and update remove every stray copy of the kit.
+Adopt and update remove every stray copy of the kit. The root CLAUDE.md
+is loaded into every turn — and by the MagnaFlow worker into every
+run — so the kit's section holds only what every
+session needs (~160 words): the hard rule, STATUS, the commands, a
+pointer for executing a cmd by hand, language, the `lane:` prefix. The
+execution rules moved into `/cmd-go` (they contradicted the worker's own
+rules), the quality pass into `docs/specs/README.md`. A cmd is assumed to
+run through the worker or `/cmd-go`. Adopt and update report a root
+CLAUDE.md over ~1,000 words.
 
 The kit is tool-neutral: it installs the spec system and nothing else.
 The MagnaFlow hooks (`.magnaflow/config.yml` for the worker, its

@@ -20,10 +20,14 @@ changes nothing the second time.
    - `spec-kit/docs/CLAUDE.md` → `docs/CLAUDE.md` (merge, don't
      overwrite, if the repo customized it)
 
-3. **Re-merge `spec-kit/CLAUDE-section.md`** into CLAUDE.md — update
-   the spec-system section to the new wording (the bookkeeping commit
-   prefix is now `lane:`, and there is no `/decision` command), keep
-   everything else in CLAUDE.md as is.
+3. **Re-merge `spec-kit/CLAUDE-section.md`** into CLAUDE.md — replace
+   the spec-system section with the new wording (see "From 1.2 to 1.3"
+   for what left it), keep everything else in CLAUDE.md as is.
+   Then count the words of the root CLAUDE.md. It is loaded into every
+   agent turn, and the MagnaFlow worker puts it at the top of every run's
+   prompt. Above ~1,000 words, name the largest sections in the summary
+   as candidates to move into a nested `CLAUDE.md`, a spec or a README
+   — advice only; the rest of CLAUDE.md is the project's.
 
 4. **Ensure present** — create only if missing, never overwrite:
    - `docs/decisions/README.md` and `docs/context/README.md` from
@@ -89,6 +93,24 @@ Existing specs and decisions are left alone. If the new lint check
 reports specs linking into scratch, list them in the summary; promoting
 or dropping is the project's call. Say in the summary which specs are
 over ~800 words in `# Technical` — as information, not a task.
+
+The CLAUDE section shrank to what every session needs. Two blocks left
+it; remove them from CLAUDE.md when re-merging, whatever their wording:
+
+- **"When executing a cmd"** (set `running`, keep the rst, qa and
+  `questions`, `done`/`aborted`, branch bookkeeping, push both). It now
+  lives in `/cmd-go`, overwritten in step 2. CLAUDE.md keeps one pointer
+  line. The worker reads CLAUDE.md too, and its own rules forbid the
+  agent to touch the cmd file or commit — the old paragraph contradicted
+  them in every run.
+- **"Quality pass"** (the section with `/security-review` and
+  `/code-review`). It now lives in `docs/specs/README.md#quality-pass`;
+  CLAUDE.md keeps one pointer line.
+
+Also drop the "Records live beside the specs" paragraph if it is there:
+`docs/CLAUDE.md` and the folder READMEs carry it. Keep any
+project-specific sentence that was added to these blocks — move it to a
+project section rather than delete it.
 
 ## From 1.1 to 1.2
 

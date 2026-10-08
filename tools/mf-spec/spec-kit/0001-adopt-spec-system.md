@@ -58,6 +58,11 @@ Steps:
 
 3. **Merge `spec-kit/CLAUDE-section.md`** into this repo's CLAUDE.md
    (create one if missing). Don't duplicate anything it already says.
+   Then count the words of the root CLAUDE.md. It is loaded into every
+   agent turn, and the MagnaFlow worker puts it at the top of every run's
+   prompt. Above ~1,000 words, name the largest sections in the summary
+   as candidates to move into a nested `CLAUDE.md`, a spec or a README
+   — advice only; the rest of CLAUDE.md is the project's.
 
 4. **Pin line endings.** Create `.gitattributes` (or add to it) with
    `*.md text eol=lf`, `*.mjs text eol=lf` and `*.yml text eol=lf`. With

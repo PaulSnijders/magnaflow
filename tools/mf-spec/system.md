@@ -227,5 +227,8 @@ Thinking happens in a Claude Code session under the `/brainstorm` and
 `/architect` skills, which write to `docs/` only. Execution happens in
 Claude Code (`/cmd-go` picks up the next `ready` cmd) or via the
 Worker Controller (`tools/worker-controller/`,
-see `docs/decisions/0005-worker-v0-2-direction.md`). The state specs
+see `docs/decisions/0005-worker-v0-2-direction.md`). Either way the
+execution rules travel with the executor — in `/cmd-go`, or in the
+worker's own prompt — never in the always-loaded CLAUDE.md, which both
+read (kit 1.3). The state specs
 are the shared truth both planes work against.

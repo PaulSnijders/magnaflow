@@ -37,7 +37,7 @@ right. A mistake left standing costs more than removing it.
 - Frontmatter: `date` (of the first message), `topic`, `source` (who or
   what, via which channel). If it led to a choice, end with
   `Led to: decisions/NNNN-slug.md`.
-- A quality-pass record (see "Quality pass" in CLAUDE.md) is filed here
+- A quality-pass record (see `docs/specs/README.md#quality-pass`) is filed here
   as `YYYY-MM-DD-quality-pass.md`: the range reviewed, the findings with
   their verdict.
 - Source material, not reasoning: the weighing goes in `docs/decisions/`,

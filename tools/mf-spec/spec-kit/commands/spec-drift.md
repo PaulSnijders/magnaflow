@@ -21,7 +21,7 @@ Steps:
    it by rewriting the header.
 0b. Find the last quality pass: the newest `docs/context/*-quality-pass.md`
    by the date in its filename (`YYYY-MM-DD-quality-pass.md`, see
-   "Quality pass" in CLAUDE.md). Older than 30 days is a finding: report
+   `docs/specs/README.md#quality-pass`). Older than 30 days is a finding: report
    it in the final summary like the expired `Generated:` date, with how
    many days old, no section of its own. No record at all (`none`) is
    **not** a finding — a fresh adoption must not nag.
