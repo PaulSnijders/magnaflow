@@ -9,18 +9,22 @@ and kills OS processes and holds no state beyond PID files.
 
 ```text
 mf-run <start|stop|restart|status> [service] [--project <path>] [--json]
+mf-run promote [--project <path>]
 ```
 
 - `service`: act on one service; default all, in config order
-  (`stop` and `restart` act in reverse order).
+  (`stop` and `restart` act in reverse order). The name `stable` acts
+  on the [stable instance](#stable-instance). "All" never includes it.
 - `--project`: project root holding `.magnaflow/config.yml`; default the
   current directory.
 - `--json`: `status` only; prints
   `[{name, running, pid?, url?, reason?, portListening?}]`. `reason` and
   `portListening` are additive. Consumers reading only
   `name/running/pid/url` must keep working.
+- `status` lists the services, then `stable` when configured.
 - No `run:` block: every verb prints `no services configured`, exit 0.
-  A console app with nothing to manage is the normal case.
+  A console app with nothing to manage is the normal case. `promote`
+  without `run.stable` prints `no stable instance configured`, exit 0.
 
 ## Config
 
@@ -38,7 +42,20 @@ run:
 ```
 
 `command` and `workdir` both resolve against the project root, not
-against each other.
+against each other. A service named `stable` fails validation.
+
+Optional, opt-in ([stable instance](#stable-instance)):
+
+```yaml
+run:
+  stable:
+    publish: Forecast/mf-publish-stable   # one argument: the absolute output dir
+    command: Forecast.exe                 # resolved inside the published dir
+    args: ["--urls", "http://localhost:7300"]
+    url: http://localhost:7300            # port check, as for services
+    link: https://host.tailnet.ts.net/app/   # optional; shown verbatim
+    timeout_minutes: 15                   # publish limit, default 15
+```
 
 **Extensionless commands** resolve per OS so one committed config serves
 every machine. The bare literal is tried first, then `.cmd`, `.bat`, `.exe`
@@ -73,6 +90,56 @@ bit committed: it is exec'd directly, not through `sh`.
 Everything mf-run does, a human can do by hand: start the exe, kill the
 tree by PID, delete the PID file.
 
+## Stable instance {#stable-instance}
+
+A published build of the project that a worker run never stops, so the
+human can keep using the app while the next command is being built. It is
+one process on its own port, because the projects compile their frontend
+into the backend. Everything lives machine-local under
+`.magnaflow/stable/`:
+
+| Path | Holds |
+|---|---|
+| `next/` | the publish target, emptied before every publish |
+| `current/` | what runs; workdir and content root of the process |
+| `prev/` | the previous `current/`, kept for a manual rollback |
+| `state.yml` | `state`, `sha`, `dirty`, `at`, `message` |
+| `promote.lock` | held while a promote runs |
+
+The process uses the service files `.magnaflow/run/stable.pid` and
+`stable.log`, and the same start, stop, PID-reuse and status rules as a
+service. `publish` resolves like a service `command` (extensionless per
+OS). `command` resolves the same way but inside `current/`, and the
+published dir is the workdir.
+
+**promote**, in this order:
+
+1. Take `promote.lock`. If another promote holds it, exit 3 and change
+   nothing.
+2. Record `git rev-parse HEAD` and whether `git status --porcelain` is
+   non-empty. Write `state: building` with that `sha`.
+3. Empty `next/`, then run `publish <abs next/>` in the project root,
+   with output to `.magnaflow/run/stable-publish.log` (truncated) and a
+   limit of `timeout_minutes`. A non-zero exit, a timeout or a `next/`
+   without `command` means `state: failed` with the reason, exit 1. The
+   running instance is untouched.
+4. Swap: stop the process, delete `prev/`, rename `current/` to `prev/`
+   and `next/` to `current/`, then start. A rename is retried for a few
+   seconds, because Windows keeps handles open briefly after a kill.
+5. The new process must survive the usual ~2 s start check. If it does
+   not, or a rename fails, put `prev/` back as `current/`, start it, and
+   write `state: failed` ("new build did not start; previous restored"),
+   exit 1.
+6. Write `state: ready` with the recorded `sha`, exit 0.
+
+`promote.lock` is an OS-level exclusive lock (as mf-watch's instance
+lock), not a marker file, so a killed promote frees it. `state: building`
+in `state.yml` with the lock free means the promote was interrupted, and
+`status` reports it as `failed` ("promote interrupted").
+
+**status** for `stable` adds, additively, `stable: true`, `state`, `sha`,
+`dirty`, `at`, `message` and `link` to the JSON entry.
+
 ## Exit codes
 
 | Code | Meaning |
@@ -80,16 +147,21 @@ tree by PID, delete the PID file.
 | 0 | all requested services running (`status`) or acted on |
 | 1 | a requested service failed to start or stop, or is not running |
 | 2 | usage or config error: unknown verb, unknown service, invalid `config.yml` |
+| 3 | `promote` refused: another promote holds the lock |
 
 ## Integration
 
 mf-worker spawns `mf-run stop` before a run and `mf-run start` after it,
-as separate processes, and reads only the exit code. There is no library
-reference in either direction.
+and `mf-run promote` after a branchless `done`, as separate processes,
+reading only the exit code
+([worker run](../concepts/worker-run.md#mf-run-around-the-run)). The
+cockpit spawns `promote` from its Run card. There is no library reference
+in either direction.
 
 Not in scope: health checks, log rotation, auto-restart, per-service
-environment variables, auth or tunnels.
+environment variables, auth or tunnels. The stable instance is not a
+deploy: no remote target, no environments, one machine.
 
 DRAFT: generated from code, not human-reviewed.
 
-Why: decisions/0010-mf-run-design.md
+Why: decisions/0010-mf-run-design.md, decisions/0018-stable-instance.md

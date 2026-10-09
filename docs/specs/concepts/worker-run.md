@@ -63,6 +63,9 @@ Checked in this order. Nothing is written or committed until all pass.
    fallback rst if the agent wrote none, run `mf-run start` (when
    configured), then make the terminal commit and push the invoking
    branch.
+8. **Promote**: only after `done`, only without `branch:`, and only when
+   `run.stable` is configured. The worker runs `mf-run promote` and waits
+   for it before it exits.
 
 **Aborted work is committed too.** Whatever the agent left in the tree
 after the last failed attempt lands in the work commit (or the folded
@@ -105,6 +108,17 @@ code ([mf-run](../run/mf-run.md#integration)). Start runs after both
 `done` and `aborted`, because the last build is often how an abort is
 diagnosed. A failed start is a `## Warning` in the rst, never a retry and
 never a status change.
+
+**Promote** ([stable instance](../run/mf-run.md#stable-instance)) runs
+after the terminal commit, so it publishes a committed tree that no agent
+is editing. The cost is that the next dispatch waits for the publish. It
+is skipped after `aborted` and `questions`, and for a `branch:` command,
+whose work is not on the invoking branch. The rst is already committed by
+then, so a failed promote is never written into it. The worker prints one
+line with the exit code to stdout (mf-watch's log), and mf-run's
+`state.yml` shows `failed` on the cockpit's Run card. A failed promote
+never changes the status or the worker's exit code. `mf-run promote` has
+its own publish limit (`run.stable.timeout_minutes`).
 
 ## Branches
 
@@ -174,4 +188,4 @@ body.
 DRAFT: generated from code, not human-reviewed.
 
 Code: tools/worker-controller/src/MagnaFlow.WorkerController/Execution/TaskRunner.cs, tools/worker-controller/src/MagnaFlow.WorkerController/Execution/PromptBuilder.cs, tools/worker-controller/src/MagnaFlow.WorkerController/Execution/ConventionLoader.cs, tools/worker-controller/src/MagnaFlow.WorkerController/Agents/ClaudeCodeRunner.cs, tools/worker-controller/src/MagnaFlow.WorkerController/Config/ProjectConfig.cs, tools/worker-controller/src/MagnaFlow.WorkerController/Infrastructure/GitClient.cs, tools/worker-controller/src/MagnaFlow.WorkerController/Commands/CommandInfrastructure.cs
-Why: decisions/0005-worker-v0-2-direction.md, prompts/0011-rst-worker-one-commit-per-run.md, prompts/0015-rst-plan-file-only-on-questions.md
+Why: decisions/0005-worker-v0-2-direction.md, decisions/0018-stable-instance.md, prompts/0011-rst-worker-one-commit-per-run.md, prompts/0015-rst-plan-file-only-on-questions.md

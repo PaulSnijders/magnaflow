@@ -34,6 +34,21 @@ The state combines mf-run's two facts:
 | yes | no | process up, port not answering |
 | no | no | stopped, with the reason |
 
+**Stable row**, only when `run.stable` is configured
+([stable instance](../run/mf-run.md#stable-instance)). It sits below the
+services. It shows the process state as above, plus mf-run's `state`
+(building / ready / failed with its `message`), the short `sha` with
+`dirty`, and `at`. **Behind** is marked when `sha` differs from the
+checked-out HEAD. The link is `link` shown verbatim when it is set, or
+otherwise `url` with the usual loopback-host rewrite. Buttons:
+Start/Stop/Restart (service name `stable`), log, and **Promote**. Promote
+spawns `mf-run promote` detached and returns at once, so the cockpit's
+mf-run timeout never cuts a publish short. The row follows `building`
+through the normal refetch. Promote is refused (409) while a command is
+`running`, because the publish would read a tree the agent is editing,
+and while `state` is `building`. Start all and Stop all never touch
+stable.
+
 ## Lane
 
 Columns: Id, Title, Status, Attempts, Duration, Branch, action. Newest
@@ -107,4 +122,4 @@ Expanded lists and log tails survive a refetch.
 
 DRAFT: generated from code, not human-reviewed.
 
-Why: decisions/0007-cockpit-design.md
+Why: decisions/0007-cockpit-design.md, decisions/0018-stable-instance.md
