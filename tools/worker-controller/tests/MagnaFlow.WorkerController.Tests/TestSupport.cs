@@ -264,11 +264,16 @@ public sealed class FakeProcessRunner : IProcessRunner
     /// the configured executable not being found/spawnable at all (consumed after one throw).</summary>
     public Exception? NextExecutableThrows;
 
+    /// <summary>Fires on every RunExecutableAsync call, before its result — lets a test see what the
+    /// rest of the world (git, files) looked like at that moment.</summary>
+    public Action<IReadOnlyList<string>>? OnExecutable;
+
     public Task<ProcessResult> RunExecutableAsync(string executable, IReadOnlyList<string> arguments,
         string workingDirectory, Action<string>? onOutputLine = null, TimeSpan? timeout = null,
         string? standardInput = null, CancellationToken cancellationToken = default)
     {
         ExecutableCalls.Add((executable, arguments));
+        OnExecutable?.Invoke(arguments);
         if (NextExecutableThrows is { } ex)
         {
             NextExecutableThrows = null;
@@ -295,7 +300,8 @@ public static class TestConfig
         IReadOnlyList<string>? buildCommands = null,
         IReadOnlyList<string>? testCommands = null,
         bool hasRunServices = false,
-        string runCommand = "mf-run") => new()
+        string runCommand = "mf-run",
+        bool hasRunStable = false) => new()
     {
         BuildCommands = buildCommands ?? ["build-cmd"],
         TestCommands = testCommands ?? ["test-cmd"],
@@ -304,6 +310,7 @@ public static class TestConfig
         AgentCommand = "claude",
         AgentArgs = [],
         HasRunServices = hasRunServices,
+        HasRunStable = hasRunStable,
         RunCommand = runCommand,
     };
 }

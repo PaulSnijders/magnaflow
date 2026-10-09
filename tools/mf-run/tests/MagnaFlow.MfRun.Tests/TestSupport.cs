@@ -87,6 +87,21 @@ public sealed class FakeProcessSpawner : IProcessSpawner
         _alive.Remove(pid);
     }
 
+    public sealed record RunCall(string Executable, IReadOnlyList<string> Arguments, string WorkingDirectory, string? LogPath, TimeSpan? Timeout);
+
+    public List<RunCall> RunCalls { get; } = [];
+
+    /// <summary>Scripts run-and-wait commands (git, publish). Unset, every command exits 0 with no
+    /// output.</summary>
+    public Func<RunCall, CommandResult>? OnRun;
+
+    public Task<CommandResult> RunAsync(string executable, IReadOnlyList<string> arguments, string workingDirectory, string? logPath = null, TimeSpan? timeout = null)
+    {
+        var call = new RunCall(executable, arguments, workingDirectory, logPath, timeout);
+        RunCalls.Add(call);
+        return Task.FromResult(OnRun?.Invoke(call) ?? new CommandResult(0, "", false));
+    }
+
     /// <summary>Test hook: simulate the process dying on its own (crash, or killed outside mf-run).</summary>
     public void Kill(int pid) => _alive.Remove(pid);
 

@@ -18,18 +18,35 @@ public sealed class ProjectWatcher : IDisposable
     private readonly string _projectName;
     private readonly List<FileSystemWatcher> _watchers = [];
     private readonly ConcurrentDictionary<string, Timer> _timers = new();
+    private readonly Action? _onStableState;
 
-    public ProjectWatcher(string projectName, string projectRoot, SseHub hub)
+    /// <param name="onStableState">Called on every change to .magnaflow/stable/state.yml, before the
+    /// debounced "run" event — the host drops the cached run status there, so the refetch that event
+    /// causes sees the new promote state instead of a read cached a moment earlier.</param>
+    public ProjectWatcher(string projectName, string projectRoot, SseHub hub, Action? onStableState = null)
     {
         _projectName = projectName;
+        _onStableState = onStableState;
         _hub = hub;
 
         TryWatch(Path.Combine(projectRoot, "docs", "prompts"), includeSubdirectories: false, _ => "lane");
         TryWatch(Path.Combine(projectRoot, ".magnaflow"), includeSubdirectories: true, ClassifyMagnaflow);
     }
 
-    private static string ClassifyMagnaflow(string fullPath)
+    private string? ClassifyMagnaflow(string fullPath)
     {
+        // .magnaflow/stable/ (mf-run's stable instance): only state.yml is news for the Run card;
+        // the thousands of files a publish writes into next/ are nobody's event.
+        var segments = fullPath.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        var magnaflow = Array.LastIndexOf(segments, ".magnaflow");
+        if (magnaflow >= 0 && magnaflow + 1 < segments.Length && segments[magnaflow + 1] == "stable")
+        {
+            if (magnaflow + 2 >= segments.Length || segments[magnaflow + 2] != "state.yml")
+                return null;
+            _onStableState?.Invoke();
+            return "run";
+        }
+
         var fileName = Path.GetFileName(fullPath);
         if (fileName is "mf-watch.log" or "mf-watch.lock")
             return "watch";
@@ -40,7 +57,7 @@ public sealed class ProjectWatcher : IDisposable
         return fileName == "run" || parentName == "run" ? "run" : "evidence";
     }
 
-    private void TryWatch(string dir, bool includeSubdirectories, Func<string, string> classify)
+    private void TryWatch(string dir, bool includeSubdirectories, Func<string, string?> classify)
     {
         if (!Directory.Exists(dir))
             return;
@@ -65,8 +82,10 @@ public sealed class ProjectWatcher : IDisposable
         _watchers.Add(watcher);
     }
 
-    private void Debounced(string kind)
+    private void Debounced(string? kind)
     {
+        if (kind is null)
+            return;
         _timers.AddOrUpdate(kind,
             _ => new Timer(_ => Fire(kind), null, Debounce, Timeout.InfiniteTimeSpan),
             (_, existing) =>

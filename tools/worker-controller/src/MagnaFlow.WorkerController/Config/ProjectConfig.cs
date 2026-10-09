@@ -27,6 +27,11 @@ public sealed class ProjectConfig
     /// process spawn and exit code only).</summary>
     public bool HasRunServices { get; init; }
 
+    /// <summary>Whether the project opts into mf-run's stable instance (`run.stable`). Presence only,
+    /// read the same way as HasRunServices: what the block holds is mf-run's concern, the worker
+    /// just spawns `promote` after a branchless done (docs/specs/concepts/worker-run.md step 8).</summary>
+    public bool HasRunStable { get; init; }
+
     public static string ConfigPath(string projectRoot) => Path.Combine(projectRoot, ".magnaflow", "config.yml");
 
     /// <summary>Loads and validates config; on failure returns a message listing exactly what is missing.</summary>
@@ -66,6 +71,7 @@ public sealed class ProjectConfig
             AgentArgs = dto.Agent?.Args ?? [],
             RunCommand = string.IsNullOrWhiteSpace(dto.Run?.Command) ? "mf-run" : dto.Run.Command.Trim(),
             HasRunServices = dto.Run?.Services is { Count: > 0 },
+            HasRunStable = dto.Run?.Stable is not null,
         }, null);
     }
 
@@ -118,11 +124,12 @@ public sealed class ProjectConfig
         public List<string>? Args { get; set; }
     }
 
-    /// <summary>Only `command` and the presence/count of `services` matter here — the service
-    /// list's own shape (name/command/args/workdir/url) is entirely tools/mf-run's concern.</summary>
+    /// <summary>Only `command`, the presence/count of `services` and the presence of `stable` matter
+    /// here — their own shape is entirely tools/mf-run's concern.</summary>
     private sealed class RunDto
     {
         public string? Command { get; set; }
         public List<object>? Services { get; set; }
+        public object? Stable { get; set; }
     }
 }

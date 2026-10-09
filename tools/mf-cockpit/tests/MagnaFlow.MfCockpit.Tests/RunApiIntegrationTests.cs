@@ -220,4 +220,124 @@ public class RunApiIntegrationTests : IDisposable
         Assert.False(tail!.Exists);
         Assert.Empty(tail.Lines);
     }
+
+    // --- stable instance (docs/specs/cockpit/project.md#run) ---
+
+    private const string StableConfig = "run:\n  stable:\n    publish: publish\n    command: App.exe\n";
+
+    private static string StableJson(string state) =>
+        $$"""[{"name":"stable","running":true,"pid":7,"url":"http://localhost:7300","stable":true,"state":"{{state}}","sha":"abc","dirty":false,"at":"2026-10-09T10:00:00Z","link":"https://host/app/"}]""";
+
+    [Fact]
+    public async Task Status_splits_the_stable_entry_off_the_services()
+    {
+        _project.WriteFile(".magnaflow/config.yml", "run:\n  services:\n    - name: web\n      command: web.exe\n  stable:\n    publish: p\n    command: App.exe\n");
+        _runClient.StatusOutput = """[{"name":"web","running":false,"reason":"no-pid-file"},""" + StableJson("ready")[1..];
+        using var factory = Factory();
+        using var client = factory.CreateClient();
+
+        var status = await client.GetFromJsonAsync<RunStatusDto>("/api/projects/proj/run");
+
+        Assert.Equal(["web"], status!.Services.Select(s => s.Name));
+        Assert.NotNull(status.Stable);
+        Assert.Equal("ready", status.Stable!.State);
+        Assert.Equal("abc", status.Stable.Sha);
+        Assert.Equal("https://host/app/", status.Stable.Link);
+    }
+
+    [Fact]
+    public async Task Status_without_stable_has_no_stable_entry()
+    {
+        WriteRunConfig("    - name: web\n      command: web.exe\n");
+        _runClient.StatusOutput = """[{"name":"web","running":true,"pid":1}]""";
+        using var factory = Factory();
+        using var client = factory.CreateClient();
+
+        var status = await client.GetFromJsonAsync<RunStatusDto>("/api/projects/proj/run");
+
+        Assert.Single(status!.Services);
+        Assert.Null(status.Stable);
+    }
+
+    [Fact]
+    public async Task Promote_spawns_and_returns_202()
+    {
+        _project.WriteFile(".magnaflow/config.yml", StableConfig);
+        _runClient.StatusOutput = StableJson("ready");
+        using var factory = Factory();
+        using var client = factory.CreateClient();
+
+        var response = await client.PostAsync("/api/projects/proj/run/stable/promote", content: null);
+
+        Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
+        Assert.Equal([_project.Root], _runClient.PromoteCalls);
+        var body = await response.Content.ReadFromJsonAsync<RunActionResponseDto>();
+        Assert.True(body!.Success);
+    }
+
+    [Fact]
+    public async Task Promote_is_409_while_a_command_is_running()
+    {
+        _project.WriteFile(".magnaflow/config.yml", StableConfig);
+        _project.WriteCmd("0001-busy", status: "running");
+        _runClient.StatusOutput = StableJson("ready");
+        using var factory = Factory();
+        using var client = factory.CreateClient();
+
+        var response = await client.PostAsync("/api/projects/proj/run/stable/promote", content: null);
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        Assert.Empty(_runClient.PromoteCalls);
+    }
+
+    [Fact]
+    public async Task Promote_is_409_while_stable_is_building()
+    {
+        _project.WriteFile(".magnaflow/config.yml", StableConfig);
+        _runClient.StatusOutput = StableJson("building");
+        using var factory = Factory();
+        using var client = factory.CreateClient();
+
+        var response = await client.PostAsync("/api/projects/proj/run/stable/promote", content: null);
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        Assert.Empty(_runClient.PromoteCalls);
+    }
+
+    [Fact]
+    public async Task Promote_without_run_stable_is_404()
+    {
+        WriteRunConfig("    - name: web\n      command: web.exe\n");
+        using var factory = Factory();
+        using var client = factory.CreateClient();
+
+        var response = await client.PostAsync("/api/projects/proj/run/stable/promote", content: null);
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        Assert.Empty(_runClient.PromoteCalls);
+    }
+
+    [Fact]
+    public async Task Stable_accepts_start_stop_restart_by_name_when_configured()
+    {
+        _project.WriteFile(".magnaflow/config.yml", StableConfig);
+        using var factory = Factory();
+        using var client = factory.CreateClient();
+
+        (await client.PostAsync("/api/projects/proj/run/stable/restart", content: null)).EnsureSuccessStatusCode();
+
+        Assert.Equal([(_project.Root, (string?)"stable")], _runClient.RestartCalls);
+    }
+
+    [Fact]
+    public async Task Stable_by_name_is_404_without_run_stable()
+    {
+        WriteRunConfig("    - name: web\n      command: web.exe\n");
+        using var factory = Factory();
+        using var client = factory.CreateClient();
+
+        var response = await client.PostAsync("/api/projects/proj/run/stable/start", content: null);
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
 }

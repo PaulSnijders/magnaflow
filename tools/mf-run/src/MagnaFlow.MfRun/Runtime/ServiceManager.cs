@@ -9,8 +9,13 @@ public sealed record ServiceOutcome(string Name, bool Success, string Message);
 
 /// <summary>Reason is set only when Running is false: "no-pid-file", "process-gone", or a
 /// "starttime-mismatch: recorded ..., observed ..." message (docs/prompts/0003 "Explain every
-/// negative"). PortListening is null when the service has no configured Url to probe.</summary>
-public sealed record ServiceStatusEntry(string Name, bool Running, int? Pid, string? Url, string? Reason = null, bool? PortListening = null);
+/// negative"). PortListening is null when the service has no configured Url to probe. Stable and the
+/// fields after it are set only on the stable instance's entry (docs/specs/run/mf-run.md
+/// #stable-instance) — additive, and omitted from JSON on every service entry.</summary>
+public sealed record ServiceStatusEntry(
+    string Name, bool Running, int? Pid, string? Url, string? Reason = null, bool? PortListening = null,
+    bool? Stable = null, string? State = null, string? Sha = null, bool? Dirty = null, string? At = null,
+    string? Message = null, string? Link = null);
 
 /// <summary>
 /// Core start/stop/restart/status mechanics (ontwerp-v0.1.md "Process management"). Every

@@ -494,6 +494,17 @@ public sealed class TaskRunner(
         session.Group = cmd.Group;
 
         info($"[{cmd.Id}] {(isDone ? "done" : "ABORTED")} after {attemptsUsed} attempt(s); work {(cmd.Branch is null ? $"on '{invokingBranch}'" : $"branch: {cmd.Branch}")}");
+
+        // Promote the stable instance (docs/decisions/0018-stable-instance.md) only now, after the
+        // terminal commit: it publishes a committed tree no agent is editing. Only a branchless done
+        // puts new work on this branch. The rst is already committed, so the outcome is one line for
+        // mf-watch's log and mf-run's own state.yml — never a status, rst or exit-code change.
+        if (isDone && cmd.Branch is null && config.HasRunStable)
+        {
+            var promoteResult = await RunMfRunAsync("promote");
+            info($"[{cmd.Id}] {config.RunCommand} promote: exit {promoteResult.ExitCode}");
+        }
+
         return isDone ? ExitCodes.Success : ExitCodes.TaskFailed;
     }
 

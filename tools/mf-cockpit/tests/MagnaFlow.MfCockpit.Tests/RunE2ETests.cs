@@ -113,4 +113,49 @@ public class RunE2ETests : IDisposable
         // process was actually killed, not merely outlasted.
         Assert.True(stopwatch.Elapsed < TimeSpan.FromSeconds(20), $"took {stopwatch.Elapsed} — timeout did not kill the process promptly");
     }
+
+    /// <summary>Promote must not wait for mf-run (a publish runs for minutes): the stub answers
+    /// `status` at once, but `promote` takes ~5 s. The POST has to return well before that, and the
+    /// spawned process has to live on and finish after the response.</summary>
+    [Fact]
+    public async Task Promote_spawns_mf_run_detached_and_returns_at_once()
+    {
+        _project.WriteFile(".magnaflow/config.yml", "run:\n  stable:\n    publish: p\n    command: App.exe\n");
+        var stubDir = Path.Combine(_project.Root, "stub");
+        Directory.CreateDirectory(stubDir);
+        string stub;
+        if (OperatingSystem.IsWindows())
+        {
+            stub = Path.Combine(stubDir, "mf-run-stub.cmd");
+            File.WriteAllText(stub,
+                "@echo off\r\nif not \"%1\"==\"promote\" (echo [] & exit /b 0)\r\n" +
+                "echo started> \"%~dp0started\"\r\nping -n 6 127.0.0.1 >nul\r\necho done> \"%~dp0done\"\r\n");
+        }
+        else
+        {
+            stub = Path.Combine(stubDir, "mf-run-stub.sh");
+            File.WriteAllText(stub,
+                "#!/bin/sh\nif [ \"$1\" != promote ]; then echo '[]'; exit 0; fi\n" +
+                "echo started > \"$(dirname \"$0\")/started\"\nsleep 5\necho done > \"$(dirname \"$0\")/done\"\n");
+            File.SetUnixFileMode(stub, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+        }
+        CockpitFactory.WriteConfig(_configPath, chat: null, run: (stub, TimeoutSeconds: 30), ("proj", _project.Root));
+
+        using var factory = new CockpitFactory(_configPath);
+        using var client = factory.CreateClient();
+
+        var stopwatch = Stopwatch.StartNew();
+        var response = await client.PostAsync("/api/projects/proj/run/stable/promote", content: null);
+        stopwatch.Stop();
+
+        Assert.Equal(System.Net.HttpStatusCode.Accepted, response.StatusCode);
+        Assert.True(stopwatch.Elapsed < TimeSpan.FromSeconds(4), $"took {stopwatch.Elapsed} — the cockpit waited for promote");
+
+        var done = Path.Combine(stubDir, "done");
+        var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(30);
+        while (!File.Exists(done) && DateTime.UtcNow < deadline)
+            await Task.Delay(200);
+        Assert.True(File.Exists(Path.Combine(stubDir, "started")), "promote was never spawned");
+        Assert.True(File.Exists(done), "the spawned promote did not run to its end");
+    }
 }

@@ -45,6 +45,10 @@ public static class ProjectConfigReader
         return dto is null ? null : ServiceNames(dto);
     }
 
+    /// <summary>Whether the project opts into mf-run's stable instance (`run.stable`) — presence
+    /// only, its shape is mf-run's concern. False for a file that fails to parse.</summary>
+    public static bool HasRunStable(string content) => TryDeserialize(content)?.Run?.Stable is not null;
+
     /// <summary>PUT's own gate (ontwerp-v0.3.md "Save flow"): a real YAML syntax error is a
     /// rejection (400, with position info for display); an unrecognized top-level key is only ever
     /// a warning — config.yml is shared by tools with different vocabularies, the cockpit must not
@@ -117,6 +121,7 @@ public static class ProjectConfigReader
     private sealed class RunSectionDto
     {
         public List<ServiceNameDto>? Services { get; set; }
+        public object? Stable { get; set; }
     }
 
     private sealed class ServiceNameDto

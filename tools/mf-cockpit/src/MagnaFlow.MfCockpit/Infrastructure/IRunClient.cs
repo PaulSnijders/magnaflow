@@ -23,4 +23,9 @@ public interface IRunClient
     Task<RunActionResult> StopAsync(string projectRoot, string? service, CancellationToken cancellationToken = default);
 
     Task<RunActionResult> RestartAsync(string projectRoot, string? service, CancellationToken cancellationToken = default);
+
+    /// <summary>`mf-run promote --project &lt;root&gt;`, spawned detached and not waited for: a publish
+    /// takes minutes, far past the cockpit's mf-run timeout. Its outcome is read back through
+    /// status (state.yml). Returns the PID; throws when the spawn itself fails.</summary>
+    int StartPromote(string projectRoot);
 }

@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using MagnaFlow.MfCockpit.Infrastructure;
 using MagnaFlow.MfCockpit.Prompts;
 
@@ -138,14 +139,26 @@ public sealed record GitCheckoutResponse(bool Success, int ExitCode, string Outp
 /// <summary>Reason/PortListening mirror mf-run's own additive `status --json` fields (mf-run's
 /// README "Status semantics"): Reason explains why Running is false (no-pid-file, process-gone,
 /// starttime-mismatch); PortListening is an independent TCP-connect signal, null when the service
-/// has no url to probe.</summary>
-public sealed record RunServiceStatusDto(string Name, bool Running, int? Pid, string? Url, string? Reason = null, bool? PortListening = null);
+/// has no url to probe. Stable and the fields after it are set only on the stable instance's entry
+/// (mf-run's `status --json`, docs/specs/run/mf-run.md#stable-instance), and omitted when null so
+/// a project without `run.stable` gets the response it always got.</summary>
+public sealed record RunServiceStatusDto(
+    string Name, bool Running, int? Pid, string? Url, string? Reason = null, bool? PortListening = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] bool? Stable = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? State = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Sha = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] bool? Dirty = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? At = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Message = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Link = null);
 
 /// <summary>Configured=false means the project has no `run:` block at all (ontwerp-v0.3.md "API") —
 /// the cockpit never shells out to mf-run for such a project. Error is set when mf-run itself could
 /// not be reached or its status --json output didn't parse (a spawn failure, a stale mf-run binary
-/// without --json support, ...); Services is empty in that case.</summary>
-public sealed record RunStatusDto(bool Configured, IReadOnlyList<RunServiceStatusDto> Services, string? Error = null);
+/// without --json support, ...); Services is empty in that case. Stable is mf-run's stable-instance
+/// entry, split off the services; null when the project has no `run.stable`.</summary>
+public sealed record RunStatusDto(bool Configured, IReadOnlyList<RunServiceStatusDto> Services, string? Error = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] RunServiceStatusDto? Stable = null);
 
 public sealed record RunActionResponseDto(bool Success, int ExitCode, string Output, bool TimedOut);
 

@@ -146,7 +146,9 @@
       document.getElementById("commit-all-btn").disabled = !info.dirty;
       gitDirty = !!info.dirty;
       gitDiverged = info.ahead > 0 && info.behind > 0;
+      gitHead = info.commits && info.commits.length ? info.commits[0].hash : null;
       updateSwitchControls();
+      rerenderStable();
     } catch (err) {
       el.textContent = err.message;
     }
@@ -244,6 +246,7 @@
     cues.observe(laneCommands.map((c) => ({ project, id: c.id, status: c.status })));
     laneRunning = laneCommands.some((c) => c.status === "running");
     updateSwitchControls();
+    rerenderStable();
     renderLane();
   }
 
@@ -300,20 +303,35 @@
   // expanded log tail would silently collapse itself moments after the human opened it.
   const expandedRunLogs = new Set();
 
+  // The stable row (docs/specs/cockpit/project.md#run) also depends on gitHead (Behind) and
+  // laneRunning (Promote disabled), which arrive from other loads — those re-render the card from
+  // the last status, but only when there is a stable row to update.
+  let gitHead = null;
+  let lastRunStatus = null;
+
+  function rerenderStable() {
+    if (lastRunStatus && lastRunStatus.stable) renderRunServices(lastRunStatus.services, lastRunStatus.stable);
+  }
+
   async function loadRun() {
     const card = document.getElementById("run-card");
     const errorEl = document.getElementById("run-error");
     try {
       const status = await Cockpit.api(`/api/projects/${encodeURIComponent(project)}/run`);
-      if (!status.configured || !status.services.length) {
+      if (!status.configured || (!status.services.length && !status.stable)) {
         card.style.display = "none";
         return;
       }
       card.style.display = "";
       errorEl.textContent = status.error || "";
+      // Start all / Stop all never touch stable, so a stable-only project has nothing for them.
+      document.getElementById("run-start-all").style.display = status.services.length ? "" : "none";
+      document.getElementById("run-stop-all").style.display = status.services.length ? "" : "none";
       // Anything still up is a process of the *old* tree — the warning after a switch, nothing more.
+      // Stable runs a published copy, so a switch does not concern it.
       servicesRunning = status.services.some((s) => s.running || s.portListening === true);
-      renderRunServices(status.services);
+      lastRunStatus = status;
+      renderRunServices(status.services, status.stable);
     } catch (err) {
       card.style.display = "";
       errorEl.textContent = err.message;
@@ -336,7 +354,7 @@
       : { dot: "", text: "stopped" };
   }
 
-  function renderRunServices(services) {
+  function renderRunServices(services, stable) {
     const body = document.getElementById("run-services");
     body.innerHTML = services.map((s) => {
       const expanded = expandedRunLogs.has(s.name);
@@ -359,11 +377,80 @@
         <pre class="log-tail run-log" style="display:${expanded ? "" : "none"};"></pre>
         <div class="run-result muted"></div>
       </div>`;
-    }).join("");
+    }).join("") + (stable ? stableRowHtml(stable) : "");
 
+    body.querySelectorAll(".run-promote").forEach((btn) => btn.addEventListener("click", () => promoteStable(btn)));
     body.querySelectorAll(".run-btn").forEach((btn) => btn.addEventListener("click", () => runAction(btn.dataset.service, btn.dataset.action, btn)));
     body.querySelectorAll(".run-log-toggle").forEach((btn) => btn.addEventListener("click", () => toggleRunLog(btn)));
     expandedRunLogs.forEach((name) => refreshRunLog(name));
+  }
+
+  // The stable instance (mf-run.md#stable-instance): the process state as for a service, plus the
+  // last promote's state/sha/at from mf-run's state.yml. Behind compares that sha with the HEAD
+  // the Git card loaded; the link is `link` verbatim, else `url` with the loopback-host rewrite.
+  const STABLE_STATE_PILL = { building: "running", ready: "done", failed: "aborted" };
+
+  function stableRowHtml(s) {
+    const esc = Cockpit.escapeHtml;
+    const expanded = expandedRunLogs.has(s.name);
+    const proc = runState(s);
+    const procText = proc.text + (s.reason ? ` — ${s.reason}` : "");
+    const statePill = s.state
+      ? `<span class="pill ${STABLE_STATE_PILL[s.state] || "unknown"}">${esc(s.state)}</span>`
+      : '<span class="muted">never promoted</span>';
+    const sha = s.sha
+      ? ` <code title="${esc(s.sha)}">${esc(s.sha.slice(0, 7))}</code>${s.dirty ? ' <span class="pill aborted" title="published from a tree with uncommitted changes">dirty</span>' : ""}`
+      : "";
+    const behind = s.sha && gitHead && s.sha !== gitHead
+      ? ` <span class="pill questions" title="stable runs ${esc(s.sha.slice(0, 7))}; HEAD is ${esc(gitHead.slice(0, 7))}">behind</span>`
+      : "";
+    const at = s.at ? ` <span class="muted">${esc(Cockpit.formatDate(s.at))}</span>` : "";
+    const message = s.state === "failed" && s.message ? `<div class="run-error">${esc(s.message)}</div>` : "";
+    const href = s.link || (s.url ? Cockpit.displayUrl(s.url) : null);
+    const link = href
+      ? `<a href="${esc(href)}" title="${esc(s.link ? "configured link" : "configured: " + s.url)}" target="_blank" rel="noopener noreferrer">${esc(href)}</a>`
+      : "";
+    const promoteBlock = s.state === "building"
+      ? "a promote is already building"
+      : (laneRunning ? "a command is running — the publish would read a tree the agent is editing" : "");
+    return `
+      <div class="run-service" data-service="${esc(s.name)}">
+        <div class="run-service-header">
+          <span class="run-dot ${proc.dot}" title="${esc(procText)}"></span>
+          <strong>${esc(s.name)}</strong>
+          <span class="muted">${esc(procText)}</span>
+          ${statePill}${sha}${behind}${at}
+          ${link}
+          <span class="row-inline" style="margin-left:auto;">
+            <button class="secondary run-log-toggle" data-service="${esc(s.name)}">${expanded ? "Hide log" : "Log"}</button>
+            <button class="secondary run-btn" data-action="start" data-service="${esc(s.name)}">Start</button>
+            <button class="secondary run-btn" data-action="stop" data-service="${esc(s.name)}">Stop</button>
+            <button class="secondary run-btn" data-action="restart" data-service="${esc(s.name)}">Restart</button>
+            <button class="secondary run-promote" ${promoteBlock ? "disabled" : ""} title="${esc(promoteBlock || "mf-run promote: publish the checked-out tree, swap it in, restart stable")}">Promote</button>
+          </span>
+        </div>
+        ${message}
+        <pre class="log-tail run-log" style="display:${expanded ? "" : "none"};"></pre>
+        <div class="run-result muted"></div>
+      </div>`;
+  }
+
+  async function promoteStable(btn) {
+    const resultEl = btn.closest(".run-service").querySelector(".run-result");
+    btn.disabled = true;
+    resultEl.className = "run-result muted";
+    resultEl.textContent = "starting promote…";
+    try {
+      const result = await Cockpit.api(`/api/projects/${encodeURIComponent(project)}/run/stable/promote`, { method: "POST" });
+      resultEl.textContent = result.output || "promote started";
+      resultEl.className = "run-result " + (result.success ? "muted" : "run-error");
+      // The row moves to building on the "run" event for mf-run's state.yml write.
+      if (result.success) await loadRun();
+    } catch (err) {
+      resultEl.textContent = err.message;
+      resultEl.className = "run-result run-error";
+      btn.disabled = false;
+    }
   }
 
   async function runAction(service, action, btn) {

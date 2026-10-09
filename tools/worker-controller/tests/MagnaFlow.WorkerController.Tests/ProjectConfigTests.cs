@@ -81,6 +81,38 @@ public class ProjectConfigTests : IDisposable
     }
 
     [Fact]
+    public void Load_DetectsRunStable()
+    {
+        _project.WriteFile(".magnaflow/config.yml",
+            """
+            build:
+              command: make
+            test:
+              command: make test
+            run:
+              stable:
+                publish: publish
+                command: App.exe
+            """);
+
+        var (config, error) = ProjectConfig.Load(_project.Root);
+
+        Assert.Null(error);
+        Assert.True(config!.HasRunStable);
+        Assert.False(config.HasRunServices);
+    }
+
+    [Fact]
+    public void Load_NoRunStableByDefault()
+    {
+        _project.WriteFile(".magnaflow/config.yml", "build:\n  command: make\ntest:\n  command: make test\nrun:\n  services:\n    - name: web\n      command: w.exe\n");
+
+        var (config, _) = ProjectConfig.Load(_project.Root);
+
+        Assert.False(config!.HasRunStable);
+    }
+
+    [Fact]
     public void Load_EmptyRunServicesListMeansNoRunServices()
     {
         _project.WriteFile(".magnaflow/config.yml",

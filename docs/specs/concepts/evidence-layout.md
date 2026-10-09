@@ -14,7 +14,10 @@ and what its readers rely on.
     test.log           # test command output per attempt
     session.yml        # the agent session the last run ended with
   mf-watch.log, mf-watch.lock, mf-watch.wake   # mf-watch (watch-supervision)
-  run/                 # mf-run PID files and service logs (mf-run)
+  run/                 # mf-run PID files and service logs (mf-run), including the
+                       # stable instance's stable.pid, stable.log, stable-publish.log
+  stable/              # mf-run's stable instance: next/, current/, prev/ (published
+                       # builds), state.yml, promote.lock (mf-run#stable-instance)
 ```
 
 ## Logs
@@ -51,6 +54,8 @@ plus `!.magnaflow/config.yml`. Reasons:
 
 - Logs are megabytes of output no one reviews. The committed audit
   trail is the rst and its `summary:` line.
+- `stable/` holds whole published builds, three at a time while a
+  promote swaps. They are rebuilt from the committed tree on demand.
 - Session ids only resolve on the machine, and in the checkout path,
   that ran them, so committing them would point other machines at
   nothing.
@@ -83,5 +88,5 @@ committed as before. The work commit always excludes `.magnaflow/`.
 
 DRAFT: generated from code, not human-reviewed.
 
-Code: tools/worker-controller/src/MagnaFlow.WorkerController/Execution/AttemptLogWriter.cs, tools/worker-controller/src/MagnaFlow.WorkerController/Execution/SessionEvidence.cs, tools/worker-controller/src/MagnaFlow.WorkerController/Infrastructure/GitClient.cs, tools/mf-cockpit/src/MagnaFlow.MfCockpit/Evidence/EvidenceReader.cs, .gitignore
-Why: prompts/0017-cmd-terminal-commit-survives-evidence-staging.md
+Code: tools/worker-controller/src/MagnaFlow.WorkerController/Execution/AttemptLogWriter.cs, tools/worker-controller/src/MagnaFlow.WorkerController/Execution/SessionEvidence.cs, tools/worker-controller/src/MagnaFlow.WorkerController/Infrastructure/GitClient.cs, tools/mf-cockpit/src/MagnaFlow.MfCockpit/Evidence/EvidenceReader.cs, tools/mf-run/src/MagnaFlow.MfRun/Runtime/StableInstance.cs, .gitignore
+Why: prompts/0017-cmd-terminal-commit-survives-evidence-staging.md, decisions/0018-stable-instance.md

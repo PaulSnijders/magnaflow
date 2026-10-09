@@ -20,9 +20,10 @@ not reliably raise a file event on Windows.
 
 ## Run
 
-Shown only when the project has `run:` services. It offers Start all,
-Stop all, and per service Start/Stop/Restart plus a log tail of 100
-lines. Every read and click shells out to [mf-run](../run/mf-run.md).
+Shown only when the project has `run:` services or a `run.stable`. It
+offers Start all and Stop all (hidden when there are no services), and
+per service Start/Stop/Restart plus a log tail of 100 lines. Every read
+and click shells out to [mf-run](../run/mf-run.md).
 The page tracks no process state itself.
 
 The state combines mf-run's two facts:
@@ -47,7 +48,8 @@ mf-run timeout never cuts a publish short. The row follows `building`
 through the normal refetch. Promote is refused (409) while a command is
 `running`, because the publish would read a tree the agent is editing,
 and while `state` is `building`. Start all and Stop all never touch
-stable.
+stable. A project without `run.stable` gets the card, and the API
+response, it always had.
 
 ## Lane
 
@@ -119,6 +121,13 @@ state survives a live refresh. See
 One SSE stream (`/api/events`). The lane, watcher and run cards refetch
 their own data. The Git card is deliberately not on this fast path.
 Expanded lists and log tails survive a refetch.
+
+The run card's status read is cached per project for a few seconds, so
+that every open page can refetch it on one event. A change to
+`.magnaflow/stable/state.yml` drops that cache before its `run` event,
+so the stable row follows building → ready without waiting out the
+cache. The files a publish writes under `.magnaflow/stable/` raise no
+event.
 
 DRAFT: generated from code, not human-reviewed.
 

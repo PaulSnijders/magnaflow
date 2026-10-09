@@ -1,7 +1,8 @@
 ---
 title: "Opt-in stable instance: mf-run promote, worker promotes after done, cockpit stable row"
-status: ready
+status: done
 created: 2026-10-09
+attempts: 1
 ---
 
 ## Context

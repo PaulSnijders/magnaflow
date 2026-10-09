@@ -1,3 +1,4 @@
+using System.Runtime.InteropServices;
 using MagnaFlow.MfRun.Config;
 using MagnaFlow.MfRun.Infrastructure;
 using MagnaFlow.MfRun.Runtime;
@@ -15,7 +16,7 @@ if (args[0] is "--help" or "-h")
 }
 
 string verb = args[0];
-if (verb is not ("start" or "stop" or "restart" or "status"))
+if (verb is not ("start" or "stop" or "restart" or "status" or "promote"))
 {
     Console.Error.WriteLine($"mf-run: unknown command '{verb}'");
     PrintUsage();
@@ -44,7 +45,7 @@ for (var i = 1; i < args.Length; i++)
             PrintUsage();
             return 2;
         default:
-            if (serviceArg is not null)
+            if (serviceArg is not null || verb == "promote")
             {
                 Console.Error.WriteLine($"mf-run: unexpected argument '{args[i]}'");
                 PrintUsage();
@@ -64,7 +65,25 @@ if (config is null)
     return 2;
 }
 
-if (config.Services.Count == 0)
+void Log(string message) => Console.WriteLine(message);
+
+var spawner = new SystemProcessSpawner();
+var clock = new SystemClock();
+var manager = new ServiceManager(spawner, clock, new TcpPortProbe(), projectRoot, Log);
+
+if (verb == "promote")
+{
+    if (config.Stable is null)
+    {
+        Console.WriteLine("mf-run: no stable instance configured");
+        return 0;
+    }
+    var stable = new StableInstance(spawner, clock, manager, projectRoot, config.Stable, Log,
+        RuntimeInformation.IsOSPlatform(OSPlatform.Windows));
+    return await stable.PromoteAsync();
+}
+
+if (config.Services.Count == 0 && (config.Stable is null || (serviceArg is null && verb != "status")))
 {
     if (verb == "status" && jsonOutput)
         Console.WriteLine(StatusJson.Serialize([]));
@@ -73,25 +92,12 @@ if (config.Services.Count == 0)
     return 0;
 }
 
-IReadOnlyList<ServiceConfig> targets;
-if (serviceArg is null)
+var (targets, targetError) = RunTargets.Select(config, serviceArg, projectRoot);
+if (targets is null)
 {
-    targets = config.Services;
+    Console.Error.WriteLine($"mf-run: {targetError}");
+    return 2;
 }
-else
-{
-    var match = config.Services.FirstOrDefault(s => s.Name == serviceArg);
-    if (match is null)
-    {
-        Console.Error.WriteLine($"mf-run: unknown service '{serviceArg}'");
-        return 2;
-    }
-    targets = [match];
-}
-
-void Log(string message) => Console.WriteLine(message);
-
-var manager = new ServiceManager(new SystemProcessSpawner(), new SystemClock(), new TcpPortProbe(), projectRoot, Log);
 
 switch (verb)
 {
@@ -105,7 +111,19 @@ switch (verb)
         return (await manager.RestartAsync(targets)).All(o => o.Success) ? 0 : 1;
 
     case "status":
-        var statuses = await manager.StatusAsync(targets);
+        // "All" never includes stable, so its entry is appended for display only and the exit code
+        // stays the services' own; `status stable` is judged by the stable process alone.
+        var isStableOnly = serviceArg == StableConfig.ServiceName && config.Stable is not null;
+        var statuses = isStableOnly ? [] : (await manager.StatusAsync(targets)).ToList();
+        var exitCode = statuses.All(s => s.Running) ? 0 : 1;
+        if (config.Stable is not null && (serviceArg is null || isStableOnly))
+        {
+            var stableEntry = await StableInstance.StatusAsync(manager, projectRoot, config.Stable);
+            statuses.Add(stableEntry);
+            if (isStableOnly)
+                exitCode = stableEntry.Running ? 0 : 1;
+        }
+
         if (jsonOutput)
         {
             Console.WriteLine(StatusJson.Serialize(statuses));
@@ -121,15 +139,26 @@ switch (verb)
                     false => " (port not listening)",
                     null => "",
                 };
-                Console.WriteLine(status.Running
+                Console.WriteLine((status.Running
                     ? $"{status.Name}: running (pid {status.Pid}){url}{portSuffix}"
-                    : $"{status.Name}: stopped [{status.Reason}]{url}{portSuffix}");
+                    : $"{status.Name}: stopped [{status.Reason}]{url}{portSuffix}") + StableSuffix(status));
             }
         }
-        return statuses.All(s => s.Running) ? 0 : 1;
+        return exitCode;
 
     default:
         return 2; // unreachable, verb already validated above
+}
+
+static string StableSuffix(ServiceStatusEntry status)
+{
+    if (status.Stable != true)
+        return "";
+    if (status.State is null)
+        return " — never promoted";
+    var sha = status.Sha is null ? "" : $" {status.Sha[..Math.Min(7, status.Sha.Length)]}{(status.Dirty == true ? " (dirty)" : "")}";
+    var message = status.Message is null ? "" : $": {status.Message}";
+    return $" — {status.State}{sha} at {status.At}{message}";
 }
 
 static void PrintUsage()
@@ -138,13 +167,18 @@ static void PrintUsage()
         mf-run: starts, stops, and reports on a project's own configured run.services.
 
         Usage: mf-run <start|stop|restart|status> [service] [--project <path>] [--json]
+               mf-run promote [--project <path>]
 
           service            Only act on this service (default: all, in config list order).
+                             `stable` acts on the stable instance (run.stable); "all" never includes it.
           --project <path>   Target project root (default: current directory).
           --json             status only: print [{name, running, pid?, url?, reason?, portListening?}]
                               instead of the human-readable lines. Exit-code semantics are unchanged.
 
         Reads run.services from <project>/.magnaflow/config.yml. A project with no `run:`
         block has nothing to do: every command prints a message and exits 0.
+
+        promote publishes run.stable into .magnaflow/stable/next/, swaps it in as current/ and
+        starts it (the old build stays in prev/). Exit 3: another promote is running.
         """);
 }

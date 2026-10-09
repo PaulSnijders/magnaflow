@@ -26,6 +26,7 @@ dotnet test
 
 ```text
 mf-run <start|stop|restart|status> [service] [--project <path>] [--json]
+mf-run promote [--project <path>]
 ```
 
 - `service`: act on this service only. Default: all, in config order
@@ -33,6 +34,12 @@ mf-run <start|stop|restart|status> [service] [--project <path>] [--json]
 - `--project <path>`: project root holding `.magnaflow/config.yml`.
   Default: the current directory.
 - `--json`: for `status`; see [Status](#status-semantics).
+
+- `promote`: publish, swap and restart the opt-in stable instance
+  (`run.stable`). The service name `stable` makes the other verbs act on
+  it. "All" never includes it. See
+  [stable instance](../../docs/specs/run/mf-run.md#stable-instance).
+  Exit 3: another promote is running.
 
 No `run:` block means nothing to do: every command prints
 `no services configured` and exits 0. A console app is the normal case,
@@ -157,6 +164,7 @@ See [the Run card spec](../../docs/specs/cockpit/project.md#run).
 | 0 | Success — all requested services running (`status`) or acted on successfully |
 | 1 | At least one requested service failed to start, failed to stop, or isn't running |
 | 2 | Usage or configuration error (unknown command, unknown service, invalid `config.yml`) |
+| 3 | `promote` refused: another promote holds the lock |
 
 ## Not in scope
 

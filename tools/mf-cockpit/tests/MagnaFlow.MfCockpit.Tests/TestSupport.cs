@@ -272,6 +272,14 @@ public sealed class FakeRunClient : IRunClient
         RestartCalls.Add((projectRoot, service));
         return Task.FromResult(new RunActionResult(0, $"{service ?? "all"}: restarted", false));
     }
+
+    public List<string> PromoteCalls { get; } = [];
+
+    public int StartPromote(string projectRoot)
+    {
+        PromoteCalls.Add(projectRoot);
+        return 4242;
+    }
 }
 
 /// <summary>Swaps IWatchControl for endpoint-wiring tests — same role as FakeRunClient.</summary>

@@ -1,5 +1,7 @@
 using System.Collections.Concurrent;
 using MagnaFlow.MfCockpit.Config;
+using MagnaFlow.MfCockpit.Infrastructure;
+using MagnaFlow.MfCockpit.Models;
 using Microsoft.Extensions.Hosting;
 
 namespace MagnaFlow.MfCockpit.Live;
@@ -15,15 +17,18 @@ public interface IProjectWatcherRegistry
 
 /// <summary>Owns one ProjectWatcher per configured project for the app's lifetime, keyed by name so
 /// a single one can be disposed when its project is unregistered (write #7).</summary>
-public sealed class ProjectWatchersHostedService(CockpitConfig config, SseHub hub) : IHostedService, IProjectWatcherRegistry
+public sealed class ProjectWatchersHostedService(CockpitConfig config, SseHub hub, TtlCache<RunStatusDto> runCache) : IHostedService, IProjectWatcherRegistry
 {
+    private ProjectWatcher Create(string projectName, string projectPath) =>
+        new(projectName, projectPath, hub, onStableState: () => runCache.Invalidate(projectName));
+
     private readonly ConcurrentDictionary<string, ProjectWatcher> _watchers = new();
     private int _stopped;
 
     public Task StartAsync(CancellationToken cancellationToken)
     {
         foreach (var project in config.Projects)
-            _watchers[project.Name] = new ProjectWatcher(project.Name, project.Path, hub);
+            _watchers[project.Name] = Create(project.Name, project.Path);
         return Task.CompletedTask;
     }
 
@@ -32,7 +37,7 @@ public sealed class ProjectWatchersHostedService(CockpitConfig config, SseHub hu
         // After shutdown began, a late add must not leave an undisposed watcher behind.
         if (Volatile.Read(ref _stopped) != 0)
             return;
-        var watcher = new ProjectWatcher(projectName, projectPath, hub);
+        var watcher = Create(projectName, projectPath);
         if (!_watchers.TryAdd(projectName, watcher))
             watcher.Dispose();
     }

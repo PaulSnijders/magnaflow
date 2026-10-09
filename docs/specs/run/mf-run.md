@@ -21,10 +21,14 @@ mf-run promote [--project <path>]
   `[{name, running, pid?, url?, reason?, portListening?}]`. `reason` and
   `portListening` are additive. Consumers reading only
   `name/running/pid/url` must keep working.
-- `status` lists the services, then `stable` when configured.
+- `status` lists the services, then `stable` when configured. Without a
+  service name its exit code is still the services' own; stable's entry
+  is informational. `status stable` exits by the stable process alone.
 - No `run:` block: every verb prints `no services configured`, exit 0.
   A console app with nothing to manage is the normal case. `promote`
   without `run.stable` prints `no stable instance configured`, exit 0.
+  With only `run.stable`, the verbs without a name print the same `no
+  services configured`. `status` still lists stable.
 
 ## Config
 
@@ -125,17 +129,25 @@ published dir is the workdir.
    running instance is untouched.
 4. Swap: stop the process, delete `prev/`, rename `current/` to `prev/`
    and `next/` to `current/`, then start. A rename is retried for a few
-   seconds, because Windows keeps handles open briefly after a kill.
+   seconds, because Windows keeps handles open briefly after a kill. If
+   the old process cannot be stopped, the promote fails and nothing is
+   swapped.
 5. The new process must survive the usual ~2 s start check. If it does
-   not, or a rename fails, put `prev/` back as `current/`, start it, and
-   write `state: failed` ("new build did not start; previous restored"),
-   exit 1.
+   not, or a rename fails, move the new build back to `next/`, put
+   `prev/` back as `current/`, start it, and write `state: failed` with
+   the cause, e.g. "new build did not start; previous restored", exit 1.
 6. Write `state: ready` with the recorded `sha`, exit 0.
 
+A `failed` state keeps the `sha` and `dirty` of the state before the
+promote: the build that still runs, so the cockpit's **Behind** stays
+true to it. A git that cannot answer is no reason to refuse; `sha` and
+`dirty` are then left out.
+
 `promote.lock` is an OS-level exclusive lock (as mf-watch's instance
-lock), not a marker file, so a killed promote frees it. `state: building`
-in `state.yml` with the lock free means the promote was interrupted, and
-`status` reports it as `failed` ("promote interrupted").
+lock), not a marker file, so a killed promote frees it. The file stays
+after the promote. `state: building` in `state.yml` with the lock free
+means the promote was interrupted, and `status` reports it as `failed`
+("promote interrupted").
 
 **status** for `stable` adds, additively, `stable: true`, `state`, `sha`,
 `dirty`, `at`, `message` and `link` to the JSON entry.

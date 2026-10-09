@@ -1060,4 +1060,106 @@ public class TaskRunnerTests : IDisposable
     }
 
     public void Dispose() => _project.Dispose();
+
+    // --- stable instance promote (docs/specs/concepts/worker-run.md step 8, decision 0018) ---
+
+    [Fact]
+    public async Task BranchlessDone_PromotesAfterTheTerminalCommitAndPush()
+    {
+        _git.Remote = "origin";
+        List<string>? gitAtPromote = null;
+        _processes.OnExecutable = args => { if (args[0] == "promote") gitAtPromote = [.. _git.Operations]; };
+        var scanned = WriteAndScan(TempProject.CmdMarkdown(branch: null));
+
+        var exit = await CreateRunner(TestConfig.Create(hasRunStable: true)).RunAsync(scanned, new AgentSessionState());
+
+        Assert.Equal(ExitCodes.Success, exit);
+        var call = Assert.Single(_processes.ExecutableCalls);
+        Assert.Equal("mf-run", call.Executable);
+        Assert.Equal(["promote", "--project", _project.Root], call.Arguments);
+        Assert.NotNull(gitAtPromote);
+        Assert.Equal(_git.Operations, gitAtPromote); // nothing git-wise happens after it
+        Assert.StartsWith("push origin", gitAtPromote![^1]);
+    }
+
+    [Fact]
+    public async Task Promote_RunsAfterStopAndStartWhenServicesAreConfiguredToo()
+    {
+        var scanned = WriteAndScan(TempProject.CmdMarkdown(branch: null));
+
+        await CreateRunner(TestConfig.Create(hasRunServices: true, hasRunStable: true)).RunAsync(scanned, new AgentSessionState());
+
+        Assert.Equal(["stop", "start", "promote"], _processes.ExecutableCalls.Select(c => c.Arguments[0]));
+    }
+
+    [Fact]
+    public async Task FailingPromote_LeavesExitCodeStatusAndRstUnchanged()
+    {
+        _processes.ExecutableResults.Enqueue(new ProcessResult(1, "stable: promote failed", "", false));
+        var scanned = WriteAndScan(TempProject.CmdMarkdown(branch: null));
+
+        var exit = await CreateRunner(TestConfig.Create(hasRunStable: true)).RunAsync(scanned, new AgentSessionState());
+
+        Assert.Equal(ExitCodes.Success, exit);
+        var (cmd, _) = CmdFile.Parse(scanned.Cmd!.FilePath, scanned.Id);
+        Assert.Equal(CmdStatus.Done, cmd!.Status);
+        Assert.DoesNotContain("## Warning", File.ReadAllText(cmd.RstPath));
+        Assert.Single(_processes.ExecutableCalls);
+    }
+
+    [Fact]
+    public async Task PromoteSpawnFailure_LeavesExitCodeUnchanged()
+    {
+        _processes.NextExecutableThrows = new InvalidOperationException("mf-run not found on PATH");
+        var scanned = WriteAndScan(TempProject.CmdMarkdown(branch: null));
+
+        var exit = await CreateRunner(TestConfig.Create(hasRunStable: true)).RunAsync(scanned, new AgentSessionState());
+
+        Assert.Equal(ExitCodes.Success, exit);
+    }
+
+    [Fact]
+    public async Task NoPromote_AfterAborted()
+    {
+        for (var i = 0; i < 3; i++)
+            _processes.ShellResults.Enqueue(new ProcessResult(1, "boom", "", false));
+        var scanned = WriteAndScan(TempProject.CmdMarkdown(branch: null, maxAttempts: 1));
+
+        var exit = await CreateRunner(TestConfig.Create(hasRunStable: true)).RunAsync(scanned, new AgentSessionState());
+
+        Assert.Equal(ExitCodes.TaskFailed, exit);
+        Assert.Empty(_processes.ExecutableCalls);
+    }
+
+    [Fact]
+    public async Task NoPromote_AfterQuestions()
+    {
+        var scanned = WriteAndScan(TempProject.CmdMarkdown(branch: null));
+        PlnFile.Write(scanned.Cmd!.PlnPath, "plan", openQuestions: ["Q?"]);
+
+        await CreateRunner(TestConfig.Create(hasRunStable: true)).RunAsync(scanned, new AgentSessionState());
+
+        Assert.Empty(_processes.ExecutableCalls);
+    }
+
+    [Fact]
+    public async Task NoPromote_ForABranchCommand()
+    {
+        var scanned = WriteAndScan(TempProject.CmdMarkdown(branch: "task/0001-test"));
+
+        var exit = await CreateRunner(TestConfig.Create(hasRunStable: true)).RunAsync(scanned, new AgentSessionState());
+
+        Assert.Equal(ExitCodes.Success, exit);
+        Assert.Empty(_processes.ExecutableCalls);
+    }
+
+    [Fact]
+    public async Task NoPromote_WithoutRunStable()
+    {
+        var scanned = WriteAndScan(TempProject.CmdMarkdown(branch: null));
+
+        await CreateRunner(TestConfig.Create(hasRunServices: true)).RunAsync(scanned, new AgentSessionState());
+
+        Assert.DoesNotContain(_processes.ExecutableCalls, c => c.Arguments[0] == "promote");
+    }
 }

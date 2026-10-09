@@ -177,4 +177,119 @@ public class RunConfigTests
         Assert.Null(error);
         Assert.Single(config!.Services);
     }
+
+    [Fact]
+    public void ConfigWithoutStableBlockHasNoStable()
+    {
+        using var project = new TempProject();
+        project.WriteConfig("""
+            run:
+              services:
+                - name: web
+                  command: web.exe
+            """);
+
+        var (config, error) = RunConfig.Load(project.Root);
+
+        Assert.Null(error);
+        Assert.Null(config!.Stable);
+        Assert.Single(config.Services);
+    }
+
+    [Fact]
+    public void ParsesStableBlock()
+    {
+        using var project = new TempProject();
+        project.WriteConfig("""
+            run:
+              stable:
+                publish: Forecast/mf-publish-stable
+                command: Forecast.exe
+                args: ["--urls", "http://localhost:7300"]
+                url: http://localhost:7300
+                link: https://host.tailnet.ts.net/app/
+                timeout_minutes: 20
+            """);
+
+        var (config, error) = RunConfig.Load(project.Root);
+
+        Assert.Null(error);
+        Assert.Empty(config!.Services);
+        var stable = config.Stable!;
+        Assert.Equal("Forecast/mf-publish-stable", stable.Publish);
+        Assert.Equal("Forecast.exe", stable.Command);
+        Assert.Equal(["--urls", "http://localhost:7300"], stable.Args);
+        Assert.Equal("http://localhost:7300", stable.Url);
+        Assert.Equal("https://host.tailnet.ts.net/app/", stable.Link);
+        Assert.Equal(TimeSpan.FromMinutes(20), stable.Timeout);
+    }
+
+    [Fact]
+    public void StableDefaults()
+    {
+        using var project = new TempProject();
+        project.WriteConfig("""
+            run:
+              stable:
+                publish: publish.sh
+                command: App
+            """);
+
+        var (config, error) = RunConfig.Load(project.Root);
+
+        Assert.Null(error);
+        var stable = config!.Stable!;
+        Assert.Empty(stable.Args);
+        Assert.Null(stable.Url);
+        Assert.Null(stable.Link);
+        Assert.Equal(TimeSpan.FromMinutes(15), stable.Timeout);
+    }
+
+    [Fact]
+    public void StableServiceRunsFromCurrentFolder()
+    {
+        var stable = new StableConfig("publish", "App.exe", ["--x"], "http://localhost:7300", null, TimeSpan.FromMinutes(15));
+        var root = Path.Combine(Path.GetTempPath(), "proj");
+
+        var service = stable.ToService(root);
+
+        var current = Path.Combine(root, ".magnaflow", "stable", "current");
+        Assert.Equal("stable", service.Name);
+        Assert.Equal(Path.Combine(current, "App.exe"), service.Command);
+        Assert.Equal(current, service.Workdir);
+        Assert.Equal(["--x"], service.Args);
+        Assert.Equal("http://localhost:7300", service.Url);
+    }
+
+    [Theory]
+    [InlineData("    command: App\n", "run.stable has no publish")]
+    [InlineData("    publish: p.sh\n", "run.stable has no command")]
+    [InlineData("    publish: p.sh\n    command: App\n    timeout_minutes: 0\n", "timeout_minutes must be at least 1")]
+    public void InvalidStableBlockIsRejected(string body, string expected)
+    {
+        using var project = new TempProject();
+        project.WriteConfig("run:\n  stable:\n" + body);
+
+        var (config, error) = RunConfig.Load(project.Root);
+
+        Assert.Null(config);
+        Assert.Contains(expected, error);
+    }
+
+    [Fact]
+    public void ServiceNamedStableIsRejected()
+    {
+        using var project = new TempProject();
+        project.WriteConfig("""
+            run:
+              services:
+                - name: stable
+                  command: web.exe
+            """);
+
+        var (config, error) = RunConfig.Load(project.Root);
+
+        Assert.Null(config);
+        Assert.Contains("reserved for run.stable", error);
+    }
 }
