@@ -40,7 +40,9 @@ The state combines mf-run's two facts:
 services. It shows the process state as above, plus mf-run's `state`
 (building / ready / failed with its `message`), the short `sha` with
 `dirty`, and `at`. **Behind** is marked when `sha` differs from the
-checked-out HEAD. The link is `link` shown verbatim when it is set, or
+checked-out HEAD. That HEAD comes with the run data (one
+`git rev-parse HEAD`), not from the Git card, so the mark clears on the
+same refetch that shows the new promote. The link is `link` shown verbatim when it is set, or
 otherwise `url` with the usual loopback-host rewrite. Buttons:
 Start/Stop/Restart (service name `stable`), log, and **Promote**. Promote
 spawns `mf-run promote` detached and returns at once, so the cockpit's
