@@ -141,6 +141,20 @@ public sealed class GitClient(IProcessRunner processRunner) : IGitClient
         return false;
     }
 
+    public async Task<string?> GetHeadShaAsync(string projectRoot)
+    {
+        try
+        {
+            var result = await RunAsync(projectRoot, "rev-parse", "HEAD");
+            var sha = result.Succeeded ? result.StdOut.Trim() : "";
+            return sha.Length > 0 ? sha : null;
+        }
+        catch (Exception)
+        {
+            return null;
+        }
+    }
+
     public async Task<GitCommandResult> FetchAsync(string projectRoot)
     {
         // --quiet: without it git reports on stderr every ref it considered even when nothing

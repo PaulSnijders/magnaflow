@@ -21,14 +21,21 @@ public static class RunEndpoints
         // page on every SSE "run" event — memoized per project for a few seconds
         // (docs/prompts/0010). Every action below invalidates its own project first thing, so the
         // status read a button triggers after itself always reflects the action.
+        // Head (the stable row's Behind, docs/specs/cockpit/project.md#run) is added after the cache,
+        // per request: one local `git rev-parse HEAD`, so a commit shows on the very next refetch
+        // rather than up to a cache lifetime later. Only with a stable entry — otherwise git is not
+        // spawned and the response is the one it always was.
         app.MapGet("/api/projects/{name}/run", async (string name, ProjectRegistry registry, IRunClient runClient,
-            TtlCache<RunStatusDto> cache) =>
+            IGitClient git, TtlCache<RunStatusDto> cache) =>
         {
             var project = ProjectResolver.Find(registry, name);
             if (project is null)
                 return Results.NotFound();
 
-            return Results.Ok(await cache.GetOrAddAsync(project.Name, () => ReadStatusAsync(project.Path, runClient)));
+            var status = await cache.GetOrAddAsync(project.Name, () => ReadStatusAsync(project.Path, runClient));
+            if (status.Stable is not null)
+                status = status with { Head = await git.GetHeadShaAsync(project.Path) };
+            return Results.Ok(status);
         });
 
         app.MapPost("/api/projects/{name}/run/start", (string name, ProjectRegistry registry, IRunClient runClient, TtlCache<RunStatusDto> cache) =>

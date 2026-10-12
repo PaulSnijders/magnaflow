@@ -183,6 +183,16 @@ public sealed class FakeGitClient : IGitClient
         return Task.FromResult(InfoToReturn);
     }
 
+    /// <summary>What `git rev-parse HEAD` yields; null plays a failed read.</summary>
+    public string? HeadSha = "0123456789abcdef0123456789abcdef01234567";
+    public int HeadCalls { get; private set; }
+
+    public Task<string?> GetHeadShaAsync(string projectRoot)
+    {
+        HeadCalls++;
+        return Task.FromResult(HeadSha);
+    }
+
     public Task CommitFileAsync(string projectRoot, string relativePath, string message)
     {
         if (ThrowOnCommit)

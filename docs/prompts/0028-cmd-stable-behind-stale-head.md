@@ -1,7 +1,8 @@
 ---
 title: "Cockpit stable row: Behind reads HEAD with the run data, not from the Git card"
-status: ready
+status: done
 created: 2026-10-12
+attempts: 1
 ---
 
 ## Context

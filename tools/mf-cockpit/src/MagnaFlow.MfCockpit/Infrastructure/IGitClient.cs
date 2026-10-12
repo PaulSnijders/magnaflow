@@ -45,6 +45,11 @@ public interface IGitClient
 {
     Task<GitInfo> GetInfoAsync(string projectRoot, int logCount = 10);
 
+    /// <summary>The checked-out HEAD sha (`git rev-parse HEAD`), one local spawn — what the stable
+    /// row's Behind compares with (docs/specs/cockpit/project.md#run). Never throws: any failure is
+    /// null, and null means no Behind mark rather than an error on the card.</summary>
+    Task<string?> GetHeadShaAsync(string projectRoot);
+
     /// <summary>Stages exactly one file and commits it. Throws GitException on failure — callers
     /// decide whether that should surface as a 500 (the draft file itself still exists on disk;
     /// only the commit failed).</summary>

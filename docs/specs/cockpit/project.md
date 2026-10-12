@@ -129,7 +129,8 @@ that every open page can refetch it on one event. A change to
 `.magnaflow/stable/state.yml` drops that cache before its `run` event,
 so the stable row follows building → ready without waiting out the
 cache. The files a publish writes under `.magnaflow/stable/` raise no
-event.
+event. The HEAD that Behind compares with is read on every refetch, outside
+that cache.
 
 DRAFT: generated from code, not human-reviewed.
 

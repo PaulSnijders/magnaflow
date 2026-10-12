@@ -156,9 +156,12 @@ public sealed record RunServiceStatusDto(
 /// the cockpit never shells out to mf-run for such a project. Error is set when mf-run itself could
 /// not be reached or its status --json output didn't parse (a spawn failure, a stale mf-run binary
 /// without --json support, ...); Services is empty in that case. Stable is mf-run's stable-instance
-/// entry, split off the services; null when the project has no `run.stable`.</summary>
+/// entry, split off the services; null when the project has no `run.stable`. Head is the checked-out
+/// HEAD sha the stable row's Behind compares with, read only when there is a Stable entry and never
+/// cached; null when there is none or the read failed (docs/specs/cockpit/project.md#run).</summary>
 public sealed record RunStatusDto(bool Configured, IReadOnlyList<RunServiceStatusDto> Services, string? Error = null,
-    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] RunServiceStatusDto? Stable = null);
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] RunServiceStatusDto? Stable = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Head = null);
 
 public sealed record RunActionResponseDto(bool Success, int ExitCode, string Output, bool TimedOut);
 

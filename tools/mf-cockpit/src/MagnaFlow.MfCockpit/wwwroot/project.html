@@ -146,9 +146,7 @@
       document.getElementById("commit-all-btn").disabled = !info.dirty;
       gitDirty = !!info.dirty;
       gitDiverged = info.ahead > 0 && info.behind > 0;
-      gitHead = info.commits && info.commits.length ? info.commits[0].hash : null;
       updateSwitchControls();
-      rerenderStable();
     } catch (err) {
       el.textContent = err.message;
     }
@@ -303,14 +301,14 @@
   // expanded log tail would silently collapse itself moments after the human opened it.
   const expandedRunLogs = new Set();
 
-  // The stable row (docs/specs/cockpit/project.md#run) also depends on gitHead (Behind) and
-  // laneRunning (Promote disabled), which arrive from other loads — those re-render the card from
-  // the last status, but only when there is a stable row to update.
-  let gitHead = null;
+  // The stable row (docs/specs/cockpit/project.md#run) also depends on laneRunning (Promote
+  // disabled), which arrives from the lane load — that re-renders the card from the last status,
+  // but only when there is a stable row to update. Behind's HEAD comes with the run data itself
+  // (`head`), never from the Git card, which is not on the SSE fast path.
   let lastRunStatus = null;
 
   function rerenderStable() {
-    if (lastRunStatus && lastRunStatus.stable) renderRunServices(lastRunStatus.services, lastRunStatus.stable);
+    if (lastRunStatus && lastRunStatus.stable) renderRunServices(lastRunStatus.services, lastRunStatus.stable, lastRunStatus.head);
   }
 
   async function loadRun() {
@@ -331,7 +329,7 @@
       // Stable runs a published copy, so a switch does not concern it.
       servicesRunning = status.services.some((s) => s.running || s.portListening === true);
       lastRunStatus = status;
-      renderRunServices(status.services, status.stable);
+      renderRunServices(status.services, status.stable, status.head);
     } catch (err) {
       card.style.display = "";
       errorEl.textContent = err.message;
@@ -354,7 +352,7 @@
       : { dot: "", text: "stopped" };
   }
 
-  function renderRunServices(services, stable) {
+  function renderRunServices(services, stable, head) {
     const body = document.getElementById("run-services");
     body.innerHTML = services.map((s) => {
       const expanded = expandedRunLogs.has(s.name);
@@ -377,7 +375,7 @@
         <pre class="log-tail run-log" style="display:${expanded ? "" : "none"};"></pre>
         <div class="run-result muted"></div>
       </div>`;
-    }).join("") + (stable ? stableRowHtml(stable) : "");
+    }).join("") + (stable ? stableRowHtml(stable, head) : "");
 
     body.querySelectorAll(".run-promote").forEach((btn) => btn.addEventListener("click", () => promoteStable(btn)));
     body.querySelectorAll(".run-btn").forEach((btn) => btn.addEventListener("click", () => runAction(btn.dataset.service, btn.dataset.action, btn)));
@@ -387,10 +385,10 @@
 
   // The stable instance (mf-run.md#stable-instance): the process state as for a service, plus the
   // last promote's state/sha/at from mf-run's state.yml. Behind compares that sha with the HEAD
-  // the Git card loaded; the link is `link` verbatim, else `url` with the loopback-host rewrite.
+  // that came with the same run response (null when unread: no mark); the link is `link` verbatim, else `url` with the loopback-host rewrite.
   const STABLE_STATE_PILL = { building: "running", ready: "done", failed: "aborted" };
 
-  function stableRowHtml(s) {
+  function stableRowHtml(s, head) {
     const esc = Cockpit.escapeHtml;
     const expanded = expandedRunLogs.has(s.name);
     const proc = runState(s);
@@ -401,8 +399,8 @@
     const sha = s.sha
       ? ` <code title="${esc(s.sha)}">${esc(s.sha.slice(0, 7))}</code>${s.dirty ? ' <span class="pill aborted" title="published from a tree with uncommitted changes">dirty</span>' : ""}`
       : "";
-    const behind = s.sha && gitHead && s.sha !== gitHead
-      ? ` <span class="pill questions" title="stable runs ${esc(s.sha.slice(0, 7))}; HEAD is ${esc(gitHead.slice(0, 7))}">behind</span>`
+    const behind = s.sha && head && s.sha !== head
+      ? ` <span class="pill questions" title="stable runs ${esc(s.sha.slice(0, 7))}; HEAD is ${esc(head.slice(0, 7))}">behind</span>`
       : "";
     const at = s.at ? ` <span class="muted">${esc(Cockpit.formatDate(s.at))}</span>` : "";
     const message = s.state === "failed" && s.message ? `<div class="run-error">${esc(s.message)}</div>` : "";

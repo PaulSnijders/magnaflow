@@ -16,6 +16,7 @@ public class RunApiIntegrationTests : IDisposable
     private readonly TempProject _project = new();
     private readonly string _configPath;
     private readonly FakeRunClient _runClient = new();
+    private readonly FakeGitClient _git = new();
 
     public RunApiIntegrationTests()
     {
@@ -30,7 +31,11 @@ public class RunApiIntegrationTests : IDisposable
         try { File.Delete(_configPath); } catch { /* best effort */ }
     }
 
-    private CockpitFactory Factory() => new(_configPath, services => services.AddSingleton<IRunClient>(_runClient));
+    private CockpitFactory Factory() => new(_configPath, services =>
+    {
+        services.AddSingleton<IRunClient>(_runClient);
+        services.AddSingleton<IGitClient>(_git);
+    });
 
     private void WriteRunConfig(string servicesYaml) =>
         _project.WriteFile(".magnaflow/config.yml", $"run:\n  services:\n{servicesYaml}");
@@ -243,6 +248,72 @@ public class RunApiIntegrationTests : IDisposable
         Assert.Equal("ready", status.Stable!.State);
         Assert.Equal("abc", status.Stable.Sha);
         Assert.Equal("https://host/app/", status.Stable.Link);
+    }
+
+    [Fact]
+    public async Task Status_with_stable_carries_the_checked_out_head()
+    {
+        _project.WriteFile(".magnaflow/config.yml", StableConfig);
+        _runClient.StatusOutput = StableJson("ready");
+        _git.HeadSha = "def0123";
+        using var factory = Factory();
+        using var client = factory.CreateClient();
+
+        var status = await client.GetFromJsonAsync<RunStatusDto>("/api/projects/proj/run");
+
+        Assert.Equal("def0123", status!.Head);
+    }
+
+    [Fact]
+    public async Task Status_head_is_read_fresh_past_the_status_cache()
+    {
+        _project.WriteFile(".magnaflow/config.yml", StableConfig);
+        _runClient.StatusOutput = StableJson("ready");
+        using var factory = Factory();
+        using var client = factory.CreateClient();
+
+        _git.HeadSha = "aaa";
+        await client.GetFromJsonAsync<RunStatusDto>("/api/projects/proj/run");
+        _git.HeadSha = "bbb";
+        var status = await client.GetFromJsonAsync<RunStatusDto>("/api/projects/proj/run");
+
+        Assert.Equal(1, _runClient.StatusCalls);
+        Assert.Equal("bbb", status!.Head);
+    }
+
+    [Fact]
+    public async Task Status_with_stable_and_a_failed_head_read_has_no_head_and_no_error()
+    {
+        _project.WriteFile(".magnaflow/config.yml", StableConfig);
+        _runClient.StatusOutput = StableJson("ready");
+        _git.HeadSha = null;
+        using var factory = Factory();
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/api/projects/proj/run");
+        response.EnsureSuccessStatusCode();
+        var json = await response.Content.ReadAsStringAsync();
+        var status = System.Text.Json.JsonSerializer.Deserialize<RunStatusDto>(json, new System.Text.Json.JsonSerializerOptions(System.Text.Json.JsonSerializerDefaults.Web));
+
+        Assert.Null(status!.Head);
+        Assert.Null(status.Error);
+        Assert.NotNull(status.Stable);
+        Assert.DoesNotContain("\"head\"", json);
+    }
+
+    [Fact]
+    public async Task Status_without_stable_has_no_head_and_never_calls_git()
+    {
+        WriteRunConfig("    - name: web\n      command: web.exe\n");
+        _runClient.StatusOutput = """[{"name":"web","running":true,"pid":1}]""";
+        using var factory = Factory();
+        using var client = factory.CreateClient();
+
+        var json = await client.GetStringAsync("/api/projects/proj/run");
+
+        Assert.DoesNotContain("\"head\"", json);
+        Assert.DoesNotContain("\"stable\"", json);
+        Assert.Equal(0, _git.HeadCalls);
     }
 
     [Fact]
