@@ -83,11 +83,16 @@ it; two project-owned files get a line added, never a rewrite:
 - `docs/decisions/README.md`: if it has no rule on size or on
   investigations, add the kit's two bullets ("One choice, a few hundred
   words" and "An investigation is not a decision") after the frontmatter
-  bullet.
+  bullet. If it has no "The bar is high" paragraph, put the kit's
+  paragraph after the opening one, in place of its old "Only choices a
+  future reader would ask…" sentence.
 - `.claude/skills/architect/SKILL.md`: if its decision-record step does
   not say "one choice per record", append the kit's sentence (one
   choice, a few hundred words; the design goes in the spec edits, an
-  investigation in the rst).
+  investigation in the rst). If that step does not start with "usually
+  none", replace its opening up to "must not sprawl" with the kit's
+  wording, and rename "Medium (default for anything with a decision in
+  it)" to "Medium (default for anything that needs a cmd)".
 
 Existing specs and decisions are left alone. If the new lint check
 reports specs linking into scratch, list them in the summary; promoting

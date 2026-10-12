@@ -4,9 +4,17 @@
 
 One choice and the weighing underneath it: what the situation was, which
 options were on the table, what they were measured against, what was
-chosen. Only choices a future reader would ask "why is it like this?"
-about — a data model, a pricing rule, a library, a deliberate "we looked
-and did nothing".
+chosen.
+
+**The bar is high; most work has no decision.** Write one only for a
+choice someone will want the reasoning for in six months: hard to
+reverse, later work leans on it, or it looks wrong without the why — a
+data model, a pricing rule, a dependency, the direction of a whole
+tool, a deliberate "we looked and did nothing". The details settled
+while shaping a cmd — a label, a default, a flag, a layout, which of
+two equivalent ways — are not decisions: they are explained in the cmd,
+and what the implementer settled goes in its rst. When in doubt, no
+record.
 
 - Filename: `NNNN-slug.md`. Read the next number off disk (highest
   present + 1, never from memory); slug of 2–5 words naming the *choice*.

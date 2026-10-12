@@ -93,17 +93,19 @@ Pick the weight by risk, as `docs/specs/README.md` describes:
 
 - **Small**: edit the owning spec so it describes the wanted behaviour
   (spec ahead = work order). No cmd needed; tell the user what to run.
-- **Medium (default for anything with a decision in it)**:
+- **Medium (default for anything that needs a cmd)**:
   1. **Spec edits** for the behaviour that changes — written now, ahead
      of the code. Only the specs you are touching; do not deepen others.
-  2. **A decision record** `docs/decisions/NNNN-slug.md` only for an
-     important decision: hard to reverse, or something later work will
-     lean on (what, why, what was considered and rejected). Follow the
-     folder README; cite it from the concept's `Why:` line and from the
-     cmd. A smaller trade-off is explained in the cmd itself — the
-     decisions folder must not sprawl. One choice per record, a few
-     hundred words; the design goes in the spec edits, an investigation
-     in the rst that did it.
+  2. **A decision record** `docs/decisions/NNNN-slug.md` — usually
+     none. Only for a choice that passes the bar in that folder's
+     README: someone will want the reasoning in six months (hard to
+     reverse, later work leans on it, looks wrong without the why). The
+     details you settle while shaping the cmd are explained in the cmd
+     itself — the decisions folder must not sprawl. When you do write
+     one: follow the README; cite it from the concept's `Why:` line and
+     from the cmd. One choice per record, a few hundred words; the
+     design goes in the spec edits, an investigation in the rst that
+     did it.
   3. **The cmd** `docs/prompts/NNNN-cmd-slug.md`. Match the latest cmd
      in that folder for shape: frontmatter `title`, `status: draft`,
      `created`, optional `branch:`/`base:`, and `resume:`/`group:` only
