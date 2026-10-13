@@ -139,6 +139,9 @@ run:
   syntax error, plus a save that conflicts with a concurrent edit on
   disk.
 - mf-watch never reads this file.
+- `.magnaflow/actions.yml` is a second, optional project file, kept
+  apart from this one: mf-watch reads it for schedules, mf-worker runs
+  from it, the cockpit shows it. See [actions](actions.md).
 
 DRAFT: generated from code, not human-reviewed.
 

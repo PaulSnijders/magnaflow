@@ -14,6 +14,7 @@ a library or a socket. Both files have a by-hand equivalent.
 | `.magnaflow/mf-watch.lock` | mf-watch, while running | cockpit | who holds the project: PID and start time |
 | `.magnaflow/mf-watch.wake` | cockpit (Check now), `touch` | mf-watch | poll now, once |
 | `.magnaflow/mf-watch.log` | mf-watch | cockpit | the diary, tailed on the Watcher card |
+| `.magnaflow/actions/<name>.request` | cockpit (Run), `touch` | mf-watch | run that action at the next poll, see [actions](actions.md) |
 
 ### Lock file {#lock-file}
 

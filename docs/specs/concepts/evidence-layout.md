@@ -8,6 +8,8 @@ and what its readers rely on.
 ```text
 .magnaflow/
   config.yml           # project config: committed (see machine-config)
+  actions.yml          # optional action definitions: committed (see actions)
+  actions/             # per action: <name>.request, <name>.log, <name>.last.yml
   <id>/                # one per command that has run; <id> = NNNN-name
     claude.log         # raw agent output, plan phase + every attempt
     build.log          # build command output per attempt
@@ -50,7 +52,8 @@ or a blank value as "no session". See [session resume](session-resume.md).
 ## Why machine-local
 
 The whole folder except `config.yml` is gitignored, as `.magnaflow/*`
-plus `!.magnaflow/config.yml`. Reasons:
+plus `!.magnaflow/config.yml`. A project with
+[actions](actions.md) adds `!.magnaflow/actions.yml`. Reasons:
 
 - Logs are megabytes of output no one reviews. The committed audit
   trail is the rst and its `summary:` line.

@@ -106,8 +106,9 @@ the source's contents without a top-level `.git`; `command` gets
 `{target}` and `{name}` substituted in its args, runs in the target
 directory, and has a hard timeout, default 300 s, where a non-zero exit
 is a failure); the spec kit into `docs/spec-kit/` (not configured or
-missing is a warning); `.gitignore` gains whichever of `.magnaflow/*`
-and `!.magnaflow/config.yml` are missing, line by line; a commented
+missing is a warning); `.gitignore` gains whichever of `.magnaflow/*`,
+`!.magnaflow/config.yml` and `!.magnaflow/actions.yml` are missing,
+line by line; a commented
 `.magnaflow/config.yml` stub, only if absent; `git init` unless the
 template left a `.git`; one commit `cockpit: create project <name>`;
 and a seeded draft "Adopt spec system" through the normal draft write

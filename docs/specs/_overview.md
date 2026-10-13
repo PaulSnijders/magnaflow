@@ -11,8 +11,8 @@ principles in [design](concepts/design.md).
 
 | Tool | Surface | Role |
 |---|---|---|
-| mf-worker | [worker](worker/run.md) | One-shot: execute one `ready` command (plan, implement, build, test, report) |
-| mf-watch | [watch](watch/mf-watch.md) | Long-running per project: poll the lane, dispatch to mf-worker, back off when idle |
+| mf-worker | [worker](worker/run.md) | One-shot: execute one `ready` command (plan, implement, build, test, report), or one [action](concepts/actions.md) |
+| mf-watch | [watch](watch/mf-watch.md) | Long-running per project: poll the lane, dispatch to mf-worker, run due and requested actions, back off when idle |
 | mf-run | [run](run/mf-run.md) | One-shot: start/stop the project's own dev processes around a worker run |
 | mf-cockpit | [cockpit](cockpit/index.md) | Web window on one or more projects: lane, evidence, git, watcher, chat; writes only drafts and `draft → ready` |
 | mf-spec | — | The spec system itself, installed into target repos as files; described in `tools/mf-spec/` |

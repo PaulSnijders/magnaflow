@@ -70,7 +70,17 @@ remote worker machine, pull is the inbox and push the outbox.
    `questions`, `done` or `aborted` is normal. Anything else is an error:
    another exit code, a timeout after `worker_timeout_minutes`, or any
    other status.
-5. `git_sync`: `git push --quiet`, after every poll whose pull succeeded,
+5. [Actions](../concepts/actions.md), only when
+   `.magnaflow/actions.yml` exists: first every pending
+   `.magnaflow/actions/<name>.request`, even when the pull failed, then
+   every due scheduled action, but only when the pull succeeded (or
+   `git_sync` is off). Each one runs strictly one at a time:
+   spawn `<worker.command> action --project <root> <name> --trigger
+   manual|schedule <worker.args...>`, logged prefixed `[action <name>]`,
+   bounded by `worker_timeout_minutes`. A request file is deleted after
+   its spawn, whatever the outcome. Exit 3 (refused) is logged once per
+   action and reason. An action that moved `HEAD` counts as activity.
+6. `git_sync`: `git push --quiet`, after every poll whose pull succeeded,
    even when nothing ran.
 
 ## Git sync
@@ -120,7 +130,10 @@ Each attempt counts as activity and raises an error notification.
 `interval_min` while anything happens. Only after `idle_grace` with no
 activity does it double per empty poll, up to `interval_max`. Activity
 resets both the interval and the idle window at once. Activity means a
-pull brought commits or a command was dispatched. Backing off is slow
+pull brought commits, a command was dispatched, or an action moved
+`HEAD`. A scheduled action shortens the sleep to its due time without
+changing the interval. One that was refused waits for the next regular
+poll. Backing off is slow
 and waking is instant on purpose: a slow wake-up costs a human waiting
 time, a slow back-off costs nothing.
 
@@ -138,7 +151,8 @@ deletes it (the delete makes it one-shot), logs
   again.
 
 Writers: `touch` by hand, or the cockpit's
-[Check now](../cockpit/project.md#action-row).
+[Check now](../cockpit/project.md#action-row) and an action's
+[Run](../cockpit/project.md#actions).
 
 ## Instance lock
 
@@ -176,6 +190,7 @@ stalls the loop.
 | `mf-watch: git pull conflict` | the rebase stopped on a conflict and was aborted; the files are in the message. Once per state |
 | `mf-watch: git pull failed` | any other pull failure. Once per state |
 | `mf-watch: git push failed` | push failed (also after the rebase-retry) |
+| `action <name>: failed` | the action exited 1 (failed or timeout), or any exit other than 0, 1 and 3. A refusal (3) is only logged |
 
 The message carries the command's `title:` from its frontmatter. A title
 with shell metacharacters reaches the shell as-is.
@@ -186,7 +201,7 @@ with shell metacharacters reaches the shell as-is.
 diary. It is append-only and never rotated, one line per event in the
 form `yyyy-MM-ddTHH:mm:ss <message>` (local time). Every line also goes
 to the console. It holds startup (project, config path, `once`), every
-pull, spawn, worker output line, status outcome, notifier failure,
+pull, spawn, worker and action output line, status outcome, notifier failure,
 `sleeping <interval>`, wake and stop. The cockpit tails this file. It is
 machine-local and never committed.
 
@@ -194,7 +209,7 @@ machine-local and never committed.
 
 Ctrl+C stops the loop, not the worker. It logs `shutdown requested,
 finishing current poll...`. From then on no new poll starts and no
-further `ready` command is dispatched. A sleep ends at once. A worker
+further `ready` command is dispatched and no action is started. A sleep ends at once. A worker
 already running is left to finish its command, bounded only by
 `worker_timeout_minutes`. Its outcome is logged and notified, and the
 poll still ends with its `git_sync` push. Then mf-watch logs

@@ -1,7 +1,8 @@
 # Technical
 
 `project.html?p=<name>` is the working page for one project: what is
-running, the lane, adding to the lane, git, and the watcher. Card order is
+running, the lane, adding to the lane, git, the watcher, and the
+project's actions. Card order is
 the reading order and is deliberate. Appearance follows
 [design](../concepts/design.md#shared-conventions).
 
@@ -118,10 +119,33 @@ state survives a live refresh. See
 [watch toggle](../concepts/watch-supervision.md) for the Linux
 (systemd) versus Windows (spawn/kill) split.
 
+## Actions
+
+Shown only when the project has `.magnaflow/actions.yml`. It sits below
+the Watcher card. See [actions](../concepts/actions.md). One row per
+action, in file order: name, `description`, the schedule (`every N min`,
+`daily HH:mm` or `manual`), the last run (`run_at`, trigger, result,
+duration) and a newer refusal if there is one. Each row has **Run** and
+a log tail of the last 100 lines of `.magnaflow/actions/<name>.log`,
+collapsed by default.
+
+**Run** writes `.magnaflow/actions/<name>.request` and the wake file. The
+row then shows *queued* until the request file is gone. The button is
+disabled, and the endpoint answers 409, while no watcher runs (nothing
+would consume the request) and while a request for that action is
+already pending. Its `title` names the by-hand equivalent,
+`mf-worker action <name>`. An unknown name is 404.
+
+An `actions.yml` that does not parse shows the error inline instead of
+rows. An `actions.yml` that git ignores
+(`git check-ignore`) gets a warning line: add `!.magnaflow/actions.yml`
+to `.gitignore`, or the actions stay on this machine.
+
 ## Live updates
 
-One SSE stream (`/api/events`). The lane, watcher and run cards refetch
-their own data. The Git card is deliberately not on this fast path.
+One SSE stream (`/api/events`). The lane, watcher, run and actions cards
+refetch their own data. A change to `.magnaflow/actions.yml` or under
+`.magnaflow/actions/` raises kind `actions`. The Git card is deliberately not on this fast path.
 Expanded lists and log tails survive a refetch.
 
 The run card's status read is cached per project for a few seconds, so
