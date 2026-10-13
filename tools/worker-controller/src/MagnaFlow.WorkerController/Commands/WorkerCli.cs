@@ -17,6 +17,7 @@ public static class WorkerCli
                mf-worker next [--project <path>]
                mf-worker run-all [--project <path>]
                mf-worker status [--project <path>]
+               mf-worker action <name> [--project <path>] [--trigger manual|schedule]
                mf-worker --help
         """;
 
@@ -43,6 +44,8 @@ public static class WorkerCli
             config.AddCommand<NextCommand>("next");
             config.AddCommand<RunAllCommand>("run-all");
             config.AddCommand<StatusCommand>("status");
+            config.AddCommand<ActionCommand>("action")
+                .WithExample("action", "resolve-conflicts");
         });
         return app.RunAsync(args);
     }

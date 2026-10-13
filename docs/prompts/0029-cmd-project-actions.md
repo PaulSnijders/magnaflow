@@ -1,7 +1,8 @@
 ---
 title: "Project actions: .magnaflow/actions.yml, mf-worker action, mf-watch schedules, cockpit Actions card"
-status: ready
+status: done
 created: 2026-10-13
+attempts: 1
 ---
 
 ## Context

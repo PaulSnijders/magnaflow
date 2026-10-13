@@ -19,9 +19,11 @@ docs/old-spec-kit-for-reference/
 .gstack/
 
 # MagnaFlow runtime state is machine-local (watcher log/lock, mf-run PID
-# files, worker <id>/ logs and session.yml); only the project config travels.
+# files, worker <id>/ logs and session.yml); only the project config and
+# the project's actions travel.
 .magnaflow/*
 !.magnaflow/config.yml
+!.magnaflow/actions.yml
 
 # Scratch notes (brainstorm skill): temporary, never part of the record
 .scratch/

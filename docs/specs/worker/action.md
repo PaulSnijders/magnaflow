@@ -23,15 +23,21 @@ mf-worker action <name> [--project <path>] [--trigger manual|schedule]
    definition or an unknown name gives exit 2.
 2. For a `prompt` action, load `.magnaflow/config.yml` as `run` does, and
    check that the agent is available. A `script` action does not need
-   `config.yml`.
+   `config.yml`, but its script must resolve; a script that is not found
+   gives exit 2, listing the paths tried.
 3. Guards: a `running` command in the lane, or a dirty tree, refuses with
    exit 3. The refusal is written to `last.yml` (`refused_at`,
-   `refused`) and stdout. Nothing is logged to the action log.
+   `refused`) and to stdout as exactly one line, `refused: <reason>`
+   (`a command is running (<id>)` or `the working tree is dirty`).
+   mf-watch reads that line. Nothing is logged to the action log.
 4. Run with `timeout_minutes`: the script in the project root through
    the process seam, or the prompt through `IAgentRunner`, without a
-   resume. Output is appended to the action log as it arrives.
+   resume. Stdout first gets `action <name> (<trigger>): started`.
+   Output is appended to the action log as it arrives, and a script's
+   output is echoed to stdout too. A prompt echoes only its final text.
 5. Check the tree. Dirty means failed.
-6. Write the result line to the log and the run to `last.yml`.
+6. Write the result line to the log and the run to `last.yml`, and the
+   result to stdout as `action <name>: <result> — <seconds>s`.
 
 ## Exit codes
 

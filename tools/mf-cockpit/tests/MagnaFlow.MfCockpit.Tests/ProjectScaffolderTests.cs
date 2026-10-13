@@ -221,6 +221,7 @@ public class ProjectScaffolderScaffoldTests
         Assert.Contains("bin/", gitignore);
         Assert.Contains(".magnaflow/*", gitignore);
         Assert.Contains("!.magnaflow/config.yml", gitignore);
+        Assert.Contains("!.magnaflow/actions.yml", gitignore);
         // the pre-existing line was not duplicated
         Assert.Single(gitignore.Split('\n'), l => l.Trim() == ".magnaflow/*");
     }

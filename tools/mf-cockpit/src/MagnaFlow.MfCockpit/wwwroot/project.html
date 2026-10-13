@@ -101,6 +101,18 @@
     <pre class="log-tail" id="watch-log"></pre>
     <button id="watch-log-more" class="secondary" style="display:none;">load all</button>
   </div>
+
+  <!-- Project actions (docs/specs/cockpit/project.md#actions): only with .magnaflow/actions.yml. -->
+  <div class="card" id="actions-card" style="display:none;">
+    <h2>Actions</h2>
+    <div id="actions-warning" class="muted"></div>
+    <div id="actions-error" class="muted"></div>
+    <div class="table-wrap">
+      <table>
+        <tbody id="actions-rows"></tbody>
+      </table>
+    </div>
+  </div>
 </main>
 <script src="assets/app.js"></script>
 <script>
@@ -553,7 +565,107 @@
     toggle.dataset.running = watch.running ? "1" : "";
     // Nothing would consume the wake file with no watcher running, so don't offer it.
     document.getElementById("watch-check-now").disabled = !watch.running;
+    renderActions(); // Run follows the watcher's liveness too
   }
+
+  // The Actions card (docs/specs/cockpit/project.md#actions). Run writes a request file that the
+  // watcher consumes in its next poll, so it is disabled while no watcher runs and while a request
+  // is already queued. Open log tails survive a refetch, like the lane and watcher lists.
+  let actionsData = null;
+  const actionLogsOpen = new Set();
+  const actionLogLines = {};
+  const actionErrors = {};
+
+  function actionLastHtml(last) {
+    if (!last) return '<span class="muted">never run</span>';
+    const parts = [];
+    if (last.runAt) {
+      parts.push(`${Cockpit.escapeHtml(Cockpit.formatDate(last.runAt))} (${Cockpit.escapeHtml(last.trigger || "?")}): `
+        + `${Cockpit.escapeHtml(last.result || "?")}, ${last.durationSeconds ?? "?"}s`);
+    } else {
+      parts.push('<span class="muted">never run</span>');
+    }
+    if (last.refusedAt) {
+      parts.push(`<br><span class="muted">refused ${Cockpit.escapeHtml(Cockpit.formatDate(last.refusedAt))}: ${Cockpit.escapeHtml(last.refused || "")}</span>`);
+    }
+    return parts.join("");
+  }
+
+  function renderActions() {
+    const card = document.getElementById("actions-card");
+    if (!actionsData || !actionsData.exists) {
+      card.style.display = "none";
+      return;
+    }
+    card.style.display = "";
+    document.getElementById("actions-warning").textContent = actionsData.ignored
+      ? "git ignores .magnaflow/actions.yml: add !.magnaflow/actions.yml to .gitignore, or the actions stay on this machine"
+      : "";
+    document.getElementById("actions-error").textContent = actionsData.error ? `actions.yml: ${actionsData.error}` : "";
+    document.getElementById("actions-rows").innerHTML = actionsData.actions.map((a) => {
+      const name = Cockpit.escapeHtml(a.name);
+      const runTitle = a.pending ? "a run is queued for the watcher's next poll"
+        : !watcherAlive ? "no watcher runs for this project: nothing would pick the request up"
+        : `runs at the watcher's next poll; by hand: mf-worker action ${a.name}`;
+      const open = actionLogsOpen.has(a.name);
+      const log = open
+        ? `<tr><td colspan="5"><pre class="log-tail">${Cockpit.escapeHtml((actionLogLines[a.name] || []).join("\n") || "(empty)")}</pre></td></tr>`
+        : "";
+      return `<tr>
+          <td><strong>${name}</strong>${a.description ? `<br><span class="muted">${Cockpit.escapeHtml(a.description)}</span>` : ""}</td>
+          <td>${Cockpit.escapeHtml(a.schedule)}</td>
+          <td>${actionLastHtml(a.last)}</td>
+          <td>${a.pending ? "<em>queued</em>" : ""}<span class="muted">${Cockpit.escapeHtml(actionErrors[a.name] || "")}</span></td>
+          <td class="row-inline">
+            <button class="secondary" data-action-run="${name}" title="${Cockpit.escapeHtml(runTitle)}"${a.pending || !watcherAlive ? " disabled" : ""}>Run</button>
+            <button class="secondary" data-action-log="${name}">${open ? "hide log" : "log"}</button>
+          </td>
+        </tr>${log}`;
+    }).join("");
+  }
+
+  async function loadActionLog(name) {
+    const tail = await Cockpit.api(`/api/projects/${encodeURIComponent(project)}/actions/${encodeURIComponent(name)}/log`);
+    const lines = tail.lines.slice();
+    while (lines.length && lines[lines.length - 1] === "") lines.pop();
+    actionLogLines[name] = lines;
+  }
+
+  async function loadActions() {
+    actionsData = await Cockpit.api(`/api/projects/${encodeURIComponent(project)}/actions`);
+    const names = new Set((actionsData.actions || []).map((a) => a.name));
+    for (const name of [...actionLogsOpen]) if (!names.has(name)) actionLogsOpen.delete(name);
+    await Promise.all([...actionLogsOpen].map((name) => loadActionLog(name).catch(() => {})));
+    renderActions();
+  }
+
+  document.getElementById("actions-rows").addEventListener("click", async (e) => {
+    const btn = e.target.closest("button");
+    if (!btn) return;
+    if (btn.dataset.actionLog) {
+      const name = btn.dataset.actionLog;
+      if (actionLogsOpen.has(name)) {
+        actionLogsOpen.delete(name);
+      } else {
+        actionLogsOpen.add(name);
+        await loadActionLog(name).catch((err) => { actionLogLines[name] = [err.message]; });
+      }
+      renderActions();
+      return;
+    }
+    if (btn.dataset.actionRun) {
+      const name = btn.dataset.actionRun;
+      delete actionErrors[name];
+      btn.disabled = true;
+      try {
+        const result = await Cockpit.api(`/api/projects/${encodeURIComponent(project)}/actions/${encodeURIComponent(name)}/run`, { method: "POST" });
+        if (!result.success) actionErrors[name] = result.error || "run failed";
+      } catch (err) {
+        actionErrors[name] = err.message;
+      }
+      await loadActions().catch(() => {});
+    }
+  });
 
   document.getElementById("watch-toggle").addEventListener("click", async (e) => {
     const btn = e.currentTarget;
@@ -601,7 +713,7 @@
   async function loadAll() {
     // Fast half: awaited, errors surfaced. loadGit() is the slow half, kicked off separately
     // below so it never delays this and its own errors stay scoped to the Git card.
-    await Promise.all([loadLane(), loadWatch()]);
+    await Promise.all([loadLane(), loadWatch(), loadActions()]);
   }
 
   document.getElementById("draft-form").addEventListener("submit", async (e) => {
@@ -742,6 +854,7 @@
       { kind: "watch", refetch: loadWatch },
       { kind: "watch", refetch: bar.refresh },
       { kind: "run", refetch: loadRun },
+      { kind: "actions", refetch: loadActions },
     ],
   });
 

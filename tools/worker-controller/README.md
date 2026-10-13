@@ -29,6 +29,7 @@ mf-worker run <cmd-id>    # execute one specific command end-to-end
 mf-worker next            # execute the first ready command (ID order)
 mf-worker run-all         # drain all ready commands one by one, then stop
 mf-worker status          # read-only command overview (never writes)
+mf-worker action <name>   # run one project action from .magnaflow/actions.yml once
 ```
 
 All commands accept `--project <path>` (default: current directory): a

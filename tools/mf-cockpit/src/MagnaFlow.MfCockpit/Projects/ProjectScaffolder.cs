@@ -18,8 +18,9 @@ public sealed class ProjectScaffolder(IProcessRunner processRunner, IGitClient g
     /// Everything under .magnaflow/ is machine-local — watcher log/lock, mf-run PID files, the
     /// worker's per-command logs and session.yml (an agent transcript handle bound to one machine
     /// and one checkout path, so useless in git and actively harmful: elsewhere it resolves and
-    /// then fails inside the agent instead of starting fresh). config.yml is the exception: it is
-    /// project-level worker config and travels in git. Order matters — the negation must follow the
+    /// then fails inside the agent instead of starting fresh). config.yml and actions.yml are the
+    /// exceptions: project-level worker config and the project's actions, both travel in git
+    /// (docs/specs/concepts/actions.md). Order matters — the negation must follow the
     /// wildcard. Ignored rather than untracked because untracked files dirty the tree mf-watch
     /// polls, and the worker's dirty-tree guard then blocks every run.
     /// </summary>
@@ -28,6 +29,7 @@ public sealed class ProjectScaffolder(IProcessRunner processRunner, IGitClient g
         "# MagnaFlow runtime plane - machine-local (logs, session ids, PID files)",
         ".magnaflow/*",
         "!.magnaflow/config.yml",
+        "!.magnaflow/actions.yml",
     ];
 
     private const string ConfigStub = """
@@ -208,7 +210,7 @@ public sealed class ProjectScaffolder(IProcessRunner processRunner, IGitClient g
     /// <summary>ontwerp-v0.4.md "Creating a project" step 5: hygiene files only where the template
     /// didn't already provide them. For .gitignore that means per missing *line*, not per file —
     /// same posture as mf-spec's own adopt/update prompts (0001/0002-*.md step 3c): create the file
-    /// if absent, otherwise add only whichever of the three runtime-ignore lines are missing, never
+    /// if absent, otherwise add only whichever of the runtime-ignore lines are missing, never
     /// touching an existing line. For config.yml it's whole-file: never overwrite one the template
     /// already left behind.</summary>
     private static void EnsureHygieneFiles(string targetPath)

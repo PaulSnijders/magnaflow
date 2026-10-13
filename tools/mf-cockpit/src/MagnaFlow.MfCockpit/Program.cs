@@ -85,6 +85,7 @@ app.MapProjectsApi();
 app.MapOverviewApi();
 app.MapCommandsApi();
 app.MapWatchApi();
+app.MapActionsApi();
 app.MapSpecsApi();
 app.MapEventsApi();
 app.MapChatApi();

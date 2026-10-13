@@ -155,6 +155,19 @@ public sealed class GitClient(IProcessRunner processRunner) : IGitClient
         }
     }
 
+    public async Task<bool> IsIgnoredAsync(string projectRoot, string relativePath)
+    {
+        try
+        {
+            // exit 0 = ignored, 1 = not ignored, anything else = could not tell
+            return (await RunAsync(projectRoot, "check-ignore", "-q", "--", relativePath)).ExitCode == 0;
+        }
+        catch (Exception)
+        {
+            return false;
+        }
+    }
+
     public async Task<GitCommandResult> FetchAsync(string projectRoot)
     {
         // --quiet: without it git reports on stderr every ref it considered even when nothing

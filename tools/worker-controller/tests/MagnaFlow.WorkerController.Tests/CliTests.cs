@@ -12,6 +12,9 @@ public class CliTests
     [InlineData("frobnicate")]
     [InlineData("next", "--force")]
     [InlineData("run-all", "stray")]
+    [InlineData("action")]
+    [InlineData("action", "hello", "--trigger", "cron")]
+    [InlineData("action", "hello", "extra")]
     public async Task UsageErrors_ExitTwoWithTheMessageOnStderr(params string[] args)
     {
         var stderr = new StringWriter();

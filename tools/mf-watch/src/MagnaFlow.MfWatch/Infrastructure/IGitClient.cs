@@ -38,4 +38,8 @@ public interface IGitClient
     /// <summary>Local HEAD and upstream HEAD, as one comparable string — what "the same divergence
     /// persists" means for notify-once. Best effort: never throws.</summary>
     Task<string> SyncStateAsync();
+
+    /// <summary>The commit at HEAD, or null when it cannot be read. Best effort: never throws.
+    /// Read only around an actions step, to tell whether an action moved HEAD (activity).</summary>
+    Task<string?> HeadAsync();
 }

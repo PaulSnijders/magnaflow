@@ -110,5 +110,5 @@ for the last run, plus `refused_at` and `refused` (the reason) for a
 refusal newer than that run. mf-watch reads `run_at` to decide what is
 due, and the cockpit shows the rest. Missing means never run.
 
-Code: tools/mf-watch/src/MagnaFlow.MfWatch/Actions/, tools/worker-controller/src/MagnaFlow.WorkerController/Actions/, tools/mf-cockpit/src/MagnaFlow.MfCockpit/Api/ActionsEndpoints.cs
+Code: tools/worker-controller/src/MagnaFlow.WorkerController/Actions/, tools/worker-controller/src/MagnaFlow.WorkerController/Commands/ActionCommand.cs, tools/mf-watch/src/MagnaFlow.MfWatch/Actions/, tools/mf-watch/src/MagnaFlow.MfWatch/Watch/WatchLoop.cs, tools/mf-cockpit/src/MagnaFlow.MfCockpit/Actions/ActionsFileLite.cs, tools/mf-cockpit/src/MagnaFlow.MfCockpit/Api/ActionsEndpoints.cs
 Why: decisions/0019-actions-run-by-watch.md

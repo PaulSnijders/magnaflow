@@ -50,6 +50,11 @@ public interface IGitClient
     /// null, and null means no Behind mark rather than an error on the card.</summary>
     Task<string?> GetHeadShaAsync(string projectRoot);
 
+    /// <summary>`git check-ignore -q` on one path: whether git ignores it (the Actions card warns
+    /// that an ignored actions.yml never travels). Never throws: a question git cannot answer (no
+    /// repo, no git) is false, so no warning rather than a broken card.</summary>
+    Task<bool> IsIgnoredAsync(string projectRoot, string relativePath);
+
     /// <summary>Stages exactly one file and commits it. Throws GitException on failure — callers
     /// decide whether that should surface as a 500 (the draft file itself still exists on disk;
     /// only the commit failed).</summary>

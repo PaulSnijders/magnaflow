@@ -32,6 +32,21 @@ public sealed class ProjectConfig
     /// just spawns `promote` after a branchless done (docs/specs/concepts/worker-run.md step 8).</summary>
     public bool HasRunStable { get; init; }
 
+    /// <summary>The same config with another agent timeout: an action runs its prompt under its own
+    /// timeout_minutes, not the project's command timeout.</summary>
+    public ProjectConfig WithCommandTimeout(TimeSpan timeout) => new()
+    {
+        BuildCommands = BuildCommands,
+        TestCommands = TestCommands,
+        MaxAttempts = MaxAttempts,
+        CommandTimeout = timeout,
+        AgentCommand = AgentCommand,
+        AgentArgs = AgentArgs,
+        RunCommand = RunCommand,
+        HasRunServices = HasRunServices,
+        HasRunStable = HasRunStable,
+    };
+
     public static string ConfigPath(string projectRoot) => Path.Combine(projectRoot, ".magnaflow", "config.yml");
 
     /// <summary>Loads and validates config; on failure returns a message listing exactly what is missing.</summary>

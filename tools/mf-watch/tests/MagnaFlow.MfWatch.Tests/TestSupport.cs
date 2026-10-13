@@ -108,6 +108,16 @@ public sealed class FakeGitClient : IGitClient
     }
 
     public Task<string> SyncStateAsync() => Task.FromResult(SyncState);
+
+    /// <summary>What HeadAsync answers; a test moves it to simulate an action that committed.</summary>
+    public string? Head = "h0";
+    public int HeadReads;
+
+    public Task<string?> HeadAsync()
+    {
+        HeadReads++;
+        return Task.FromResult(Head);
+    }
 }
 
 /// <summary>Runs a delegate instead of a real process, so tests can simulate the worker mutating

@@ -61,8 +61,9 @@ if (configNotice is not null)
 var processes = new CliWrapProcessRunner();
 var git = new GitClient(processes, projectRoot);
 var notifier = new ShellNotifier(processes, config.NotifyCommand, projectRoot, Log);
-var loop = new WatchLoop(config, git, processes, projectRoot, Log, notifier);
-var scheduler = new BackoffScheduler(config.IntervalMin, config.IntervalMax, config.IdleGrace, new SystemClock());
+var clock = new SystemClock();
+var loop = new WatchLoop(config, git, processes, projectRoot, Log, notifier, clock);
+var scheduler = new BackoffScheduler(config.IntervalMin, config.IntervalMax, config.IdleGrace, clock);
 
 // The token stops the loop only (no new poll, no new dispatch, sleep cut short); it never reaches
 // the worker spawn. A second Ctrl+C is the hard stop: the default handler ends the process.

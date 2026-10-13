@@ -194,3 +194,12 @@ public sealed record NewProjectInfoDto(string? Root, IReadOnlyList<string> Templ
 public sealed record CreateProjectRequest(string Mode, string Name, string? Path, string? Template);
 
 public sealed record CreateProjectResponse(string Name, string Path, IReadOnlyList<string> Warnings, string? SeededDraftId);
+
+/// <summary>GET /api/projects/{name}/actions (docs/specs/cockpit/project.md#actions). Exists false
+/// hides the card; Error is set instead of Actions when actions.yml does not parse; Ignored is
+/// `git check-ignore` on the file (it would never travel).</summary>
+public sealed record ActionsDto(bool Exists, string? Error, bool Ignored, IReadOnlyList<ActionDto> Actions);
+
+public sealed record ActionDto(string Name, string? Description, string Kind, string Schedule, ActionLastDto? Last, bool Pending);
+
+public sealed record ActionLastDto(string? RunAt, string? Trigger, string? Result, int? DurationSeconds, string? RefusedAt, string? Refused);

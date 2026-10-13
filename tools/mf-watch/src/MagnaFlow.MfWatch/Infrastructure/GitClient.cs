@@ -57,6 +57,19 @@ public sealed class GitClient(IProcessRunner processRunner, string projectRoot) 
         return $"{(local.Succeeded ? local.StdOut.Trim() : "?")}..{(remote.Succeeded ? remote.StdOut.Trim() : "?")}";
     }
 
+    public async Task<string?> HeadAsync()
+    {
+        try
+        {
+            var head = await TryGitAsync("rev-parse", "HEAD");
+            return head.Succeeded ? head.StdOut.Trim() : null;
+        }
+        catch (Exception)
+        {
+            return null; // git missing altogether: no way to tell, so no activity
+        }
+    }
+
     private async Task<bool> RebaseInProgressAsync()
     {
         foreach (var dir in new[] { "rebase-merge", "rebase-apply" })

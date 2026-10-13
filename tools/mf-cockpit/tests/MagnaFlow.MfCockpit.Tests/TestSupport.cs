@@ -193,6 +193,11 @@ public sealed class FakeGitClient : IGitClient
         return Task.FromResult(HeadSha);
     }
 
+    /// <summary>What `git check-ignore` answers for every path.</summary>
+    public bool Ignored;
+
+    public Task<bool> IsIgnoredAsync(string projectRoot, string relativePath) => Task.FromResult(Ignored);
+
     public Task CommitFileAsync(string projectRoot, string relativePath, string message)
     {
         if (ThrowOnCommit)

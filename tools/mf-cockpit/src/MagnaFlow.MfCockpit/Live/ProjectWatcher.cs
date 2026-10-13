@@ -4,8 +4,8 @@ namespace MagnaFlow.MfCockpit.Live;
 
 /// <summary>
 /// One FileSystemWatcher pair per project — docs/prompts/ (kind "lane") and .magnaflow/ (kind
-/// "watch" for mf-watch.log/.lock at its root, "evidence" for anything nested under
-/// .magnaflow/&lt;id&gt;/) — debounced ~500ms and fanned into SseHub (ontwerp-v0.1.md "Live updates").
+/// "watch" for mf-watch.log/.lock at its root, "actions" for actions.yml and anything under
+/// .magnaflow/actions/, "evidence" for anything else nested under .magnaflow/&lt;id&gt;/) — debounced ~500ms and fanned into SseHub (ontwerp-v0.1.md "Live updates").
 /// A project missing one of these directories at startup (fresh project, nothing run yet) simply
 /// isn't watched for that kind until the cockpit restarts — v0.1 scope, same "no correctness at
 /// stake, just a stale page" tradeoff the design doc accepts for this whole mechanism.
@@ -30,10 +30,11 @@ public sealed class ProjectWatcher : IDisposable
         _hub = hub;
 
         TryWatch(Path.Combine(projectRoot, "docs", "prompts"), includeSubdirectories: false, _ => "lane");
-        TryWatch(Path.Combine(projectRoot, ".magnaflow"), includeSubdirectories: true, ClassifyMagnaflow);
+        TryWatch(Path.Combine(projectRoot, ".magnaflow"), includeSubdirectories: true, path => ClassifyMagnaflow(path, _onStableState));
     }
 
-    private string? ClassifyMagnaflow(string fullPath)
+    /// <summary>The one event kind a change under .magnaflow/ raises, or null for none.</summary>
+    public static string? ClassifyMagnaflow(string fullPath, Action? onStableState = null)
     {
         // .magnaflow/stable/ (mf-run's stable instance): only state.yml is news for the Run card;
         // the thousands of files a publish writes into next/ are nobody's event.
@@ -43,9 +44,16 @@ public sealed class ProjectWatcher : IDisposable
         {
             if (magnaflow + 2 >= segments.Length || segments[magnaflow + 2] != "state.yml")
                 return null;
-            _onStableState?.Invoke();
+            onStableState?.Invoke();
             return "run";
         }
+
+        // Project actions (docs/specs/concepts/actions.md): the definitions, and every request,
+        // log and last.yml under actions/. Checked before the "evidence" fallback, which would
+        // otherwise claim the nested files.
+        if (magnaflow >= 0 && magnaflow + 1 < segments.Length
+            && (segments[magnaflow + 1] == "actions" || (segments[magnaflow + 1] == "actions.yml" && magnaflow + 2 == segments.Length)))
+            return "actions";
 
         var fileName = Path.GetFileName(fullPath);
         if (fileName is "mf-watch.log" or "mf-watch.lock")

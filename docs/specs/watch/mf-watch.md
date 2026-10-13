@@ -77,9 +77,18 @@ remote worker machine, pull is the inbox and push the outbox.
    `git_sync` is off). Each one runs strictly one at a time:
    spawn `<worker.command> action --project <root> <name> --trigger
    manual|schedule <worker.args...>`, logged prefixed `[action <name>]`,
-   bounded by `worker_timeout_minutes`. A request file is deleted after
-   its spawn, whatever the outcome. Exit 3 (refused) is logged once per
-   action and reason. An action that moved `HEAD` counts as activity.
+   bounded by `worker_timeout_minutes`. mf-watch writes no spawn line of
+   its own: the worker's `started` line shows the run, so a refusal is a
+   single log line. A request file is deleted after its spawn, whatever
+   the outcome. A request for a name that is not in `actions.yml`, or
+   while `actions.yml` is invalid, is deleted and logged as skipped. A
+   request file that cannot be deleted (held open on Windows) is retried
+   as a delete on the next poll, never run again. Exit 3 (refused) is
+   logged once per action and reason, and the memory clears once the
+   action runs. An `actions.yml` that does not parse logs
+   `actions.yml: <error>; actions skipped` once per file modification
+   time and never stops the loop. An action that moved `HEAD` counts as
+   activity.
 6. `git_sync`: `git push --quiet`, after every poll whose pull succeeded,
    even when nothing ran.
 
