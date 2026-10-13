@@ -75,6 +75,11 @@ content. Use `##` and deeper inside sections. Help is written in the
 surface's `help_language` (default English); translations are generated,
 never hand-edited. `# Technical` is always English.
 
+**The first paragraph under `# Technical` is the file's description**:
+one or two sentences, readable on their own, saying what this page or
+mechanism is. It is what an agent reads to decide whether to open the
+file, and it stands in for a `description:` field.
+
 **Help is optional, but its absence must be explicit.** Two valid forms,
 for pages and concepts alike:
 

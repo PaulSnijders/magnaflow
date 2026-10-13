@@ -25,7 +25,8 @@ Steps:
    fix what the code contradicts, add what the code cannot say. If not,
    write it from scratch — choosing the right form: user-facing unit →
    title + help + `# Technical`; admin page or technical concept → start
-   directly with `# Technical` (no help, no title). Never describe
+   directly with `# Technical` (no help, no title). Open `# Technical`
+   with the description paragraph (README, File format). Never describe
    appearance in prose — reference `concepts/design.md` and record only
    deviations.
    Drafting from code tempts you to retell it. Write down decisions,

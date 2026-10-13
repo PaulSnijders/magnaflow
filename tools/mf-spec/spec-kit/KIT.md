@@ -93,6 +93,7 @@ also something that can fail for the wrong reason.
 | Commit-message rules with a `Spec:` trailer | Pays off only through the check above, which is not there. |
 | Audit-state frontmatter in STATUS.md (`audited_at`, `unaudited_commits`, `freshness`) and `ACCEPTED.md` | Sha bookkeeping in every report to make "stale" precise. A 14-day date on the `Generated:` line catches the same neglect, and re-running on a quiet repo is seconds. Accepting a finding hid an enforcement gap instead of fixing it. |
 | A mandatory `Date`/`Topic`/`Status` header on records | At a handful of files per folder, grep on the content works; the frontmatter the READMEs ask for is the minimum for that grep. |
+| `title`/`description`/`status` frontmatter on specs (Google's Open Knowledge Format) | Duplicates the spec's opening paragraph, which already is the description; git is the timestamp and `/spec-drift` the freshness check. No consumer reads OKF bundles from a repo like this. |
 | An index README per folder | `ls` is the index until a folder passes roughly fifteen files. |
 | A `TEMPLATE.md` per genre | The folder README is a dozen lines — the agent writes the file from it. |
 | A `/decision` command | Creating one file with a sequence number does not need a command. |
