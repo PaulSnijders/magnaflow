@@ -1,6 +1,6 @@
 # Specs — conventions
 
-<!-- spec-kit version: 1.3 — do not edit; used by the update prompt -->
+<!-- spec-kit version: 1.4 — do not edit; used by the update prompt -->
 
 One markdown file per page, grouped per surface. The file path is the
 identity, git history is the timestamp. No frontmatter.

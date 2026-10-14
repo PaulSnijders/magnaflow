@@ -1,4 +1,4 @@
-# spec-kit — version 1.3
+# spec-kit — version 1.4
 
 A self-contained copy of the spec system: one markdown spec per page,
 grouped per surface; `concepts/` for cross-cutting logic; a `# Technical`
@@ -20,7 +20,7 @@ magnaflow repo under `tools/mf-spec/`.
   (`tools/mf-spec/spec-kit/`); improvements flow back there.
 
 The version is also stamped in `docs/specs/README.md`; the update prompt
-reads that stamp. Repos on any 0.x or 1.x version are brought to 1.3
+reads that stamp. Repos on any 0.x or 1.x version are brought to 1.4
 in one run of `0002-update-spec-system.md`.
 
 1.1: context is managed, not only appended — one conversation is one
@@ -56,10 +56,20 @@ rules), the quality pass into `docs/specs/README.md`. A cmd is assumed to
 run through the worker or `/cmd-go`. Adopt and update report a root
 CLAUDE.md over ~1,000 words.
 
-The kit is tool-neutral: it installs the spec system and nothing else.
-The MagnaFlow hooks (`.magnaflow/config.yml` for the worker, its
-gitignore lines) are one optional question in the adopt and update
-prompts. It coexists with GitHub Spec Kit: we own `docs/specs/` and
+1.4: an optional `magnaflow` skill, so a Claude session in a project
+that runs on MagnaFlow knows how to write `.magnaflow/config.yml` and
+actions instead of guessing. It comes per project, with the MagnaFlow
+question, not per machine: cmds and actions are written on a dev
+machine that may have no MagnaFlow install. One skill rather than one
+per feature: Claude loads it from its description when the topic comes
+up, and its topic files (`config.md`, `actions.md`) only when needed.
+It is kit-owned and overwritten on every update; project notes go in
+the project's CLAUDE.md. The ignore lines gain `!.magnaflow/actions.yml`.
+
+The spec system stays tool-neutral: it installs the spec system and
+nothing else. The MagnaFlow parts (`.magnaflow/config.yml` for the
+worker, its gitignore lines, the `magnaflow` skill) come only with a yes
+to the one MagnaFlow question in the adopt and update prompts. It coexists with GitHub Spec Kit: we own `docs/specs/` and
 `/spec*`, they own `specs/` and `/speckit.*`.
 
 ## Contents
@@ -70,6 +80,7 @@ prompts. It coexists with GitHub Spec Kit: we own `docs/specs/` and
 | `docs/specs/config.yml` | `docs/specs/config.yml` | project (derived once) |
 | `commands/spec.md`, `commands/spec-drift.md`, `commands/cmd-go.md` | `.claude/commands/` | kit |
 | `skills/specs/SKILL.md` | `.claude/skills/specs/SKILL.md` | kit |
+| `skills/magnaflow/` (`SKILL.md`, `config.md`, `actions.md`) | `.claude/skills/magnaflow/`, only with a yes to the MagnaFlow question | kit |
 | `skills/brainstorm/SKILL.md`, `skills/architect/SKILL.md`, `skills/cc-review/SKILL.md` | `.claude/skills/<name>/SKILL.md` | project (starting point, adapt to the project) |
 | `scripts/spec_lint.mjs` | `scripts/spec_lint.mjs` | kit |
 | `docs/CLAUDE.md` | `docs/CLAUDE.md` | kit (merged if customised) |

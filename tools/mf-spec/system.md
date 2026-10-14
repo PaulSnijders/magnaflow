@@ -28,7 +28,7 @@ docs/decisions/     # why it became this way — NNNN-slug.md, frozen
 docs/context/       # what the outside world said — YYYY-MM-DD-slug.md
 docs/prompts/       # delta lane: NNNN-cmd/rst/qa-name.md
 scripts/spec_lint.mjs  # format lint (Node, no deps), run by /spec-drift
-.magnaflow/         # runtime plane: machine-local; config.yml committed
+.magnaflow/         # runtime plane: machine-local; config.yml, actions.yml committed
 ```
 
 - **Context** (`docs/context/`): one file per conversation, managed —
@@ -49,8 +49,9 @@ scripts/spec_lint.mjs  # format lint (Node, no deps), run by /spec-drift
   watcher and mf-run): machine-local in full — the `<id>/` run logs,
   `<id>/session.yml`, `mf-watch.log`, `mf-watch.lock` and `run/`
   (mf-run's PID files and service logs). Only `config.yml`, the
-  project's worker config, is committed. Gitignored
-  as `.magnaflow/*` + `!.magnaflow/config.yml`. Ignored rather than
+  project's worker config, and the optional `actions.yml` are committed.
+  Gitignored as `.magnaflow/*` + `!.magnaflow/config.yml` +
+  `!.magnaflow/actions.yml`. Ignored rather than
   left untracked: untracked files dirty the very tree the watcher
   polls, and the worker's dirty-tree guard then blocks every run.
 - **Surfaces**: where users/systems touch the product (app frontend,
@@ -215,9 +216,10 @@ the pressure is proportional instead of a wall. Design:
 Master kit: `tools/mf-spec/spec-kit/`; its contents and install/update
 steps are in [KIT.md](spec-kit/KIT.md). The version stamp in the
 conventions README travels with every update; `0002` is idempotent and
-brings any older install to the current version (1.3) in one run. The
-kit is tool-neutral: MagnaFlow's worker config and ignore lines are one
-optional question in 0001/0002. Phase 0: copy folder + prompt. Phase 1:
+brings any older install to the current version (1.4) in one run. The
+kit is tool-neutral: MagnaFlow's worker config, ignore lines and
+`magnaflow` skill come only with a yes to one optional question in
+0001/0002. Phase 0: copy folder + prompt. Phase 1:
 `mf-spec init`/`update` automates the same. Installation order relative
 to other tooling must never matter.
 

@@ -1,7 +1,7 @@
 # 0001 — Adopt the spec system in this repo
 
 The `docs/spec-kit/` folder next to this prompt is a copy of the spec
-kit (1.3, spec-first): one markdown spec per page grouped per surface,
+kit (1.4, spec-first): one markdown spec per page grouped per surface,
 `concepts/` for cross-cutting logic (always including `design.md`),
 split by a `# Technical` marker into user help and developer notes,
 guarded by a spec-first rule, a drift audit and a format lint. Install
@@ -145,13 +145,14 @@ Steps:
    A library or CLI-only project has nothing for mf-run to manage —
    leave `run:` out entirely; that's the normal case, not a gap.
 
-   5b. **Runtime ignore lines.** Ensure these two lines are in this
+   5b. **Runtime ignore lines.** Ensure these three lines are in this
    repo's `.gitignore`, in this order (create the file if it doesn't
    exist; add only what is missing):
 
    ```gitignore
    .magnaflow/*
    !.magnaflow/config.yml
+   !.magnaflow/actions.yml
    ```
 
    Everything under `.magnaflow/` is machine-local: the watcher's
@@ -164,6 +165,8 @@ Steps:
    are megabytes of unreviewable output; the committed audit trail is
    the `rst-` file's `summary:`. `config.yml` is the exception: it is
    project-level worker config and travels in git, hence the negation.
+   `actions.yml` holds the project's optional action definitions (named
+   jobs run from the cockpit or on a schedule), which travel in git too.
 
    Ignored, not merely untracked: left untracked these files dirty the
    very tree mf-watch polls, and the worker's dirty-tree guard then
@@ -173,6 +176,12 @@ Steps:
    (an earlier kit version)? Untrack it once, in its own commit:
    `git rm -r --cached .magnaflow` followed by
    `git add .magnaflow/config.yml`.
+
+   5c. **MagnaFlow skill.** Copy `spec-kit/skills/magnaflow/` (its
+   `SKILL.md` and topic files) to `.claude/skills/magnaflow/`. It tells
+   a Claude session how this project is run by MagnaFlow: `config.yml`,
+   actions, and the standing rules. It is kit-owned: every update
+   overwrites it, so project-specific notes go in CLAUDE.md instead.
 
 6. **Quality baseline.** Check what the repo already has to catch
    problems mechanically:
@@ -235,5 +244,6 @@ Steps:
 When done, delete the `docs/spec-kit/` copy and any other copy of the
 kit in the repo (a folder holding `KIT.md`; the master lives in the
 magnaflow repo under `tools/mf-spec/spec-kit/`) and show a summary: where
-each file went, the surfaces configured, whether the MagnaFlow step ran,
-the quality baseline outcome, and the final STATUS.md.
+each file went, the surfaces configured, whether the MagnaFlow step ran
+and the magnaflow skill was installed, the quality baseline outcome, and
+the final STATUS.md.

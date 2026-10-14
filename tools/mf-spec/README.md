@@ -28,9 +28,11 @@ Two ways in:
      - merges the CLAUDE section and pins line endings in
        `.gitattributes`;
      - asks once whether the project runs with MagnaFlow. If yes: the
-       worker config plus the ignore lines `.magnaflow/*` and
-       `!.magnaflow/config.yml` — everything under `.magnaflow/` is
-       machine-local except the config (see system.md);
+       worker config, the ignore lines `.magnaflow/*`,
+       `!.magnaflow/config.yml` and `!.magnaflow/actions.yml` —
+       everything under `.magnaflow/` is machine-local except those two
+       files (see system.md) — and the `magnaflow` skill in
+       `.claude/skills/magnaflow/` (kit 1.4);
      - writes the initial specs from the code (calibrate the first 2–3,
        then batches). Existing hand-written help is input, not
        overwritten.

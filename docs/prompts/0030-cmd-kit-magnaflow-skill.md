@@ -1,7 +1,8 @@
 ---
 title: "Spec kit 1.4: an optional magnaflow skill, installed when the project runs on MagnaFlow"
-status: ready
+status: done
 created: 2026-10-14
+attempts: 1
 ---
 
 ## Context

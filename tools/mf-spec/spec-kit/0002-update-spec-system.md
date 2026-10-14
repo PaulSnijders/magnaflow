@@ -9,7 +9,7 @@ changes nothing the second time.
 1. **Read the installed version** from the comment at the top of the OLD
    `docs/specs/README.md`: `spec-kit version: 1.x`, or the older form
    `mf-spec kit version: 0.x` (no comment at all = 0.1). Note it for the
-   summary; the repairs below cover every path to 1.3.
+   summary; the repairs below cover every path to 1.4.
 
 2. **Overwrite** (system-owned, safe to replace):
    - `spec-kit/docs/specs/README.md` → `docs/specs/README.md`
@@ -52,15 +52,18 @@ changes nothing the second time.
    folding a delta into the specs is ordinary spec-first work.
 
 6. **MagnaFlow?** Ask one question: does this project run with the
-   MagnaFlow tooling? If not, skip. If yes, apply
+   MagnaFlow tooling? If not, skip, and leave an existing
+   `.claude/skills/magnaflow/` alone (never delete it). If yes, apply
    `0001-adopt-spec-system.md` step 5: create `.magnaflow/config.yml` if
-   missing (never touch existing values) and ensure the runtime ignore
-   lines of step 5b.
+   missing (never touch existing values), ensure every runtime ignore
+   line of step 5b (`!.magnaflow/actions.yml` is new in 1.4), and
+   **overwrite** `.claude/skills/magnaflow/` from
+   `spec-kit/skills/magnaflow/` (kit-owned, like `skills/specs/`).
 
    Kits before 1.0 shipped three narrower lines
    (`.magnaflow/mf-watch.log`, `.magnaflow/mf-watch.lock`,
    `.magnaflow/run/`) and committed the `<id>/` run evidence. Replace
-   those three lines with the two of step 5b, and if `.magnaflow/<id>/`
+   those three lines with the lines of step 5b, and if `.magnaflow/<id>/`
    is tracked, untrack it in its own commit: `git rm -r --cached
    .magnaflow` then `git add .magnaflow/config.yml`. Nothing is lost —
    logs and session ids stay on disk, and a session id was only ever
@@ -74,6 +77,12 @@ changes nothing the second time.
    section added per "From 1.1 to 1.2" below — never a rewrite of its
    existing text — and `docs/decisions/README.md` and the architect
    skill get the bullets of "From 1.2 to 1.3".
+
+## From 1.3 to 1.4
+
+The optional MagnaFlow skill. Nothing to migrate beyond step 6: on yes
+it adds the `!.magnaflow/actions.yml` ignore line and installs
+`.claude/skills/magnaflow/`; on no nothing changes.
 
 ## From 1.2 to 1.3
 
