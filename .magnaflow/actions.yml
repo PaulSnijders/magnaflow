@@ -1,0 +1,11 @@
+actions:
+  resolve-conflicts:
+    description: Finish a git pull --rebase that git_sync gave up on
+    prompt: |
+      Run `git pull --rebase`. Resolve every conflict: read both sides and
+      keep the intent of each. Then build and test with the build and test
+      commands in .magnaflow/config.yml, finish the rebase
+      (`git rebase --continue`) and `git push`.
+      If a conflict is not clearly resolvable, or the build or tests fail
+      after resolving, stop: run `git rebase --abort`, leave the tree clean,
+      and explain what conflicted and why you stopped.
