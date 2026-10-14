@@ -9,3 +9,7 @@ actions:
       If a conflict is not clearly resolvable, or the build or tests fail
       after resolving, stop: run `git rebase --abort`, leave the tree clean,
       and explain what conflicted and why you stopped.
+  git-status:
+    description: Show branch, ahead/behind and the last commits
+    script: scripts/actions/git-status
+    timeout_minutes: 1
