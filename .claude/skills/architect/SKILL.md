@@ -168,3 +168,4 @@ sections (`help: false`).
 
 Close with: the decisions taken, the open questions (if any), and the
 paths of what you wrote (spec, decision, cmd) with the cmd's status.
+Name only what you wrote: no decision record means no word about it.
