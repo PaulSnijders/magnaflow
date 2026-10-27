@@ -12,14 +12,35 @@ kit is `spec-kit/` — the normative source for target repos; its
 contents and update steps are in [KIT.md](spec-kit/KIT.md). History:
 `docs/decisions/`.
 
+## Install or update — one prompt
+
+Paste this into Claude Code in the target repo. It works for a first
+install and for an update:
+
+```text
+Install or update the MagnaFlow spec kit in this repo.
+1. Download
+   https://github.com/PaulSnijders/magnaflow/raw/main/tools/mf-spec/spec-kit.zip
+   and unpack it into docs/ here, so docs/spec-kit/ holds the kit
+   (replace an existing docs/spec-kit/). Delete the zip.
+2. If docs/specs/README.md has a "spec-kit version" or "mf-spec kit
+   version" comment, the kit is already adopted: follow
+   docs/spec-kit/0002-update-spec-system.md. If there is no docs/specs/,
+   follow docs/spec-kit/0001-adopt-spec-system.md. Anything else: ask me.
+   Follow that file as your prompt, including its questions and its
+   cleanup of docs/spec-kit/.
+```
+
 ## Use it in a project
 
 Two ways in:
 
-- **By hand.**
-  1. Copy `tools/mf-spec/spec-kit/` into the target repo's `docs/` —
-     same name on both sides, no rename.
-  2. Run `0001-adopt-spec-system.md` as a prompt in Claude Code. It:
+- **By hand** — the prompt above, or the steps it automates:
+  1. Download [`spec-kit.zip`](spec-kit.zip) and unpack it into the
+     target repo's `docs/`, so the kit lands in `docs/spec-kit/`.
+  2. Run `0001-adopt-spec-system.md` (first install) or
+     `0002-update-spec-system.md` (update) as a prompt in Claude Code.
+     Adopt:
      - analyzes the repo and proposes the surface config (you confirm
        names, `help` / `help_language`);
      - places the conventions, commands, skills (specs, brainstorm,

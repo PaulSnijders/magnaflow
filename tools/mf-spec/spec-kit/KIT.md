@@ -13,6 +13,10 @@ magnaflow repo under `tools/mf-spec/`.
   (it derives the surface config from the repo).
 - **Update**: copy the folder again and run
   `0002-update-spec-system.md`.
+- Or both in one go: the install prompt at the top of
+  `tools/mf-spec/README.md` in the magnaflow repo downloads
+  `tools/mf-spec/spec-kit.zip` (this folder, zipped) and picks 0001 or
+  0002.
 - Delete the copy when done — and any other copy of the kit (a folder
   holding this `KIT.md`) that ended up somewhere in the repo: a stray
   copy carries its own `docs/CLAUDE.md`, which agents load as if it were

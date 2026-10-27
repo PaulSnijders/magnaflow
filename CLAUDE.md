@@ -19,7 +19,10 @@ first — its principles govern all design decisions.
 - After changing `tools/mf-spec/spec-kit/`, run its `0002-update-spec-system.md`
   on this repo too — the installed copies (`.claude/commands/`, `.claude/skills/specs/`,
   `.claude/skills/magnaflow/`, `scripts/spec_lint.mjs`, `docs/specs/README.md`,
-  `docs/CLAUDE.md`) must match the master.
+  `docs/CLAUDE.md`) must match the master. Also rebuild
+  `tools/mf-spec/spec-kit.zip` in the same commit (the install prompt
+  downloads it) — from bash:
+  `git add tools/mf-spec/spec-kit && git -c core.autocrlf=false archive --format=zip --prefix=spec-kit/ -o tools/mf-spec/spec-kit.zip $(git write-tree --prefix=tools/mf-spec/spec-kit/)`
 - A behaviour change to `.magnaflow/config.yml`, `actions.yml` or the run/stable
   config also updates `tools/mf-spec/spec-kit/skills/magnaflow/` in the same commit.
 - Rolling out new tool code is `tools/install/install.ps1`, by hand: it stops the
