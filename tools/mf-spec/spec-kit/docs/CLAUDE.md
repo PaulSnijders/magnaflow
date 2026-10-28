@@ -4,7 +4,9 @@ A docs-only session (e.g. Claude Code running `/brainstorm` or
 `/architect`) is the thinking half of a spec-first workflow:
 implementation happens elsewhere (Claude Code or a worker) against
 these same files. Full conventions:
-`docs/specs/README.md` — read it before touching specs.
+`docs/specs/README.md` — read it before touching specs — and this
+project's deviations in `docs/specs/PROJECT.md`, which win (its
+`## docs/CLAUDE.md` section over this file).
 
 - Start each session by checking `docs/specs/STATUS.md` (exception
   report: drift, hotfix debt, format problems) and the lane

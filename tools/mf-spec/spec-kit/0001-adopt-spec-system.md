@@ -1,7 +1,7 @@
 # 0001 — Adopt the spec system in this repo
 
 The `docs/spec-kit/` folder next to this prompt is a copy of the spec
-kit (1.4, spec-first): one markdown spec per page grouped per surface,
+kit (1.5, spec-first): one markdown spec per page grouped per surface,
 `concepts/` for cross-cutting logic (always including `design.md`),
 split by a `# Technical` marker into user help and developer notes,
 guarded by a spec-first rule, a drift audit and a format lint. Install
@@ -44,8 +44,14 @@ Steps:
    - `spec-kit/scripts/spec_lint.mjs` → `scripts/spec_lint.mjs` (Node,
      no dependencies; `/spec-drift` runs it for the "Format problems"
      section)
-   - `spec-kit/docs/CLAUDE.md` → `docs/CLAUDE.md` (design-plane guide;
-     merge if the repo already has one)
+   - `spec-kit/docs/CLAUDE.md` → `docs/CLAUDE.md` (design-plane guide).
+     If the repo already has one, its project-specific rules go into
+     `docs/specs/PROJECT.md` (next bullet) under `## docs/CLAUDE.md`
+     before the kit's file replaces it.
+   - `spec-kit/docs/specs/PROJECT.md` → `docs/specs/PROJECT.md` — this
+     project's deviations from the kit files, which win over them and
+     which no update touches (see the README, "Project rules"). Leave it
+     at "Nothing yet." unless the repo already deviates.
    - `spec-kit/docs/decisions/README.md` → `docs/decisions/README.md`
      and `spec-kit/docs/context/README.md` → `docs/context/README.md` —
      the two record genres. Nothing else goes in: no template, no
@@ -56,10 +62,16 @@ Steps:
      `docs/specs/`: the prompt archive is the only record of *what was
      asked for*, STATUS.md records only the outcome.
 
-3. **Merge `spec-kit/CLAUDE-section.md`** into this repo's CLAUDE.md
-   (create one if missing). Don't duplicate anything it already says.
-   Then count the words of the root CLAUDE.md. It is loaded into every
-   agent turn, and the MagnaFlow worker puts it at the top of every run's
+3. **Place the managed section in CLAUDE.md.** Copy the span of
+   `spec-kit/CLAUDE-section.md` from `<!-- spec-kit:begin … -->` to
+   `<!-- spec-kit:end -->` inclusive, verbatim, into this repo's
+   CLAUDE.md (create the file if missing; the explanatory comment above
+   the begin marker is not copied), after any project content. Do not
+   reword it to avoid overlap: where the existing CLAUDE.md already
+   states a spec-system rule, remove that line *outside* the markers, so
+   each rule lives once. Everything outside the markers is the
+   project's; updates replace only the span. Then count the words of
+   the root CLAUDE.md. It is loaded into every agent turn, and the MagnaFlow worker puts it at the top of every run's
    prompt. Above ~1,000 words, name the largest sections in the summary
    as candidates to move into a nested `CLAUDE.md`, a spec or a README
    — advice only; the rest of CLAUDE.md is the project's.
@@ -181,7 +193,8 @@ Steps:
    `SKILL.md` and topic files) to `.claude/skills/magnaflow/`. It tells
    a Claude session how this project is run by MagnaFlow: `config.yml`,
    actions, and the standing rules. It is kit-owned: every update
-   overwrites it, so project-specific notes go in CLAUDE.md instead.
+   overwrites it, so project-specific notes go in CLAUDE.md and
+   deviations from the skill in `docs/specs/PROJECT.md`.
 
 6. **Quality baseline.** Check what the repo already has to catch
    problems mechanically:

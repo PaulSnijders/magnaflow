@@ -20,6 +20,7 @@ is), not changes; change documents are disposable scaffolding.
 docs/specs/
   README.md         # conventions (shipped from the kit)
   config.yml        # surface declarations
+  PROJECT.md        # the project's deviations from the kit files (wins)
   STATUS.md         # generated exception report — never hand-edited
   _overview.md      # the application as a whole
   concepts/         # cross-cutting logic; design.md always exists
@@ -216,12 +217,17 @@ the pressure is proportional instead of a wall. Design:
 Master kit: `tools/mf-spec/spec-kit/`; its contents and install/update
 steps are in [KIT.md](spec-kit/KIT.md). The version stamp in the
 conventions README travels with every update; `0002` is idempotent and
-brings any older install to the current version (1.4) in one run. The
+brings any older install to the current version (1.5) in one run. The
 kit is tool-neutral: MagnaFlow's worker config, ignore lines and
 `magnaflow` skill come only with a yes to one optional question in
 0001/0002. Phase 0: copy folder + prompt. Phase 1:
 `mf-spec init`/`update` automates the same. Installation order relative
 to other tooling must never matter.
+
+Kit files are never edited in a target repo: a project's deviations go
+in `docs/specs/PROJECT.md`, which wins over them, and its own CLAUDE.md
+rules sit outside the kit's marked span. An update therefore replaces
+kit files and the span verbatim and loses nothing (decision 0020).
 
 ## Where it sits in MagnaFlow
 

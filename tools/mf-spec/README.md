@@ -46,8 +46,12 @@ Two ways in:
      - places the conventions, commands, skills (specs, brainstorm,
        architect, cc-review), `scripts/spec_lint.mjs` and the
        record-folder READMEs;
-     - merges the CLAUDE section and pins line endings in
-       `.gitattributes`;
+     - places the CLAUDE section between `spec-kit:begin`/`end`
+       markers (updates replace only that span) and pins line endings
+       in `.gitattributes`;
+     - creates `docs/specs/PROJECT.md`, where the project's own
+       deviations from the kit files go — it wins over them and no
+       update touches it (kit 1.5);
      - asks once whether the project runs with MagnaFlow. If yes: the
        worker config, the ignore lines `.magnaflow/*`,
        `!.magnaflow/config.yml` and `!.magnaflow/actions.yml` —

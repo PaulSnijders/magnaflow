@@ -55,7 +55,9 @@ Never commit or hand-edit the machine-local files. Read them to answer
 - **Nothing installs, updates or restarts the MagnaFlow tools**: no cmd,
   action, build or test. The human rolls them out by hand.
 - Project-specific notes go in the project's own `CLAUDE.md`. This skill
-  is overwritten by every spec-kit update.
+  is overwritten by every spec-kit update; where
+  `docs/specs/PROJECT.md` has a `## magnaflow` section, it wins over
+  this skill.
 
 ## Topics
 

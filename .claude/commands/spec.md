@@ -5,7 +5,8 @@ argument-hint: <surface>/<route> (e.g. web/about), or concepts/<slug>
 
 Create or update the spec file for: $ARGUMENTS
 
-Follow the `specs` skill and `docs/specs/README.md`. This command is for
+Follow the `specs` skill and `docs/specs/README.md` (a `## spec`
+section in `docs/specs/PROJECT.md` wins over both). This command is for
 one-time drafts from code (brownfield onboarding, new pages) and for
 explicit spec work orders — routine spec updates happen inline with code
 changes per the spec-first rule, not through this command.

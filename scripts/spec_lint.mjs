@@ -64,7 +64,7 @@ const SKIP_REF_FILES = new Set([
 // Placeholder filenames used when describing the `file.md#anchor` convention.
 const PLACEHOLDER_FILES = new Set(["file.md"]);
 // Top-level docs/specs/ files that are not specs.
-const NON_SPEC_FILES = new Set(["README.md", "STATUS.md", "ACCEPTED.md", "config.yml"]);
+const NON_SPEC_FILES = new Set(["README.md", "STATUS.md", "ACCEPTED.md", "PROJECT.md", "config.yml"]);
 
 const FENCE = /^\s*(```|~~~)/;
 const HEADING = /^(#{1,6})\s+(.*)$/;

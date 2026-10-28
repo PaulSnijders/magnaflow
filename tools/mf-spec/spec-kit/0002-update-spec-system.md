@@ -9,27 +9,38 @@ changes nothing the second time.
 1. **Read the installed version** from the comment at the top of the OLD
    `docs/specs/README.md`: `spec-kit version: 1.x`, or the older form
    `mf-spec kit version: 0.x` (no comment at all = 0.1). Note it for the
-   summary; the repairs below cover every path to 1.4.
+   summary; the repairs below cover every path to 1.5. Apply every
+   "From X to Y" section whatever the stamp says: each one checks the
+   repo's content, not the version, so a stamp from a fork of the kit
+   cannot make a step look done.
 
-2. **Overwrite** (system-owned, safe to replace):
+2. **Overwrite** (system-owned, safe to replace). Before replacing a
+   file, compare the installed copy with the new kit's. A difference
+   that is not just older kit wording is a project edit (`git log -p`
+   on the file shows which commits were kit updates): move it, as a
+   rule, into `docs/specs/PROJECT.md` (create it first, per step 4)
+   under a heading named after the section or file it changes, and
+   list each move in the summary. Only then overwrite. Once a project's edits live in
+   PROJECT.md this finds nothing.
    - `spec-kit/docs/specs/README.md` → `docs/specs/README.md`
    - `spec-kit/commands/spec.md`, `commands/spec-drift.md` and
      `commands/cmd-go.md` → `.claude/commands/`
    - `spec-kit/skills/specs/SKILL.md` → `.claude/skills/specs/SKILL.md`
    - `spec-kit/scripts/spec_lint.mjs` → `scripts/spec_lint.mjs`
-   - `spec-kit/docs/CLAUDE.md` → `docs/CLAUDE.md` (merge, don't
-     overwrite, if the repo customized it)
+   - `spec-kit/docs/CLAUDE.md` → `docs/CLAUDE.md`
 
-3. **Re-merge `spec-kit/CLAUDE-section.md`** into CLAUDE.md — replace
-   the spec-system section with the new wording (see "From 1.2 to 1.3"
-   for what left it), keep everything else in CLAUDE.md as is.
-   Then count the words of the root CLAUDE.md. It is loaded into every
-   agent turn, and the MagnaFlow worker puts it at the top of every run's
-   prompt. Above ~1,000 words, name the largest sections in the summary
-   as candidates to move into a nested `CLAUDE.md`, a spec or a README
+3. **Replace the managed section in CLAUDE.md.** Replace the span from
+   `<!-- spec-kit:begin … -->` to `<!-- spec-kit:end -->` inclusive with
+   the same span from `spec-kit/CLAUDE-section.md`, verbatim. Touch
+   nothing outside the markers. No markers yet (installed before 1.5):
+   see "From 1.4 to 1.5". Then count the words of the root CLAUDE.md.
+   It is loaded into every agent turn, and the MagnaFlow worker puts it
+   at the top of every run's prompt. Above ~1,000 words, name the
+   largest sections in the summary as candidates to move into a nested `CLAUDE.md`, a spec or a README
    — advice only; the rest of CLAUDE.md is the project's.
 
 4. **Ensure present** — create only if missing, never overwrite:
+   - `docs/specs/PROJECT.md` from `spec-kit/docs/specs/PROJECT.md`.
    - `docs/decisions/README.md` and `docs/context/README.md` from
      `spec-kit/docs/<name>/README.md`. Once a folder exists its README
      may have been adapted to the project and its files are history:
@@ -58,7 +69,8 @@ changes nothing the second time.
    missing (never touch existing values), ensure every runtime ignore
    line of step 5b (`!.magnaflow/actions.yml` is new in 1.4), and
    **overwrite** `.claude/skills/magnaflow/` from
-   `spec-kit/skills/magnaflow/` (kit-owned, like `skills/specs/`).
+   `spec-kit/skills/magnaflow/` (kit-owned, like `skills/specs/`; step
+   2's compare applies, project edits go under `## magnaflow`).
 
    Kits before 1.0 shipped three narrower lines
    (`.magnaflow/mf-watch.log`, `.magnaflow/mf-watch.lock`,
@@ -71,12 +83,34 @@ changes nothing the second time.
 
 7. **NEVER touch** (project-owned): `docs/specs/config.yml`, all specs
    under `docs/specs/`, `docs/specs/STATUS.md`, `docs/specs/ACCEPTED.md`,
-   `docs/prompts/`, and the contents of `docs/decisions/` and
+   `docs/specs/PROJECT.md`, `docs/prompts/`, and the contents of `docs/decisions/` and
    `docs/context/` (the context README repair below excepted). One
    more exception: `docs/specs/concepts/design.md` may get a missing
    section added per "From 1.1 to 1.2" below — never a rewrite of its
    existing text — and `docs/decisions/README.md` and the architect
    skill get the bullets of "From 1.2 to 1.3".
+
+## From 1.4 to 1.5
+
+Customisations survive updates. Two things change once:
+
+- **Markers in CLAUDE.md.** Before 1.5 the kit's section was merged in
+  by hand, without markers. Find the spec-system text in the root
+  CLAUDE.md — usually a `## Specs (spec-first)` heading and the
+  paragraphs under it, but an earlier merge may have spread or reworded
+  it, and older kits left "When executing a cmd", "Quality pass" and
+  "Records live beside the specs" blocks (see "From 1.2 to 1.3"). Remove
+  every line that restates a kit rule (spec-first, STATUS.md, `/spec`,
+  `/spec-drift`, the lane and executing a cmd, records, language,
+  `lane:` commits) and put the marked span in its place, or at the end
+  of the file if the lines were scattered. A project-specific line among
+  them — a rule the kit does not have, a deviation the project chose —
+  stays, outside the markers, or moves to `docs/specs/PROJECT.md` if it
+  changes a kit file's rule. List each kept or moved line in the
+  summary.
+- **`docs/specs/PROJECT.md`** is created (step 4), and step 2's compare
+  moves earlier edits of kit files into it — including a customised
+  `docs/CLAUDE.md`, under `## docs/CLAUDE.md`.
 
 ## From 1.3 to 1.4
 
@@ -109,7 +143,8 @@ or dropping is the project's call. Say in the summary which specs are
 over ~800 words in `# Technical` — as information, not a task.
 
 The CLAUDE section shrank to what every session needs. Two blocks left
-it; remove them from CLAUDE.md when re-merging, whatever their wording:
+it; remove them from CLAUDE.md when placing the marked span, whatever
+their wording:
 
 - **"When executing a cmd"** (set `running`, keep the rst, qa and
   `questions`, `done`/`aborted`, branch bookkeeping, push both). It now

@@ -1,9 +1,13 @@
 # Specs — conventions
 
-<!-- spec-kit version: 1.4 — do not edit; used by the update prompt -->
+<!-- spec-kit version: 1.5 — do not edit; used by the update prompt -->
 
 One markdown file per page, grouped per surface. The file path is the
 identity, git history is the timestamp. No frontmatter.
+
+This file is the kit's and is replaced on every update. Where
+`docs/specs/PROJECT.md` has a section for something here, that section
+wins — see [Project rules](#project-rules).
 
 ## Five genres, five houses
 
@@ -43,6 +47,7 @@ the spec.
 docs/specs/
   README.md          # this file
   config.yml         # surface declarations (see file)
+  PROJECT.md         # this project's deviations from the kit files
   STATUS.md          # generated exception report — never edit by hand
   _overview.md       # the application as a whole
   concepts/          # cross-cutting topic specs, incl. design.md
@@ -239,6 +244,19 @@ there is one. Record it in `docs/context/YYYY-MM-DD-quality-pass.md`:
 the range reviewed, the findings with their verdict; short. Real
 findings become cmds via `/architect` in the same conversation, never
 automatically. Habit: `/simplify` on your own diff before opening a PR.
+
+## Project rules
+
+The kit's files — this README, `docs/CLAUDE.md`, `/spec`, `/spec-drift`,
+`/cmd-go`, the `specs` and `magnaflow` skills and `spec_lint` — are
+replaced on every update, so a project never edits them. What a
+project does differently goes in `docs/specs/PROJECT.md`, under a
+heading named after the README section or file it changes
+(`## Branches`, `## cmd-go`). It wins over the kit and no update
+touches it. Rules every session needs go in the root `CLAUDE.md`,
+outside the kit's `<!-- spec-kit:begin -->` … `<!-- spec-kit:end -->`
+span — the update replaces only that span. `spec_lint` has no override:
+a change there belongs in the kit.
 
 ## STATUS.md
 

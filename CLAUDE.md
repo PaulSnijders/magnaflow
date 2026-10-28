@@ -37,11 +37,13 @@ first — its principles govern all design decisions.
   present + 1), never from what the conversation remembers — a resumed thread's
   view of the lane is stale. Follow-ups keep the parent's number: `0008B-`
 
+<!-- spec-kit:begin — managed by the spec kit; edits inside are replaced on update -->
 ## Specs (spec-first)
 
 State specs live in `docs/specs/` — conventions in `docs/specs/README.md`
-(read it before touching specs or behavior); the design plane (lane,
-records) in `docs/CLAUDE.md`.
+(read it before touching specs or behavior), this project's deviations
+from the kit in `docs/specs/PROJECT.md` (they win); the design plane
+(lane, records) in `docs/CLAUDE.md`.
 
 The one hard rule: **any change that affects behavior updates the
 affected spec in the same turn and the same commit.** No exceptions
@@ -59,3 +61,4 @@ Language: converse in the user's language; write all artifacts (specs'
 Only a spec's Help section follows its surface's `help_language`.
 Bookkeeping commits (status/rst/qa without code) are prefixed `lane:`
 and include `[skip ci]`.
+<!-- spec-kit:end -->

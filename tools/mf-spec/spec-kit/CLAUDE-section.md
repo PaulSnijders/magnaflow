@@ -1,10 +1,15 @@
-<!-- Merge this section into the target repo's CLAUDE.md. -->
+<!-- The adopt and update prompts place everything from the begin
+     marker to the end marker inclusive into the target repo's
+     CLAUDE.md, verbatim; an update replaces that span. Project rules go
+     outside the markers. This comment is not copied. -->
 
+<!-- spec-kit:begin — managed by the spec kit; edits inside are replaced on update -->
 ## Specs (spec-first)
 
 State specs live in `docs/specs/` — conventions in `docs/specs/README.md`
-(read it before touching specs or behavior); the design plane (lane,
-records) in `docs/CLAUDE.md`.
+(read it before touching specs or behavior), this project's deviations
+from the kit in `docs/specs/PROJECT.md` (they win); the design plane
+(lane, records) in `docs/CLAUDE.md`.
 
 The one hard rule: **any change that affects behavior updates the
 affected spec in the same turn and the same commit.** No exceptions
@@ -22,3 +27,4 @@ Language: converse in the user's language; write all artifacts (specs'
 Only a spec's Help section follows its surface's `help_language`.
 Bookkeeping commits (status/rst/qa without code) are prefixed `lane:`
 and include `[skip ci]`.
+<!-- spec-kit:end -->

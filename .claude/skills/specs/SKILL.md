@@ -6,7 +6,8 @@ description: State specs for this project (docs/specs/). Use when changing any b
 # Specs (code side)
 
 Format, naming, and writing rules are defined in `docs/specs/README.md`.
-Read that file first; it is the single source of truth.
+Read that file first; it is the single source of truth, except where
+`docs/specs/PROJECT.md` (this project's deviations) says otherwise.
 
 This skill adds the code-side rules:
 

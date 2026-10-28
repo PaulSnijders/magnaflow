@@ -3,7 +3,8 @@ description: Audit drift between code and specs, write docs/specs/STATUS.md
 ---
 
 Run a spec drift audit. Follow the `specs` skill and
-`docs/specs/README.md`. Under spec-first this should be green; any
+`docs/specs/README.md` (a `## spec-drift` section in
+`docs/specs/PROJECT.md` wins over both). Under spec-first this should be green; any
 finding means the enforcement has a gap — report the finding AND name
 the likely gap (e.g. a commit that touched code without a spec).
 

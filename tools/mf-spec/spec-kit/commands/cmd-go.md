@@ -5,7 +5,8 @@ argument-hint: "[NNNN]"
 
 Execute one cmd from the lane — the hand-run counterpart of the
 MagnaFlow worker. Run it in a fresh session (not under `/architect`,
-which does not implement).
+which does not implement). Where `docs/specs/PROJECT.md` has a
+`## cmd-go` section, it wins over the steps below.
 
 1. **Current lane.** `git pull` first, so you see the lane as it is now
    (another machine or the worker may have moved it). Stop on a

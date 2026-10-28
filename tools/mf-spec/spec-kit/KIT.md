@@ -1,4 +1,4 @@
-# spec-kit — version 1.4
+# spec-kit — version 1.5
 
 A self-contained copy of the spec system: one markdown spec per page,
 grouped per surface; `concepts/` for cross-cutting logic; a `# Technical`
@@ -24,7 +24,7 @@ magnaflow repo under `tools/mf-spec/`.
   (`tools/mf-spec/spec-kit/`); improvements flow back there.
 
 The version is also stamped in `docs/specs/README.md`; the update prompt
-reads that stamp. Repos on any 0.x or 1.x version are brought to 1.4
+reads that stamp. Repos on any 0.x or 1.x version are brought to 1.5
 in one run of `0002-update-spec-system.md`.
 
 1.1: context is managed, not only appended — one conversation is one
@@ -70,6 +70,18 @@ up, and its topic files (`config.md`, `actions.md`) only when needed.
 It is kit-owned and overwritten on every update; project notes go in
 the project's CLAUDE.md. The ignore lines gain `!.magnaflow/actions.yml`.
 
+1.5: customisations survive updates (decision 0020 in the magnaflow
+repo). Kit files are never edited in a project: what it does
+differently goes in `docs/specs/PROJECT.md`, under a heading named after
+the section or file it changes, and that file wins over the kit's. The
+kit's section in the root CLAUDE.md sits between
+`<!-- spec-kit:begin -->` and `<!-- spec-kit:end -->`; an update
+replaces that span verbatim instead of merging by judgement, and project
+rules live outside it. Before overwriting a kit file the update moves
+any project edit in it to PROJECT.md, so nothing is lost silently.
+Every "From X to Y" step applies whatever the stamp says, so a fork's
+own version number cannot skip one.
+
 The spec system stays tool-neutral: it installs the spec system and
 nothing else. The MagnaFlow parts (`.magnaflow/config.yml` for the
 worker, its gitignore lines, the `magnaflow` skill) come only with a yes
@@ -87,9 +99,10 @@ to the one MagnaFlow question in the adopt and update prompts. It coexists with 
 | `skills/magnaflow/` (`SKILL.md`, `config.md`, `actions.md`) | `.claude/skills/magnaflow/`, only with a yes to the MagnaFlow question | kit |
 | `skills/brainstorm/SKILL.md`, `skills/architect/SKILL.md`, `skills/cc-review/SKILL.md` | `.claude/skills/<name>/SKILL.md` | project (starting point, adapt to the project) |
 | `scripts/spec_lint.mjs` | `scripts/spec_lint.mjs` | kit |
-| `docs/CLAUDE.md` | `docs/CLAUDE.md` | kit (merged if customised) |
+| `docs/CLAUDE.md` | `docs/CLAUDE.md` | kit |
+| `docs/specs/PROJECT.md` | `docs/specs/PROJECT.md` | project (deviations from the kit files; wins over them) |
 | `docs/decisions/README.md`, `docs/context/README.md` | same paths | project once created |
-| `CLAUDE-section.md` | merged into `CLAUDE.md` | re-merged on update |
+| `CLAUDE-section.md` | marked span in `CLAUDE.md` | kit inside the markers (replaced on update), project outside |
 
 ## Deliberately not in the kit
 
@@ -116,4 +129,5 @@ also something that can fail for the wrong reason.
 | A `/spec-fold-in` command | Folding a delta into the specs is ordinary spec-first work with the diff in front of you; a command only made it look like a separate phase. |
 | `HANDOVER.md` | Overlaps almost entirely with CLAUDE.md; the cadence belongs there. |
 | Year subfolders in `context/` | Below about three years they add a level without adding findability. |
+| Markers in every kit file, with a project part below them | Most project changes alter a kit rule rather than add one; text appended under a marker leaves two contradicting rules in one file. One `PROJECT.md` that wins says which applies. |
 | Optional "layers" of the kit (core + magnaflow) | The MagnaFlow coupling is one question in two prompts; a layer structure around it is more machinery than what it isolates. |
