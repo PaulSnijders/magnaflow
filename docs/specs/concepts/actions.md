@@ -62,6 +62,12 @@ waits for the next poll.
     (local time). Without a run, the watcher's start time counts as the
     last run, so a new machine does not fire a nightly job at noon. A
     watcher that was down at HH:mm catches up once at its next poll.
+- **On a conflict**: the action named by mf-watch's `on_conflict`
+  (default `resolve-conflicts`) runs as soon as a `git_sync` pull stops
+  on a rebase conflict, once per conflict state, whether or not it has
+  a schedule. A second pull decides whether it worked, see
+  [git sync](../watch/mf-watch.md#git-sync). A project without that
+  action keeps the plain conflict notification.
 - A due action shortens mf-watch's sleep to its due time. A refused
   action (below) is retried at the next regular poll, never in a tight
   loop.

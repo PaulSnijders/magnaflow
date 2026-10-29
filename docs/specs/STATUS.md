@@ -18,7 +18,7 @@ none
 
 ## Spec ahead (implementation pending)
 
-none
+- watch/mf-watch.md (`on_conflict`, one poll step 4 sync per command, git sync auto-resolve, notifications), worker/action.md (`--trigger conflict`), concepts/actions.md (on a conflict), concepts/worker-run.md (push right after the command) — 0031
 
 ## Hotfix debt
 

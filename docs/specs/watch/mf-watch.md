@@ -30,6 +30,7 @@ mf-watch [--project <path>] [--config <path>] [--once]
 ```yaml
 watch:
   git_sync: false            # pull before the scan, push after dispatch
+  on_conflict: resolve-conflicts  # action run on a rebase conflict; null = off
   worker:
     command: mf-worker       # swap for a stub to test without an agent
     args: []                 # appended after `run --project <root> <id>`
@@ -47,6 +48,9 @@ max that is only lower than the *default* min is clamped up to min
 silently. `git_sync` is an explicit setting, never detected: on the
 machine where commands are authored the copy is already current. On a
 remote worker machine, pull is the inbox and push the outbox.
+`on_conflict` only matters with `git_sync` on, see
+[git sync](#git-sync). Default `resolve-conflicts`; `null` or an empty
+string turns it off.
 
 ## One poll
 
@@ -62,14 +66,23 @@ remote worker machine, pull is the inbox and push the outbox.
 3. Every `running` command not seen before by this process is reported
    once as stale (logged and notified). mf-watch never picks it up
    again. Resetting it is the human's job, as with `questions`.
-4. Only when the pull succeeded (or `git_sync` is off): each `ready`
-   command, strictly one at a time: spawn
+4. Only when the pull succeeded (or `git_sync` is off): the first
+   `ready` command in scan order, strictly one at a time: spawn
    `<worker.command> run --project <root> <id> <worker.args...>` in the
    project root. Each output line is logged prefixed `[<id>]`. Then
    re-read that one file's status. A worker exit of 0 or 1 that leaves
    `questions`, `done` or `aborted` is normal. Anything else is an error:
    another exit code, a timeout after `worker_timeout_minutes`, or any
    other status.
+   With `git_sync` on, every finished command is synced at once: push
+   (with the rejection retry below), then pull. Then the lane is scanned
+   again and the next `ready` command is taken. So each command reaches
+   the remote as soon as it is done, a command queued or edited on
+   another machine meanwhile is run as it is on the remote now, and a
+   command readied during a run is picked up in the same poll. A pull
+   that fails here ends dispatch for this poll, like a failed first
+   pull. Each id is dispatched at most once per poll: a worker that
+   leaves its command `ready` (refused) does not loop.
 5. [Actions](../concepts/actions.md), only when
    `.magnaflow/actions.yml` exists: first every pending
    `.magnaflow/actions/<name>.request`, even when the pull failed, then
@@ -108,9 +121,22 @@ never a force-push, and never a merge commit.
   `git push failed` notification. Any other push failure is notified
   as before.
 - **Conflict**: the rebase stopped. mf-watch runs `git rebase --abort`,
-  so the tree is back where it was, logs `git pull --rebase: conflict
-  in <files>; rebase aborted, tree unchanged` and notifies once.
-  Resolving it is the human's job.
+  so the tree is back where it was, and logs `git pull --rebase:
+  conflict in <files>; rebase aborted, tree unchanged`.
+- **Auto-resolve**: when `on_conflict` names an action that exists in a
+  valid `.magnaflow/actions.yml`, mf-watch runs it right away, once per
+  conflict state (the same state as below), as
+  `mf-worker action <name> --trigger conflict`. This happens on every
+  pull that conflicts: the first, the one after a command, and the
+  one after a rejected push. The action's exit code is not the verdict;
+  a second `git pull --rebase` is. If that pull succeeds, mf-watch logs
+  `conflict in <files> resolved by action <name>`, notifies
+  `mf-watch: git conflict resolved` (an agent edited both sides, so a
+  human should look) and the poll goes on as synced. If it does not
+  (the action refused, failed, gave up, or a new conflict), the conflict
+  is notified as below, the message naming the action's log, and the
+  same state does not run the action again. Without such an action the
+  conflict is notified once and resolving it is the human's job.
 - **No dispatch on an unsynced tree**: when the pull fails, for a
   conflict or any other reason (offline, no upstream, a dirty tree,
   which a rebase refuses), the poll still scans and reports stale
@@ -196,7 +222,8 @@ stalls the loop.
 | `<id>: questions` | the human must answer |
 | `<id>: error` | unexpected exit, timeout or status |
 | `<id>: stale running` | found `running` without having started it |
-| `mf-watch: git pull conflict` | the rebase stopped on a conflict and was aborted; the files are in the message. Once per state |
+| `mf-watch: git pull conflict` | the rebase stopped on a conflict and was aborted, and no `on_conflict` action resolved it; the files are in the message. Once per state |
+| `mf-watch: git conflict resolved` | the `on_conflict` action resolved a conflict; the files are in the message |
 | `mf-watch: git pull failed` | any other pull failure. Once per state |
 | `mf-watch: git push failed` | push failed (also after the rebase-retry) |
 | `action <name>: failed` | the action exited 1 (failed or timeout), or any exit other than 0, 1 and 3. A refusal (3) is only logged |

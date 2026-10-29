@@ -9,13 +9,14 @@ actions and cockpit requests. A human can run it by hand. The mechanism
 ## Usage
 
 ```text
-mf-worker action <name> [--project <path>] [--trigger manual|schedule]
+mf-worker action <name> [--project <path>] [--trigger manual|schedule|conflict]
 ```
 
 - `<name>` is the key under `actions:`, matched exactly.
 - `--project`: as for [run](run.md#usage).
 - `--trigger`: only recorded in the log header and `last.yml`. Default
-  `manual`. mf-watch passes `schedule` for a due action.
+  `manual`. mf-watch passes `schedule` for a due action and `conflict`
+  for its [`on_conflict`](../watch/mf-watch.md#git-sync) action.
 
 ## Order
 
