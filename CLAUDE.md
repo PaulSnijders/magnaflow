@@ -25,8 +25,10 @@ first — its principles govern all design decisions.
   `git add tools/mf-spec/spec-kit && git -c core.autocrlf=false archive --format=zip --prefix=spec-kit/ -o tools/mf-spec/spec-kit.zip $(git write-tree --prefix=tools/mf-spec/spec-kit/)`
 - A behaviour change to `.magnaflow/config.yml`, `actions.yml` or the run/stable
   config also updates `tools/mf-spec/spec-kit/skills/magnaflow/` in the same commit.
-- Rolling out new tool code is `tools/install/install.ps1`, by hand: it stops the
-  watcher that runs the worker, so it never belongs in a cmd's build/test.
+- Rolling out new tool code: the live worker (Linux) self-updates within ~5 min
+  of a `tools/` commit once no cmd is `running` (`install.sh --self-update`);
+  elsewhere `tools/install/install.ps1` by hand. An install stops the watcher
+  that runs the worker, so it never belongs in a cmd's build/test.
 
 ## Rules of thumb
 
