@@ -1,7 +1,8 @@
 ---
 title: "git sync per command, and an agent resolves rebase conflicts"
-status: ready
+status: done
 created: 2026-10-29
+attempts: 1
 ---
 
 ## Context

@@ -18,7 +18,7 @@ none
 
 ## Spec ahead (implementation pending)
 
-- watch/mf-watch.md (`on_conflict`, one poll step 4 sync per command, git sync auto-resolve, notifications), worker/action.md (`--trigger conflict`), concepts/actions.md (on a conflict), concepts/worker-run.md (push right after the command) — 0031
+none
 
 ## Hotfix debt
 
@@ -30,6 +30,7 @@ none
 
 ## Recent spec updates
 
+- 2026-10-29 — 0031: git sync per command and `on_conflict` auto-resolve implemented (watch/mf-watch.md, worker/action.md, concepts/actions.md, concepts/worker-run.md). Small additions where the implementation had to choose: the rebase-pull of a rejected push that fails also ends dispatch; after an unresolved conflict the state remembered is the one after the second pull (the action may have committed); a failed action also raises its own `action <name>: failed`.
 - 2026-10-13 — 0029: project actions implemented (concepts/actions.md, worker/action.md, watch/mf-watch.md step 5, cockpit/project.md#actions). Small additions where the implementation had to choose: a script that does not resolve is exit 2; the worker's refusal is one stdout line `refused: <reason>` that mf-watch reads; mf-watch writes no spawn line for an action; requests for unknown actions are deleted and logged; a request whose delete failed is retried as a delete only.
 - 2026-10-06 — 0026: spec kit 1.2 installed (design.md carries engineering principles + a Quality baseline; quality pass in CLAUDE.md; /spec-drift shows the last pass). concepts/design.md gains a Quality baseline section: advise only, no TreatWarningsAsErrors/AnalysisLevel today, a Directory.Build.props advised as a separate cmd.
 - 2026-10-05 — 0021: mf-cockpit BUG lines resolved. Markdown links vetted (http/https/mailto/relative only); spec cross-links resolve inside the specs page; follow-up refused (409) unless the parent is done/aborted; config conflict note offers Reload/Overwrite; Add project shows warnings and scaffold output, previews with the server's separator, refuses legacy and flat-root configs with 400, verifies every existing project survives an append, and starts the new project's watcher at once. cockpit/chat.md, specs.md, command.md, config.md, index.md and concepts/machine-config.md updated.

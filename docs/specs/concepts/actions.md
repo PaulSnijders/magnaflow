@@ -105,7 +105,7 @@ a rebase conflict or triage that writes nothing to the tree.
 | `.magnaflow/actions/<name>.log` | no | mf-worker | every run, appended |
 | `.magnaflow/actions/<name>.last.yml` | no | mf-worker | the last run and the last refusal |
 
-The log gets one header per run, `=== action <name> (manual|schedule) —
+The log gets one header per run, `=== action <name> (manual|schedule|conflict) —
 yyyy-MM-ddTHH:mm:ss ===`, then the merged output (for a prompt, the
 agent's raw output, followed by its final text), then
 `=== result: <result> — <seconds>s ===`. `<result>` is `ok`,

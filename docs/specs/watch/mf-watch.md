@@ -80,8 +80,9 @@ string turns it off.
    the remote as soon as it is done, a command queued or edited on
    another machine meanwhile is run as it is on the remote now, and a
    command readied during a run is picked up in the same poll. A pull
-   that fails here ends dispatch for this poll, like a failed first
-   pull. Each id is dispatched at most once per poll: a worker that
+   that fails here (also the rebase-pull of a rejected push) ends
+   dispatch for this poll, like a failed first pull: no scheduled
+   actions and no final push. Each id is dispatched at most once per poll: a worker that
    leaves its command `ready` (refused) does not loop.
 5. [Actions](../concepts/actions.md), only when
    `.magnaflow/actions.yml` exists: first every pending
@@ -135,7 +136,11 @@ never a force-push, and never a merge commit.
   human should look) and the poll goes on as synced. If it does not
   (the action refused, failed, gave up, or a new conflict), the conflict
   is notified as below, the message naming the action's log, and the
-  same state does not run the action again. Without such an action the
+  same state does not run the action again. The state remembered is the
+  one after that second pull, since the action may have committed: the
+  next poll that finds it unchanged logs `git pull still failing` and
+  neither runs the action nor notifies. An action that failed or timed
+  out also raises its own `action <name>: failed`. Without such an action the
   conflict is notified once and resolving it is the human's job.
 - **No dispatch on an unsynced tree**: when the pull fails, for a
   conflict or any other reason (offline, no upstream, a dirty tree,
@@ -156,7 +161,8 @@ never a force-push, and never a merge commit.
   dispatched until a human cleans it up.
 
 Edge: a worker that refuses a command and leaves it `ready` (for example
-a dirty tree, exit 3) gets the command dispatched again on every poll.
+a dirty tree, exit 3) gets the command dispatched again on every poll,
+once per poll.
 Each attempt counts as activity and raises an error notification.
 
 ## Adaptive backoff

@@ -75,7 +75,7 @@ public class WatchLoopActionsTests : IDisposable
         var loop = Loop(gitSync: true);
         await loop.PollOnceAsync();
 
-        Assert.Equal(["pull (brought-commits=False)", "run 0001-a", "push"], _events);
+        Assert.Equal(["pull (brought-commits=False)", "run 0001-a", "push", "pull (brought-commits=False)", "push"], _events);
         Assert.Null(loop.NextActionDue);
         Assert.Equal(TimeSpan.FromMinutes(7), loop.SleepFor(TimeSpan.FromMinutes(7)));
         Assert.Equal(0, _git.HeadReads);
@@ -92,7 +92,8 @@ public class WatchLoopActionsTests : IDisposable
 
         await Loop(gitSync: true).PollOnceAsync();
 
-        Assert.Equal(["pull (brought-commits=False)", "run 0001-a", "action fix manual", "action board schedule", "push"], _events);
+        Assert.Equal(["pull (brought-commits=False)", "run 0001-a", "push", "pull (brought-commits=False)",
+            "action fix manual", "action board schedule", "push"], _events);
         Assert.False(RequestExists("fix"));
         var call = _processes.ExecutableCalls.First(c => c.Arguments[0] == "action");
         Assert.Equal(["action", "--project", _project.Root, "fix", "--trigger", "manual"], call.Arguments);

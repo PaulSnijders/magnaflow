@@ -74,6 +74,16 @@ A prompt:
       and explain what conflicted and why you stopped.
 ```
 
+This one also runs by itself: the watcher's `on_conflict` setting
+(default `resolve-conflicts`) names the action it runs, with `--trigger
+conflict`, as soon as a `git_sync` pull stops on a rebase conflict. A
+second pull is the verdict. If it succeeds the watcher notifies
+`mf-watch: git conflict resolved` (look at what the agent kept);
+otherwise the usual conflict notification names the action's log, and
+the same conflict state is not tried again. Without such an action, or
+with `on_conflict: null` in the watcher's config, a conflict waits for a
+human.
+
 ## Rules
 
 - **Guards**: an action is refused, and nothing runs, while a cmd in the
@@ -93,7 +103,7 @@ A prompt:
   pull failed. A schedule runs only on a poll whose pull succeeded (or
   with `git_sync` off). `at` catches up once if the watcher was down at
   that time. A new machine does not fire an `at` job before its first
-  `HH:mm`. Each run is also bounded by the watcher's own worker timeout.
+  `HH:mm`. The `on_conflict` action also runs on a rebase conflict. Each run is also bounded by the watcher's own worker timeout.
 
 ## Why did it not run?
 

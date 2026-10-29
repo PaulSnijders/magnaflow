@@ -17,13 +17,13 @@ public sealed class ActionCommand : AsyncCommand<ActionCommand.Settings>
         public string Name { get; set; } = string.Empty;
 
         [CommandOption("--trigger <TRIGGER>")]
-        [Description("manual (default) or schedule; only recorded in the action log and last.yml.")]
+        [Description("manual (default), schedule, or conflict (mf-watch's on_conflict); only recorded in the action log and last.yml.")]
         public string Trigger { get; set; } = "manual";
 
         public override ValidationResult Validate() =>
-            Trigger is "manual" or "schedule"
+            Trigger is "manual" or "schedule" or "conflict"
                 ? ValidationResult.Success()
-                : ValidationResult.Error($"--trigger must be manual or schedule, not '{Trigger}'");
+                : ValidationResult.Error($"--trigger must be manual, schedule or conflict, not '{Trigger}'");
     }
 
     protected override Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken) =>

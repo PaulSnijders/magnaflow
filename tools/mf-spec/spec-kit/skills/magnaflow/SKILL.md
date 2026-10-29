@@ -8,9 +8,12 @@ description: "How this project is run by MagnaFlow (mf-worker, mf-watch, mf-run,
 MagnaFlow is a set of small tools that run this repo's prompt lane
 (`docs/prompts/`) on a machine:
 
-- **mf-watch** polls the lane. With `git_sync` on it pulls first and
-  pushes after. It hands each `ready` cmd to the worker, one at a time,
-  then runs the project's due or requested actions.
+- **mf-watch** polls the lane. It hands each `ready` cmd to the worker,
+  one at a time, then runs the project's due or requested actions. With
+  `git_sync` on it pulls first, and pushes and pulls again after each
+  cmd, so a finished cmd reaches the remote at once and the next cmd is
+  run as the remote has it now. A rebase conflict goes to the
+  `resolve-conflicts` action, when the project has one (`actions.md`).
 - **mf-worker** executes one cmd: the agent plans and implements it, then
   the build and test commands from `config.yml` run, and the worker
   commits the result and sets the status. `mf-worker action <name>` runs

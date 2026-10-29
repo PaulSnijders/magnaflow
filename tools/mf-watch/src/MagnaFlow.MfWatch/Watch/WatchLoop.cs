@@ -9,7 +9,7 @@ namespace MagnaFlow.MfWatch.Watch;
 
 /// <summary>
 /// One poll cycle (ontwerp-v0.1.md "What it does — and all it does"): pull, scan, run ready
-/// commands sequentially, push, notify. mf-watch reads statuses and exit codes only — the
+/// commands one at a time (with git_sync each followed by push, pull and a rescan), push, notify. mf-watch reads statuses and exit codes only — the
 /// worker's own status transitions (running -> questions/done/aborted) are the sole source of
 /// truth for what happened; mf-watch never guesses beyond re-reading the file it already knows
 /// the id of.
@@ -120,14 +120,39 @@ public sealed class WatchLoop(
         if (!synced)
             log("dispatch skipped: the working copy could not be synced");
 
-        foreach (var cmd in commands.Where(c => synced && c.IsReady))
+        // Strictly one command at a time, each taken from a fresh scan. With git_sync every finished
+        // command is pushed and pulled at once (docs/specs/watch/mf-watch.md#one-poll step 4), so it
+        // reaches the remote right away and the next one is run as the remote has it now. Each id
+        // runs at most once per poll: a worker that leaves its command `ready` cannot spin.
+        var dispatched = new HashSet<string>();
+        while (synced)
         {
             // Shutdown means no new dispatch; the poll still ends normally so the push below
             // carries whatever the worker that just finished committed.
             if (cancellationToken.IsCancellationRequested)
                 break;
+            var cmd = commands.FirstOrDefault(c => c.IsReady && !dispatched.Contains(c.Id));
+            if (cmd is null)
+                break;
+
+            dispatched.Add(cmd.Id);
             await RunOneAsync(cmd);
             activity = true;
+
+            if (config.GitSync)
+            {
+                // A failed pull (also the one inside a rejected push) leaves the tree unsynced:
+                // no further dispatch, no scheduled actions, no final push.
+                if (!await PushAsync() || await PullAsync() is null)
+                {
+                    synced = false;
+                    log("dispatch stopped: the working copy could not be synced after a command");
+                    break;
+                }
+            }
+
+            commands = PromptStatusScanner.Scan(projectRoot, warning => log($"scan warning: {warning}"));
+            NotifyNewStaleRunning(commands);
         }
 
         activity |= await RunActionsAsync(synced, cancellationToken);
@@ -162,6 +187,9 @@ public sealed class WatchLoop(
                 return null;
             }
 
+            if (conflict is not null && ConflictAction() is { } action)
+                return await ResolveConflictAsync(conflict, action);
+
             _pullFailureKey = key;
             if (conflict is not null)
             {
@@ -178,25 +206,70 @@ public sealed class WatchLoop(
         }
     }
 
-    private async Task PushAsync()
+    /// <summary>The `on_conflict` action when it is set and defined in a valid actions.yml, else
+    /// null (then a conflict is handled exactly as without auto-resolve).</summary>
+    private string? ConflictAction()
+    {
+        if (config.OnConflict is not { } name || !File.Exists(WatchActions.FilePath(projectRoot)))
+            return null;
+        var (actions, _) = WatchActions.Load(projectRoot);
+        return actions?.Any(a => a.Name == name) == true ? name : null;
+    }
+
+    /// <summary>Auto-resolve (docs/specs/watch/mf-watch.md#git-sync): run the `on_conflict` action,
+    /// then pull once more. Only that pull succeeding counts; its result is returned as the pull's.
+    /// Otherwise the conflict is notified and the state after the attempt is remembered, so the
+    /// same state on a later poll neither runs the action again nor notifies. Never recurses: the
+    /// second pull goes to git directly.</summary>
+    private async Task<bool?> ResolveConflictAsync(GitConflictException conflict, string action)
+    {
+        var files = string.Join(", ", conflict.Files);
+        log($"git pull --rebase: conflict in {files}; rebase aborted, running action {action}");
+        var headBefore = await git.HeadAsync();
+        await RunActionAsync(action, "conflict");
+
+        try
+        {
+            var pulled = await git.PullAsync();
+            var headAfter = await git.HeadAsync();
+            log($"conflict in {files} resolved by action {action}");
+            await notifier.NotifyAsync("mf-watch: git conflict resolved",
+                $"rebase conflict in {files} resolved by action {action}; review its commits");
+            _pullFailureKey = null;
+            return pulled || headBefore != headAfter;
+        }
+        catch (GitException ex)
+        {
+            // The state after the attempt: the action may have committed, and the next poll sees that.
+            _pullFailureKey = $"{(ex is GitConflictException ? "conflict" : "failed")} {await git.SyncStateAsync()}";
+            log($"git pull --rebase after action {action}: {ex.Message}; conflict not resolved");
+            await notifier.NotifyAsync("mf-watch: git pull conflict",
+                $"rebase conflict in {files}; action {action} did not resolve it; see .magnaflow/actions/{action}.log");
+            return null;
+        }
+    }
+
+    /// <summary>Pushes, with one rebase-pull and retry on a rejection. Returns false only when that
+    /// rebase-pull failed, i.e. the tree is no longer synced; a failed push itself is notified.</summary>
+    private async Task<bool> PushAsync()
     {
         try
         {
             if (await git.PushAsync() == PushOutcome.Pushed)
             {
                 log("git push: ok");
-                return;
+                return true;
             }
 
             // Someone else pushed in the meantime: replay our commits on top and try once more.
             log("git push: rejected (remote has new commits); pulling with rebase and retrying once");
             if (await PullAsync() is null)
-                return;
+                return false;
 
             if (await git.PushAsync() == PushOutcome.Pushed)
             {
                 log("git push: ok (after rebase)");
-                return;
+                return true;
             }
 
             log("git push failed: rejected again after the rebase-pull");
@@ -207,6 +280,7 @@ public sealed class WatchLoop(
             log($"git push failed: {ex.Message}");
             await notifier.NotifyAsync("mf-watch: git push failed", ex.Message);
         }
+        return true;
     }
 
     /// <summary>Poll step 5 (docs/specs/watch/mf-watch.md#one-poll), only when actions.yml exists:

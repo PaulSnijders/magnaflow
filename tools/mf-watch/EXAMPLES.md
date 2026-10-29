@@ -252,7 +252,9 @@ silence the notice.
 ## 6. `git_sync` — a remote worker machine
 
 `git_sync: true` makes mf-watch the inbox and outbox of a machine where
-commands are not authored: pull before scanning, push after dispatching.
+commands are not authored: pull before scanning, push and pull again after
+every command (so each one reaches the remote at once, and the next one is
+run as the remote has it now), push once more at the end of the poll.
 Elsewhere, a human (or another mf-watch) just pushes a `ready` command and
 waits.
 
@@ -309,6 +311,8 @@ git pull: new commits
 [0002-world] spawning worker
 [0002-world] worker finished (exit 0); status is now 'done'
 git push: ok
+git pull: up to date
+git push: ok
 ```
 
 ```powershell
@@ -324,7 +328,17 @@ because the remote moved in the meantime gets one rebase-pull and one retry.
 A failed pull (a rebase conflict is aborted first, so the tree is unchanged)
 means the poll dispatches nothing and does not push. It notifies once, and
 later polls with the same local and remote `HEAD` only log
-`git pull still failing, ...`. Details:
+`git pull still failing, ...`. A failed pull after a command stops dispatch
+for the rest of that poll.
+
+A rebase conflict first goes to an agent: when `.magnaflow/actions.yml`
+defines the action named by `on_conflict` (default `resolve-conflicts`),
+mf-watch runs it with `--trigger conflict` and pulls once more. If that pull
+succeeds it logs `conflict in <files> resolved by action resolve-conflicts`
+and notifies `mf-watch: git conflict resolved` (look at what the agent did);
+otherwise the conflict notification names `.magnaflow/actions/resolve-conflicts.log`
+and the same state is not tried again. `on_conflict: null` keeps the
+conflict for a human. Details:
 [git sync](../../docs/specs/watch/mf-watch.md#git-sync).
 
 ## 7. When things go wrong

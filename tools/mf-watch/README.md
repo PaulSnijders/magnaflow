@@ -3,7 +3,9 @@
 A small daemon that polls a target project's `docs/prompts/` for
 `NNNN-cmd-name.md` files with `status: ready` and hands them to `mf-worker`,
 one at a time. Each cycle: pull (optional), scan, dispatch, push (optional),
-notify, then sleep with adaptive backoff. A human can do every step by hand.
+notify, then sleep with adaptive backoff. With git sync every finished
+command is pushed and pulled before the next one is taken from a fresh scan,
+and a rebase conflict first goes to the project's `resolve-conflicts` action. A human can do every step by hand.
 Behavior: [mf-watch spec](../../docs/specs/watch/mf-watch.md). Why it works
 this way: [decision 0006](../../docs/decisions/0006-mf-watch-design.md).
 
@@ -82,7 +84,8 @@ optional; a missing file or field uses the default shown:
 
 ```yaml
 watch:
-  git_sync: false            # pull --rebase before scanning, push after dispatching
+  git_sync: false            # pull --rebase before scanning, push + pull after every command
+  on_conflict: resolve-conflicts  # action (in .magnaflow/actions.yml) run on a rebase conflict; null = off
   worker:
     command: mf-worker       # executable to spawn per ready command; swap for a stub in tests
     args: []                 # extra argv appended after "run --project <root> <id>"
@@ -108,8 +111,8 @@ location and legacy names:
 
 `notify_command` fires (on top of the console/log line) when the human is
 next at bat: a run finished (`done`/`aborted`), a run raised `questions`, or
-an error occurred (git pull conflict or failure, once per state; push
-failure; worker exited unexpectedly; a
+an error occurred (git pull conflict or failure, once per state; a conflict
+the `on_conflict` action resolved; push failure; worker exited unexpectedly; a
 `running` command left stuck by an earlier crash). `{title}` and `{message}`
 are substituted verbatim. Titles and timing:
 [Notifications](../../docs/specs/watch/mf-watch.md#notifications).

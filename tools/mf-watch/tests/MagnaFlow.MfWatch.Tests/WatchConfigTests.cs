@@ -13,6 +13,7 @@ public class WatchConfigTests
         Assert.Null(notice);
         Assert.NotNull(config);
         Assert.False(config!.GitSync);
+        Assert.Equal("resolve-conflicts", config.OnConflict);
         Assert.Equal("mf-worker", config.WorkerCommand);
         Assert.Empty(config.WorkerArgs);
         Assert.Null(config.NotifyCommand);
@@ -281,5 +282,22 @@ public class WatchConfigLocatePathTests
         Assert.Null(error);
         Assert.Null(notice);
         Assert.NotNull(config);
+    }
+
+    [Theory]
+    [InlineData("  git_sync: true\n", "resolve-conflicts")]
+    [InlineData("  on_conflict: null\n", null)]
+    [InlineData("  on_conflict: ~\n", null)]
+    [InlineData("  on_conflict: \"\"\n", null)]
+    [InlineData("  on_conflict: my-fixer\n", "my-fixer")]
+    public void OnConflictDefaultsToResolveConflictsAndNullOrEmptyTurnsItOff(string line, string? expected)
+    {
+        using var project = new TempProject();
+        var path = project.WriteFile("magnaflow.yml", "watch:\n" + line);
+
+        var (config, error, _) = WatchConfig.Load(path);
+
+        Assert.Null(error);
+        Assert.Equal(expected, config!.OnConflict);
     }
 }

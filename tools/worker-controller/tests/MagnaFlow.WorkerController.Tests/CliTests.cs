@@ -26,6 +26,20 @@ public class CliTests
         Assert.Contains("usage: mf-worker run <cmd-id>", stderr.ToString());
     }
 
+    [Theory]
+    [InlineData("manual", true)]
+    [InlineData("schedule", true)]
+    [InlineData("conflict", true)]
+    [InlineData("cron", false)]
+    public void ActionTrigger_AcceptsManualScheduleAndConflict(string trigger, bool valid)
+    {
+        var result = new ActionCommand.Settings { Name = "hello", Trigger = trigger }.Validate();
+
+        Assert.Equal(valid, result.Successful);
+        if (!valid)
+            Assert.Contains("manual, schedule or conflict", result.Message);
+    }
+
     [Fact]
     public async Task Help_ExitsZeroAndDescribesCommandsInLaneTerms()
     {

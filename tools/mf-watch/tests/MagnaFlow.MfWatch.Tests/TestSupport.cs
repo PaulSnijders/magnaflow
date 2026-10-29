@@ -81,8 +81,28 @@ public sealed class FakeGitClient : IGitClient
 
     public Task<bool> IsAvailableAsync() => Task.FromResult(Available);
 
+    /// <summary>Consumed one per pull before the fields below: each entry runs (it may change the
+    /// tree like a pulled commit would) and then answers the pull — a string[] is a conflict on
+    /// those files, an exception is thrown, a bool is brought-commits.</summary>
+    public Queue<Func<object>> PullScript = new();
+
     public Task<bool> PullAsync()
     {
+        if (PullScript.Count > 0)
+        {
+            switch (PullScript.Dequeue()())
+            {
+                case string[] files:
+                    Operations.Add("pull (conflict)");
+                    throw new GitConflictException(files, "conflict");
+                case GitException ex:
+                    Operations.Add("pull (failed)");
+                    throw ex;
+                case bool scripted:
+                    Operations.Add($"pull (brought-commits={scripted})");
+                    return Task.FromResult(scripted);
+            }
+        }
         if (PullConflict is not null)
         {
             Operations.Add("pull (conflict)");

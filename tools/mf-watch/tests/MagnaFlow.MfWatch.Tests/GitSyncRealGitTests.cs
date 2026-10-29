@@ -109,4 +109,83 @@ public class GitSyncRealGitTests : IDisposable
         Assert.Contains("shared.md", notification.Message);
         Assert.Contains(log, l => l.Contains("conflict in shared.md"));
     }
+
+    private void WriteCmd(string id)
+    {
+        Directory.CreateDirectory(Path.Combine(_watcher, "docs", "prompts"));
+        File.WriteAllText(Path.Combine(_watcher, "docs", "prompts", $"{id[..4]}-cmd-{id[5..]}.md"), TempProject.CmdMarkdown("ready"));
+    }
+
+    [Fact]
+    public async Task EachCommandReachesTheRemoteBeforeTheNextOneRuns()
+    {
+        WriteCmd("0001-a");
+        WriteCmd("0002-b");
+        Git(_watcher, "add", "-A");
+        Git(_watcher, "commit", "--quiet", "-m", "lane");
+        var remoteSubjectsSeen = new List<string>();
+        var workers = new FakeProcessRunner
+        {
+            OnRunExecutable = (_, args) =>
+            {
+                var id = args[3];
+                remoteSubjectsSeen.Add(Git(_remote, "log", "-1", "--format=%s", "main"));
+                File.WriteAllText(Path.Combine(_watcher, "docs", "prompts", $"{id[..4]}-cmd-{id[5..]}.md"), TempProject.CmdMarkdown("done"));
+                Git(_watcher, "add", "-A");
+                Git(_watcher, "commit", "--quiet", "-m", $"mf-worker: {id} -> done");
+                return new ProcessResult(0, "", "", false);
+            },
+        };
+
+        await Loop(new FakeNotifier(), workers).PollOnceAsync();
+
+        // The local lane commit leaves with the first push; 0001's commit is out before 0002 starts.
+        Assert.Equal(["seed", "mf-worker: 0001-a -> done"], remoteSubjectsSeen);
+        Assert.Equal("mf-worker: 0002-b -> done", Git(_remote, "log", "-1", "--format=%s", "main"));
+    }
+
+    [Fact]
+    public async Task ConflictIsResolvedByTheOnConflictActionAndTheCommandRuns()
+    {
+        Commit(_watcher, "shared.md", "worker's line\n", "worker edit");
+        Commit(_desktop, "shared.md", "desktop's line\n", "desktop edit");
+        Directory.CreateDirectory(Path.Combine(_desktop, "docs", "prompts"));
+        File.WriteAllText(Path.Combine(_desktop, "docs", "prompts", "0001-cmd-hello.md"), TempProject.CmdMarkdown("ready"));
+        Git(_desktop, "add", "-A");
+        Git(_desktop, "commit", "--quiet", "-m", "lane");
+        Git(_desktop, "push", "--quiet");
+        // The action file, kept out of git here so it plays no part in the conflict.
+        Directory.CreateDirectory(Path.Combine(_watcher, ".magnaflow"));
+        File.WriteAllText(Path.Combine(_watcher, ".magnaflow", "actions.yml"), "actions:\n  resolve-conflicts:\n    prompt: resolve it\n");
+        File.WriteAllText(Path.Combine(_watcher, ".git", "info", "exclude"), ".magnaflow/\n");
+        var workers = new FakeProcessRunner
+        {
+            OnRunExecutable = (_, args) =>
+            {
+                if (args[0] == "action")
+                {
+                    // The "agent": keep both sides by replaying the worker's edit on top by hand.
+                    Git(_watcher, "fetch", "--quiet");
+                    Git(_watcher, "reset", "--quiet", "--hard", "origin/main");
+                    Commit(_watcher, "shared.md", "desktop's line\nworker's line\n", "worker edit (resolved)");
+                    return new ProcessResult(0, "", "", false);
+                }
+                File.WriteAllText(Path.Combine(_watcher, "docs", "prompts", "0001-cmd-hello.md"), TempProject.CmdMarkdown("done"));
+                Git(_watcher, "add", "docs");
+                Git(_watcher, "commit", "--quiet", "-m", "mf-worker: 0001-hello -> done");
+                return new ProcessResult(0, "", "", false);
+            },
+        };
+        var notifier = new FakeNotifier();
+
+        var activity = await Loop(notifier, workers).PollOnceAsync();
+
+        Assert.True(activity);
+        Assert.Equal(["action", "run"], workers.ExecutableCalls.Select(c => c.Arguments[0]));
+        Assert.Equal("conflict", workers.ExecutableCalls[0].Arguments[5]);
+        var notification = Assert.Single(notifier.Notifications, n => n.Title.StartsWith("mf-watch:"));
+        Assert.Equal("mf-watch: git conflict resolved", notification.Title);
+        Assert.Equal("mf-worker: 0001-hello -> done", Git(_remote, "log", "-1", "--format=%s", "main"));
+        Assert.Equal("", Git(_remote, "rev-list", "--merges", "main"));
+    }
 }

@@ -14,6 +14,8 @@ namespace MagnaFlow.MfWatch.Config;
 public sealed class WatchConfig
 {
     public bool GitSync { get; init; }
+    /// <summary>The action run on a rebase conflict (docs/specs/watch/mf-watch.md#git-sync); null = off.</summary>
+    public string? OnConflict { get; init; } = DefaultOnConflict;
     public string WorkerCommand { get; init; } = "mf-worker";
     public IReadOnlyList<string> WorkerArgs { get; init; } = [];
     public string? NotifyCommand { get; init; }
@@ -22,6 +24,7 @@ public sealed class WatchConfig
     public TimeSpan IdleGrace { get; init; } = TimeSpan.FromMinutes(30);
     public TimeSpan WorkerTimeout { get; init; } = TimeSpan.FromHours(2);
 
+    public const string DefaultOnConflict = "resolve-conflicts";
     public const string FileName = "magnaflow.yml";
     public const string LegacyFileName = "mf-watch.yml";
 
@@ -108,6 +111,9 @@ public sealed class WatchConfig
         return (new WatchConfig
         {
             GitSync = section.GitSync ?? false,
+            // A missing key is the default; an explicit null or empty string turns it off.
+            OnConflict = !section.OnConflictSet ? DefaultOnConflict
+                : string.IsNullOrWhiteSpace(section.OnConflict) ? null : section.OnConflict.Trim(),
             WorkerCommand = string.IsNullOrWhiteSpace(section.Worker?.Command) ? "mf-worker" : section.Worker.Command.Trim(),
             WorkerArgs = section.Worker?.Args ?? [],
             NotifyCommand = string.IsNullOrWhiteSpace(section.NotifyCommand) ? null : section.NotifyCommand.Trim(),
@@ -121,6 +127,18 @@ public sealed class WatchConfig
     private class ConfigDto
     {
         public bool? GitSync { get; set; }
+
+        // YAML `on_conflict: null` and a missing key both leave a plain string null; the setter
+        // tells them apart (only an explicit key turns the default off).
+        private string? _onConflict;
+        public string? OnConflict
+        {
+            get => _onConflict;
+            set { _onConflict = value; OnConflictSet = true; }
+        }
+        [YamlIgnore]
+        public bool OnConflictSet { get; private set; }
+
         public WorkerDto? Worker { get; set; }
         public string? NotifyCommand { get; set; }
         public double? IntervalMinMinutes { get; set; }
@@ -129,7 +147,7 @@ public sealed class WatchConfig
         public double? WorkerTimeoutMinutes { get; set; }
 
         public bool HasAnyLegacyField() =>
-            GitSync.HasValue || Worker is not null || NotifyCommand is not null ||
+            GitSync.HasValue || OnConflictSet || Worker is not null || NotifyCommand is not null ||
             IntervalMinMinutes.HasValue || IntervalMaxMinutes.HasValue ||
             IdleGraceMinutes.HasValue || WorkerTimeoutMinutes.HasValue;
     }
