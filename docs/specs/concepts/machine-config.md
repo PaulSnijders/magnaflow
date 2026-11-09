@@ -110,11 +110,12 @@ sections owned by different readers:
 ```yaml
 build:
   command: dotnet build        # or commands: [..] — exactly one form
-test:
+test:                          # optional: absent = no test gate
   commands: [dotnet test]
 defaults:
   max_attempts: 3
-  command_timeout_minutes: 30
+  command_timeout_minutes: 30  # each build/test command
+  agent_timeout_minutes: 30    # each agent invocation; default command_timeout_minutes
 agent:
   command: claude
   args: []
@@ -125,8 +126,9 @@ run:
 
 | Section | mf-worker | mf-run | mf-cockpit |
 |---|---|---|---|
-| `build`, `test` | required: exactly one of `command` / `commands` (non-empty) each | ignored | summary card |
-| `defaults` | `max_attempts`, `command_timeout_minutes` | ignored | `max_attempts` in summary |
+| `build` | required: exactly one of `command` / `commands` (non-empty) | ignored | summary card |
+| `test` | optional; only an absent key means no test gate. A `test:` key that is present in any form (`commands: []`, a blank `command`, a bare `test:`) follows the `build` rule and is malformed | ignored | summary card |
+| `defaults` | `max_attempts`, `command_timeout_minutes`, `agent_timeout_minutes` (at least 1) | ignored | `max_attempts` in summary |
 | `agent` | `command`, `args` | ignored | ignored |
 | `run.command` | the mf-run executable | ignored | ignored |
 | `run.services` | only "any services?": decides whether mf-run is spawned at all | full list, validated, see [mf-run](../run/mf-run.md#config) | service names for the Run card |

@@ -55,6 +55,10 @@ Checked in this order. Nothing is written or committed until all pass.
    runs the agent, then every `build` command in order, then every `test`
    command. The first failing command stops its section. Its output
    (the last 16 000 chars) goes back to the agent as the next prompt.
+   A project without `test:` has no test gate: a green build passes
+   the attempt, no `test.log` is written, and the implementation prompt
+   tells the agent that it owns the tests (run them and make them pass
+   before it finishes) instead of saying the worker will run them.
 6. **Work commit**: `git add -A` of everything except `.magnaflow/` and
    `docs/prompts/`. In branch mode it is committed as `command <id>:
    <title>`, the work branch is pushed, and the invoking branch is
@@ -83,10 +87,18 @@ invoking branch.
 - A plan-phase agent crash or timeout costs one attempt. A successful
   plan does not. Each implementation attempt costs one, whether the
   agent, the build or the tests failed.
-- `defaults.command_timeout_minutes` (default 30) applies to each agent
-  invocation and to each individual build or test command. A timeout
-  counts as a failure of that step. git calls have a fixed 2-minute
-  limit. `mf-run stop` and `mf-run start` have none.
+- `defaults.agent_timeout_minutes` applies to each agent invocation
+  (plan and every implementation attempt). It falls back to
+  `defaults.command_timeout_minutes`, so a config without it behaves as
+  before. `command_timeout_minutes` (default 30) applies to each
+  individual build or test command. A timeout counts as a failure of
+  that step. git calls have a fixed 2-minute limit. `mf-run stop` and
+  `mf-run start` have none. An action's `prompt` runs under the
+  action's own `timeout_minutes`, not either of these.
+- The whole run is still bounded from outside by mf-watch's
+  `worker_timeout_minutes` (machine config, default 120). A project
+  that raises the agent timeout raises that one too, or mf-watch kills
+  the run and the command stays `running`.
 - **Retry prompt.** A retry that can resume the failed attempt's
   session sends only the failure feedback. When there is no session to
   resume (a crash before any session id was reported), the fresh
