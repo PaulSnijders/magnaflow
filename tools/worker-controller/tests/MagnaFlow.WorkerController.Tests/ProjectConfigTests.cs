@@ -140,7 +140,93 @@ public class ProjectConfigTests : IDisposable
 
         Assert.Null(config);
         Assert.Contains("build.command", error);
-        Assert.Contains("test.command", error);
+        Assert.DoesNotContain("test.command", error); // test: is optional (0032)
+    }
+
+    // --- Optional test gate and agent timeout (0032) ---
+
+    private (ProjectConfig? Config, string? Error) LoadYaml(string yaml)
+    {
+        _project.WriteFile(".magnaflow/config.yml", yaml);
+        return ProjectConfig.Load(_project.Root);
+    }
+
+    [Fact]
+    public void Load_WithoutTestKey_HasNoTestCommands()
+    {
+        var (config, error) = LoadYaml("build:\n  command: make\n");
+
+        Assert.Null(error);
+        Assert.Empty(config!.TestCommands);
+    }
+
+    [Theory]
+    [InlineData("test:\n  commands: []\n", "test.commands is empty")]
+    [InlineData("test:\n", "test.command or test.commands")]
+    [InlineData("test: null\n", "test.command or test.commands")]
+    [InlineData("test: {}\n", "test.command or test.commands")]
+    [InlineData("test:\n  command: \"  \"\n", "test.command or test.commands")]
+    public void Load_WithPresentButUnusableTestKey_IsMalformed(string testYaml, string expected)
+    {
+        var (config, error) = LoadYaml("build:\n  command: make\n" + testYaml);
+
+        Assert.Null(config);
+        Assert.Contains(expected, error);
+    }
+
+    [Fact]
+    public void Load_WithoutBuild_IsStillMalformed()
+    {
+        var (config, error) = LoadYaml("test:\n  command: t\n");
+
+        Assert.Null(config);
+        Assert.Contains("build.command or build.commands", error);
+    }
+
+    [Fact]
+    public void Load_AgentTimeoutUnset_DefaultsTo30()
+    {
+        var (config, _) = LoadYaml("build:\n  command: make\n");
+
+        Assert.Equal(TimeSpan.FromMinutes(30), config!.AgentTimeout);
+    }
+
+    [Fact]
+    public void Load_AgentTimeoutUnset_FallsBackToCommandTimeout()
+    {
+        var (config, _) = LoadYaml("build:\n  command: make\ndefaults:\n  command_timeout_minutes: 45\n");
+
+        Assert.Equal(TimeSpan.FromMinutes(45), config!.AgentTimeout);
+        Assert.Equal(TimeSpan.FromMinutes(45), config.CommandTimeout);
+    }
+
+    [Fact]
+    public void Load_AgentTimeoutSet_IsIndependentOfCommandTimeout()
+    {
+        var (config, _) = LoadYaml("build:\n  command: make\ndefaults:\n  command_timeout_minutes: 20\n  agent_timeout_minutes: 60\n");
+
+        Assert.Equal(TimeSpan.FromMinutes(60), config!.AgentTimeout);
+        Assert.Equal(TimeSpan.FromMinutes(20), config.CommandTimeout);
+    }
+
+    [Fact]
+    public void Load_AgentTimeoutBelowOne_IsMalformed()
+    {
+        var (config, error) = LoadYaml("build:\n  command: make\ndefaults:\n  agent_timeout_minutes: 0\n");
+
+        Assert.Null(config);
+        Assert.Contains("defaults.agent_timeout_minutes", error);
+    }
+
+    [Fact]
+    public void WithAgentTimeout_SetsOnlyTheAgentTimeout()
+    {
+        var (config, _) = LoadYaml("build:\n  command: make\ndefaults:\n  command_timeout_minutes: 20\n");
+
+        var changed = config!.WithAgentTimeout(TimeSpan.FromMinutes(7));
+
+        Assert.Equal(TimeSpan.FromMinutes(7), changed.AgentTimeout);
+        Assert.Equal(TimeSpan.FromMinutes(20), changed.CommandTimeout);
     }
 
     [Fact]

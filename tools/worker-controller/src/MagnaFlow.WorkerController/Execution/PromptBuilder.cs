@@ -13,8 +13,8 @@ public static class PromptBuilder
     private const int MaxFeedbackChars = 16_000;
 
     /// <summary>Guardrails shared by every phase (research R6, spec FR-005): the controller owns all commits and the cmd file itself.</summary>
-    private const string Preamble =
-        """
+    private static string Preamble(bool hasTestGate) =>
+        $"""
         You are executing one delegated command inside this repository.
 
         Rules:
@@ -23,8 +23,15 @@ public static class PromptBuilder
         - NEVER modify the command's own frontmatter or body (the docs/prompts/*-cmd-*.md file) — it is human-owned.
         - You may read docs/prompts/*-qa-*.md for the human's answers, but never write to it — the controller and the human own it.
         - NEVER run git commit, git branch, git checkout, or git push; the controller owns all git operations.
-        - The project's build and tests will be run after you finish implementing; they must pass.
+        - {(hasTestGate ? TestGateRule : NoTestGateRule)}
         """;
+
+    private const string TestGateRule =
+        "The project's build and tests will be run after you finish implementing; they must pass.";
+
+    /// <summary>A project without `test:` has no test gate: the agent owns the tests (worker-run.md step 5).</summary>
+    private const string NoTestGateRule =
+        "Only the project's build is run after you finish implementing; it must pass. There is no test gate: you own the tests. Run the project's tests yourself and make them pass before you finish.";
 
     /// <summary>Returns the spec paths that do not exist; the run must abort before the agent starts when non-empty.</summary>
     public static IReadOnlyList<string> FindMissingSpecs(CmdFile cmd, string projectRoot) =>
@@ -63,7 +70,7 @@ public static class PromptBuilder
     /// the round has an open question — or when a pln/qa already exists and a leftover
     /// "Open questions" section has to be dropped.
     /// </summary>
-    public static string BuildPlan(CmdFile cmd, string projectRoot, string conventions)
+    public static string BuildPlan(CmdFile cmd, string projectRoot, string conventions, bool hasTestGate = true)
     {
         var pln = Path.GetFileName(cmd.PlnPath);
         var qa = Path.GetFileName(cmd.QaPath);
@@ -71,7 +78,7 @@ public static class PromptBuilder
         var qaExists = File.Exists(cmd.QaPath);
 
         var prompt = new StringBuilder();
-        prompt.AppendLine(Preamble);
+        prompt.AppendLine(Preamble(hasTestGate));
         prompt.AppendLine();
         prompt.AppendLine("Before making any change, plan.");
         prompt.AppendLine();
@@ -144,13 +151,13 @@ public static class PromptBuilder
     /// <paramref name="rerunAfterAbort"/>: a human set an exhausted command back to ready, so the
     /// report is a new one and says so in its first line.
     /// </summary>
-    public static string BuildInitial(CmdFile cmd, string projectRoot, string conventions, bool rerunAfterAbort = false)
+    public static string BuildInitial(CmdFile cmd, string projectRoot, string conventions, bool rerunAfterAbort = false, bool hasTestGate = true)
     {
         var rst = Path.GetFileName(cmd.RstPath);
         var cmdFile = Path.GetFileName(cmd.FilePath);
 
         var prompt = new StringBuilder();
-        prompt.AppendLine(Preamble);
+        prompt.AppendLine(Preamble(hasTestGate));
         prompt.AppendLine();
         prompt.AppendLine(
             $"""

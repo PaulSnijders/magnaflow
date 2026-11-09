@@ -56,9 +56,12 @@ Checked in this order. Nothing is written or committed until all pass.
    command. The first failing command stops its section. Its output
    (the last 16 000 chars) goes back to the agent as the next prompt.
    A project without `test:` has no test gate: a green build passes
-   the attempt, no `test.log` is written, and the implementation prompt
-   tells the agent that it owns the tests (run them and make them pass
-   before it finishes) instead of saying the worker will run them.
+   the attempt (logged as `attempt i/n: no test gate (test: not
+   configured)` in place of `attempt i/n: tests`), no `test.log` is
+   written, and the rules line of both the plan and the implementation
+   prompt tells the agent that it owns the tests (run them and make
+   them pass before it finishes) instead of saying the worker will run
+   them.
 6. **Work commit**: `git add -A` of everything except `.magnaflow/` and
    `docs/prompts/`. In branch mode it is committed as `command <id>:
    <title>`, the work branch is pushed, and the invoking branch is

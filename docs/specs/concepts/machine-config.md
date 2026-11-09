@@ -127,8 +127,8 @@ run:
 | Section | mf-worker | mf-run | mf-cockpit |
 |---|---|---|---|
 | `build` | required: exactly one of `command` / `commands` (non-empty) | ignored | summary card |
-| `test` | optional; only an absent key means no test gate. A `test:` key that is present in any form (`commands: []`, a blank `command`, a bare `test:`) follows the `build` rule and is malformed | ignored | summary card |
-| `defaults` | `max_attempts`, `command_timeout_minutes`, `agent_timeout_minutes` (at least 1) | ignored | `max_attempts` in summary |
+| `test` | optional; only an absent key means no test gate. A `test:` key that is present in any form (`commands: []`, a blank `command`, a bare `test:`, `test: null`, `test: {}`) follows the `build` rule and is malformed with the same "missing required field(s)" message | ignored | summary card |
+| `defaults` | `max_attempts`, `command_timeout_minutes`, `agent_timeout_minutes` (at least 1, else malformed: "invalid value") | ignored | `max_attempts` in summary |
 | `agent` | `command`, `args` | ignored | ignored |
 | `run.command` | the mf-run executable | ignored | ignored |
 | `run.services` | only "any services?": decides whether mf-run is spawned at all | full list, validated, see [mf-run](../run/mf-run.md#config) | service names for the Run card |

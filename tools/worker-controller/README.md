@@ -72,11 +72,11 @@ my-project/
 │       ├── 0001-qa-add-footer.md    # only if a genuine question arose
 │       └── 0001-rst-add-footer.md   # the report (only once a terminal outcome is reached)
 └── .magnaflow/
-    ├── config.yml                   # committed: build/test commands (+ optional sections)
+    ├── config.yml                   # committed: build (+ optional test) commands and sections
     └── 0001-add-footer/             # machine-local evidence, gitignored
         ├── claude.log               # raw agent output, plan phase + every attempt
         ├── build.log
-        ├── test.log
+        ├── test.log                 # only when test: is configured
         └── session.yml              # the agent session ID this command last ended with
 ```
 
@@ -90,11 +90,12 @@ committed with each outcome. Details:
 ```yaml
 build:
   command: dotnet build          # required unless commands: is given
-test:
-  command: dotnet test           # required unless commands: is given
+test:                            # optional: absent = no test gate (the agent owns the tests)
+  command: dotnet test           # when test: is present: required unless commands: is given
 defaults:
   max_attempts: 3                # optional
-  command_timeout_minutes: 30    # optional
+  command_timeout_minutes: 30    # optional; per build/test command
+  agent_timeout_minutes: 30      # optional; per agent invocation, default command_timeout_minutes
 agent:
   command: claude                # optional; the agent is swappable
   args: []                       # optional; e.g. [--dangerously-skip-permissions]
@@ -106,7 +107,11 @@ run:                             # optional; see "mf-run around the run" below
 `build` and `test` each take exactly one of `command:` (a string) or
 `commands:` (a list, run in order; the first failure stops it and its output
 is the feedback). A monorepo with two stacks gets one `commands:` entry each:
-see [config.yml recipes](EXAMPLES.md#7-configyml-recipes). Full reference:
+see [config.yml recipes](EXAMPLES.md#7-configyml-recipes). `build` is
+required. `test` is optional: without the key the worker runs only the build,
+a green build passes the attempt, and the prompt tells the agent to run the
+tests itself. A `test:` key that is present but empty is an error, never "off".
+Full reference:
 [machine and project config](../../docs/specs/concepts/machine-config.md#project-magnaflowconfigyml).
 
 The agent runs with its own safe defaults unless the project opts into more

@@ -9,13 +9,14 @@ never reads it. Unknown keys are ignored.
 ```yaml
 build:
   command: dotnet build App.sln     # or commands: [..], exactly one form
-test:
+test:                               # optional: absent = no test gate
   commands:
     - dotnet test App.sln
     - npm --prefix web test
 defaults:
   max_attempts: 3                   # optional, default 3
   command_timeout_minutes: 30       # optional, default 30
+  agent_timeout_minutes: 30         # optional, default command_timeout_minutes
 agent:
   command: claude                   # optional, default claude
   args: ["--permission-mode", "bypassPermissions"]
@@ -26,11 +27,19 @@ run:
 
 ## `build` and `test`
 
-Both are required, each with exactly one of `command` (one string) or
-`commands` (a non-empty list, run in order, the first failure stops).
-After every implementation attempt the worker runs build then test. Red
-means another attempt, up to `max_attempts`, and then the cmd is
-aborted.
+`build` is required; `test` is optional. Each takes exactly one of
+`command` (one string) or `commands` (a non-empty list, run in order, the
+first failure stops). After every implementation attempt the worker runs
+build then test. Red means another attempt, up to `max_attempts`, and
+then the cmd is aborted.
+
+**Without `test:`** the worker runs only the build and a green build
+passes, so the agent owns the tests: its prompt tells it to run them and
+make them pass before it finishes. That suits a slow suite the agent runs
+anyway (it can fix a red test in place, where the gate can only start a
+new attempt). The project's `CLAUDE.md` should then say how to run the
+tests. An empty `test:` (a bare key, `commands: []`, a blank `command`)
+is an error, not "off": only leaving the key out switches the gate off.
 
 **Only commands that pass today.** A permanently red command makes every
 cmd fail. Leave a broken suite out, and say so in a comment, until a cmd
@@ -41,6 +50,11 @@ MagnaFlow tools.
 
 - `max_attempts`: implementation attempts per cmd before it is aborted.
 - `command_timeout_minutes`: the limit for each build or test command.
+- `agent_timeout_minutes`: the limit for each agent invocation (the plan
+  and every implementation attempt). Defaults to
+  `command_timeout_minutes`; at least 1.
+- Raising the agent timeout may need mf-watch's `worker_timeout_minutes`
+  (machine config, default 120) raised too, since that bounds the whole run.
 
 ## `agent`
 

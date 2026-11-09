@@ -227,9 +227,11 @@ public sealed class TaskRunner(
         // Writers MUST be disposed before the final git add: FileStream buffers internally,
         // so an open log file can still look empty (or stale) to git (v0.1 research, unchanged).
         Directory.CreateDirectory(evidenceDirectory);
+        // No test gate (no `test:` key) means no test.log at all, like a plan-only run.
+        var hasTestGate = config.TestCommands.Count > 0;
         using (var claudeLog = new AttemptLogWriter(Path.Combine(evidenceDirectory, "claude.log")))
         using (var buildLog = new AttemptLogWriter(Path.Combine(evidenceDirectory, "build.log")))
-        using (var testLog = new AttemptLogWriter(Path.Combine(evidenceDirectory, "test.log")))
+        using (var testLog = hasTestGate ? new AttemptLogWriter(Path.Combine(evidenceDirectory, "test.log")) : null)
         {
             // === PLAN PHASE (spec FR-008-FR-011a): always runs first, once per run, still on the
             // invoking branch since it only reads/writes bookkeeping, never product code. ===
@@ -241,9 +243,9 @@ public sealed class TaskRunner(
                 // A retry that cannot resume a session starts a fresh one, which has never seen
                 // the command: it gets the full plan prompt again, with the feedback appended.
                 var planPrompt = feedbackPhase is null
-                    ? PromptBuilder.BuildPlan(cmd, projectRoot, conventions)
+                    ? PromptBuilder.BuildPlan(cmd, projectRoot, conventions, hasTestGate)
                     : resumeSession is null
-                        ? PromptBuilder.BuildPlan(cmd, projectRoot, conventions) + Environment.NewLine + PromptBuilder.BuildFailureFeedback(feedbackPhase, feedbackOutput!)
+                        ? PromptBuilder.BuildPlan(cmd, projectRoot, conventions, hasTestGate) + Environment.NewLine + PromptBuilder.BuildFailureFeedback(feedbackPhase, feedbackOutput!)
                         : PromptBuilder.BuildFailureFeedback(feedbackPhase, feedbackOutput!);
 
                 info($"[{cmd.Id}] planning{(resumeSession is not null ? " (resumed session)" : "")}");
@@ -255,7 +257,7 @@ public sealed class TaskRunner(
                     attemptsUsed++;
                     feedbackPhase = "plan";
                     feedbackOutput = planResult.TimedOut
-                        ? $"the agent run timed out after {config.CommandTimeout.TotalMinutes:0} minutes"
+                        ? $"the agent run timed out after {config.AgentTimeout.TotalMinutes:0} minutes"
                         : $"the agent process exited with code {planResult.ExitCode}";
                     info($"[{cmd.Id}] agent {(planResult.TimedOut ? "timed out" : "crashed")} during planning — counts as a failed attempt");
                     continue;
@@ -335,12 +337,12 @@ public sealed class TaskRunner(
                         var now = DateTimeOffset.Now;
                         claudeLog.WriteAttemptHeader(attemptsUsed, maxAttempts, now);
                         buildLog.WriteAttemptHeader(attemptsUsed, maxAttempts, now);
-                        testLog.WriteAttemptHeader(attemptsUsed, maxAttempts, now);
+                        testLog?.WriteAttemptHeader(attemptsUsed, maxAttempts, now);
 
                         var prompt = feedbackPhase is null
-                            ? PromptBuilder.BuildInitial(cmd, projectRoot, conventions, rerun)
+                            ? PromptBuilder.BuildInitial(cmd, projectRoot, conventions, rerun, hasTestGate)
                             : resumeSession is null
-                                ? PromptBuilder.BuildInitial(cmd, projectRoot, conventions, rerun) + Environment.NewLine + PromptBuilder.BuildFailureFeedback(feedbackPhase, feedbackOutput!)
+                                ? PromptBuilder.BuildInitial(cmd, projectRoot, conventions, rerun, hasTestGate) + Environment.NewLine + PromptBuilder.BuildFailureFeedback(feedbackPhase, feedbackOutput!)
                                 : PromptBuilder.BuildFailureFeedback(feedbackPhase, feedbackOutput!);
 
                         info($"[{cmd.Id}] attempt {attemptsUsed}/{maxAttempts}: agent working{(resumeSession is not null ? " (resumed session)" : "")}");
@@ -351,7 +353,7 @@ public sealed class TaskRunner(
                         {
                             feedbackPhase = "agent";
                             feedbackOutput = agentResult.TimedOut
-                                ? $"the agent run timed out after {config.CommandTimeout.TotalMinutes:0} minutes"
+                                ? $"the agent run timed out after {config.AgentTimeout.TotalMinutes:0} minutes"
                                 : $"the agent process exited with code {agentResult.ExitCode}";
                             info($"[{cmd.Id}] agent {(agentResult.TimedOut ? "timed out" : "crashed")} — counts as a failed attempt");
                             continue;
@@ -364,6 +366,13 @@ public sealed class TaskRunner(
                             feedbackPhase = "build";
                             feedbackOutput = build.TimedOut ? "build timed out" : build.StdOut + "\n" + build.StdErr;
                             info($"[{cmd.Id}] build failed");
+                            continue;
+                        }
+
+                        if (testLog is null)
+                        {
+                            info($"[{cmd.Id}] attempt {attemptsUsed}/{maxAttempts}: no test gate (test: not configured)");
+                            succeeded = true;
                             continue;
                         }
 

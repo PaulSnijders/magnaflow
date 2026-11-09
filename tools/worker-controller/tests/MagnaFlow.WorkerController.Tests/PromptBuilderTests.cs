@@ -164,4 +164,28 @@ public class PromptBuilderTests : IDisposable
     }
 
     public void Dispose() => _project.Dispose();
+
+    // --- The rules line follows the test gate (0032) ---
+
+    [Fact]
+    public void Prompts_WithTestGate_SayTheWorkerRunsBuildAndTests()
+    {
+        var cmd = LoadCmd();
+        foreach (var prompt in new[] { PromptBuilder.BuildInitial(cmd, _project.Root, conventions: ""), PromptBuilder.BuildPlan(cmd, _project.Root, conventions: "") })
+        {
+            Assert.Contains("- The project's build and tests will be run after you finish implementing; they must pass.", prompt);
+            Assert.DoesNotContain("no test gate", prompt);
+        }
+    }
+
+    [Fact]
+    public void Prompts_WithoutTestGate_TellTheAgentItOwnsTheTests()
+    {
+        var cmd = LoadCmd();
+        foreach (var prompt in new[] { PromptBuilder.BuildInitial(cmd, _project.Root, conventions: "", hasTestGate: false), PromptBuilder.BuildPlan(cmd, _project.Root, conventions: "", hasTestGate: false) })
+        {
+            Assert.Contains("- Only the project's build is run after you finish implementing; it must pass. There is no test gate: you own the tests. Run the project's tests yourself and make them pass before you finish.", prompt);
+            Assert.DoesNotContain("build and tests will be run", prompt);
+        }
+    }
 }

@@ -174,6 +174,25 @@ public class ActionRunnerTests : IDisposable
     }
 
     [Fact]
+    public async Task A_prompt_action_runs_its_agent_under_the_actions_timeout()
+    {
+        _project.WriteFile(".magnaflow/actions.yml", """
+            actions:
+              ask:
+                prompt: Resolve the conflict.
+                timeout_minutes: 9
+            """);
+        _project.WriteFile(".magnaflow/config.yml", "build:\n  command: b\ndefaults:\n  command_timeout_minutes: 20\n  agent_timeout_minutes: 60\n");
+        Config.ProjectConfig? seen = null;
+        var runner = new ActionRunner(_git, _processes, c => { seen = c; return _agent; }, _project.Root, _output.Add, _errors.Add, () => _now, isWindows: false);
+
+        await runner.RunAsync("ask", "manual");
+
+        Assert.Equal(TimeSpan.FromMinutes(9), seen!.AgentTimeout);
+        Assert.Equal(TimeSpan.FromMinutes(20), seen.CommandTimeout);
+    }
+
+    [Fact]
     public async Task A_prompt_action_needs_a_valid_config()
     {
         File.Delete(Path.Combine(_project.Root, ".magnaflow", "config.yml"));

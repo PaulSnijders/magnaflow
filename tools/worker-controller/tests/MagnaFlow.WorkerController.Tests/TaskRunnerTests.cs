@@ -635,6 +635,43 @@ public class TaskRunnerTests : IDisposable
         Assert.Equal(["build-cmd", "dotnet test a", "dotnet test b"], _processes.ShellCommands);
     }
 
+    // --- No test gate (0032) ---
+
+    [Fact]
+    public async Task NoTestGate_GreenBuildIsDoneInOneAttemptWithoutTestLog()
+    {
+        var infos = new List<string>();
+        var runner = new TaskRunner(TestConfig.Create(testCommands: []), _git, _agent, _processes, _project.Root, infos.Add, _errors.Add);
+        var scanned = WriteAndScan(TempProject.CmdMarkdown());
+
+        var exit = await runner.RunAsync(scanned, new AgentSessionState());
+
+        Assert.Equal(ExitCodes.Success, exit);
+        var (cmd, _) = CmdFile.Parse(scanned.Cmd!.FilePath, scanned.Id);
+        Assert.Equal(CmdStatus.Done, cmd!.Status);
+        Assert.Equal(1, cmd.Attempts);
+        Assert.Equal(["build-cmd"], _processes.ShellCommands);
+        Assert.False(File.Exists(Path.Combine(_project.EvidenceDirectory("0001-test"), "test.log")));
+        Assert.Contains(infos, l => l.EndsWith("attempt 1/3: no test gate (test: not configured)"));
+        Assert.DoesNotContain(infos, l => l.EndsWith(": tests"));
+        Assert.Contains("There is no test gate: you own the tests.", _agent.Prompts[1]);
+    }
+
+    [Fact]
+    public async Task NoTestGate_RedBuildStillRetries()
+    {
+        _processes.ShellResults.Enqueue(new ProcessResult(1, "build broken", "", false));
+        var scanned = WriteAndScan(TempProject.CmdMarkdown());
+
+        var exit = await CreateRunner(TestConfig.Create(testCommands: [])).RunAsync(scanned, new AgentSessionState());
+
+        Assert.Equal(ExitCodes.Success, exit);
+        Assert.Equal(["build-cmd", "build-cmd"], _processes.ShellCommands);
+        var (cmd, _) = CmdFile.Parse(scanned.Cmd!.FilePath, scanned.Id);
+        Assert.Equal(2, cmd!.Attempts);
+        Assert.Contains("build broken", _agent.Prompts[2]);
+    }
+
     // --- Report (spec FR-017-FR-019) ---
 
     [Fact]

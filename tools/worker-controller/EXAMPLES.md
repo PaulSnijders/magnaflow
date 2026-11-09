@@ -35,7 +35,7 @@ my-project/                          # a git repo, on a branch, clean working tr
 │   │   └── 0001-cmd-short-name.md   # REQUIRED per command: NNNN-name = ID = execution order
 │   └── specs/…                      # optional: spec files that commands link via 'specs:'
 ├── .magnaflow/
-│   └── config.yml                   # REQUIRED: build/test commands (+ optional defaults, agent)
+│   └── config.yml                   # REQUIRED: build (+ optional test) commands, defaults, agent
 └── src/…                            # whatever the agent will be working on
 ```
 
@@ -362,6 +362,21 @@ test:
 defaults:
   command_timeout_minutes: 45   # slow test suite? raise the per-command timeout
 ```
+
+**No test gate** (a slow suite the agent runs anyway): leave `test:` out.
+The worker runs only the build and a green build passes; the prompt tells
+the agent it owns the tests, so the project's `CLAUDE.md` should say how to
+run them. Give the agent more time without lengthening a hung build's limit:
+
+```yaml
+build:
+  command: dotnet build src
+defaults:
+  agent_timeout_minutes: 60     # per agent invocation; build/test keep command_timeout_minutes
+```
+
+Raising the agent timeout may need mf-watch's `worker_timeout_minutes`
+(machine config, default 120) raised too, since that bounds the whole run.
 
 **Monorepo with more than one stack.** `commands:` runs each entry in order
 and stops at the first failure, whose output becomes the feedback:

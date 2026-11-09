@@ -53,7 +53,7 @@ public sealed class ClaudeCodeRunner(IProcessRunner processRunner, ProjectConfig
 
         var result = await processRunner.RunExecutableAsync(
             config.AgentCommand, args, workingDirectory,
-            OnLine, config.CommandTimeout, standardInput: prompt, cancellationToken);
+            OnLine, config.AgentTimeout, standardInput: prompt, cancellationToken);
 
         return new AgentResult(result.ExitCode, sessionId, finalText, result.TimedOut);
     }

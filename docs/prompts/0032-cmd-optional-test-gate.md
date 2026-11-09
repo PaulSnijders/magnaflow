@@ -1,7 +1,8 @@
 ---
 title: "Optional test gate and a separate agent timeout"
-status: ready
+status: done
 created: 2026-11-09
+attempts: 1
 ---
 
 ## Context

@@ -64,7 +64,7 @@ public sealed class ActionRunner(
                 error(configError!);
                 return ExitCodes.UsageError;
             }
-            agent = agentFactory(config.WithCommandTimeout(action.Timeout));
+            agent = agentFactory(config.WithAgentTimeout(action.Timeout));
             if (!await agent.IsAvailableAsync(projectRoot))
             {
                 error($"agent '{config.AgentCommand}' is not available; install/authenticate it or set agent.command in .magnaflow/config.yml");

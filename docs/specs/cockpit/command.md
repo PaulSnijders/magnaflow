@@ -43,7 +43,8 @@ The recorded session id, then tails of `claude.log`, `build.log` and
 64 KB). Each has a Pretty/Raw toggle: Pretty renders JSON lines (the
 agent's stream-json) as collapsible blocks. The page never writes
 there. Evidence is machine-local, so a command run on another machine
-shows empty tails here. See
+shows empty tails here, as does a log that was never written (no
+`test.log` for a project without a test gate). See
 [evidence layout](../concepts/evidence-layout.md).
 
 ## Continue on this command

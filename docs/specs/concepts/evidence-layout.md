@@ -13,7 +13,7 @@ and what its readers rely on.
   <id>/                # one per command that has run; <id> = NNNN-name
     claude.log         # raw agent output, plan phase + every attempt
     build.log          # build command output per attempt
-    test.log           # test command output per attempt
+    test.log           # test command output per attempt (only with a `test:` gate)
     session.yml        # the agent session the last run ended with
   mf-watch.log, mf-watch.lock, mf-watch.wake   # mf-watch (watch-supervision)
   run/                 # mf-run PID files and service logs (mf-run), including the

@@ -1,3 +1,4 @@
+using YamlDotNet.RepresentationModel;
 using YamlDotNet.Serialization;
 using YamlDotNet.Serialization.NamingConventions;
 
@@ -5,14 +6,22 @@ namespace MagnaFlow.WorkerController.Config;
 
 /// <summary>
 /// .magnaflow/config.yml — the contract between a target project and any controller
-/// (contracts/file-formats.md). Build/test commands are required; everything else defaults.
+/// (contracts/file-formats.md). Build commands are required; `test:` is optional (an absent key
+/// means no test gate, a present-but-empty one is malformed); everything else defaults.
 /// </summary>
 public sealed class ProjectConfig
 {
     public required IReadOnlyList<string> BuildCommands { get; init; }
     public required IReadOnlyList<string> TestCommands { get; init; }
     public int MaxAttempts { get; init; } = 3;
+    /// <summary>Limit per build/test command (defaults.command_timeout_minutes).</summary>
     public TimeSpan CommandTimeout { get; init; } = TimeSpan.FromMinutes(30);
+
+    private readonly TimeSpan? _agentTimeout;
+
+    /// <summary>Limit per agent invocation (defaults.agent_timeout_minutes); unset, it falls back
+    /// to CommandTimeout — also for a config built in code.</summary>
+    public TimeSpan AgentTimeout { get => _agentTimeout ?? CommandTimeout; init => _agentTimeout = value; }
     public string AgentCommand { get; init; } = "claude";
     public IReadOnlyList<string> AgentArgs { get; init; } = [];
 
@@ -33,13 +42,14 @@ public sealed class ProjectConfig
     public bool HasRunStable { get; init; }
 
     /// <summary>The same config with another agent timeout: an action runs its prompt under its own
-    /// timeout_minutes, not the project's command timeout.</summary>
-    public ProjectConfig WithCommandTimeout(TimeSpan timeout) => new()
+    /// timeout_minutes, not the project's agent timeout. Build/test limits are untouched.</summary>
+    public ProjectConfig WithAgentTimeout(TimeSpan timeout) => new()
     {
         BuildCommands = BuildCommands,
         TestCommands = TestCommands,
         MaxAttempts = MaxAttempts,
-        CommandTimeout = timeout,
+        CommandTimeout = CommandTimeout,
+        AgentTimeout = timeout,
         AgentCommand = AgentCommand,
         AgentArgs = AgentArgs,
         RunCommand = RunCommand,
@@ -57,13 +67,16 @@ public sealed class ProjectConfig
             return (null, $"no project configuration found at {path}");
 
         ConfigDto dto;
+        bool hasTestKey;
         try
         {
+            var text = File.ReadAllText(path);
             var deserializer = new DeserializerBuilder()
                 .WithNamingConvention(UnderscoredNamingConvention.Instance)
                 .IgnoreUnmatchedProperties()
                 .Build();
-            dto = deserializer.Deserialize<ConfigDto>(File.ReadAllText(path)) ?? new ConfigDto();
+            dto = deserializer.Deserialize<ConfigDto>(text) ?? new ConfigDto();
+            hasTestKey = HasRootKey(text, "test");
         }
         catch (Exception ex)
         {
@@ -72,22 +85,41 @@ public sealed class ProjectConfig
 
         var problems = new List<string>();
         var buildCommands = ResolveCommands(dto.Build, "build", problems);
-        var testCommands = ResolveCommands(dto.Test, "test", problems);
+        // Only an absent key means "no test gate"; a present-but-unusable test: is malformed,
+        // so a typo never switches testing off.
+        var testCommands = hasTestKey ? ResolveCommands(dto.Test, "test", problems) : [];
         if (problems.Count > 0)
             return (null, $"{path} is missing required field(s): {string.Join(", ", problems)}");
+
+        var commandTimeoutMinutes = dto.Defaults?.CommandTimeoutMinutes ?? 30;
+        var agentTimeoutMinutes = dto.Defaults?.AgentTimeoutMinutes ?? commandTimeoutMinutes;
+        if (dto.Defaults?.AgentTimeoutMinutes is < 1)
+            return (null, $"{path} has an invalid value: defaults.agent_timeout_minutes must be at least 1");
 
         return (new ProjectConfig
         {
             BuildCommands = buildCommands!,
             TestCommands = testCommands!,
             MaxAttempts = dto.Defaults?.MaxAttempts ?? 3,
-            CommandTimeout = TimeSpan.FromMinutes(dto.Defaults?.CommandTimeoutMinutes ?? 30),
+            CommandTimeout = TimeSpan.FromMinutes(commandTimeoutMinutes),
+            AgentTimeout = TimeSpan.FromMinutes(agentTimeoutMinutes),
             AgentCommand = string.IsNullOrWhiteSpace(dto.Agent?.Command) ? "claude" : dto.Agent.Command.Trim(),
             AgentArgs = dto.Agent?.Args ?? [],
             RunCommand = string.IsNullOrWhiteSpace(dto.Run?.Command) ? "mf-run" : dto.Run.Command.Trim(),
             HasRunServices = dto.Run?.Services is { Count: > 0 },
             HasRunStable = dto.Run?.Stable is not null,
         }, null);
+    }
+
+    /// <summary>Whether the YAML root is a mapping with this key — the DTO cannot tell a bare
+    /// `key:` (null) from no key at all.</summary>
+    private static bool HasRootKey(string yaml, string key)
+    {
+        var stream = new YamlStream();
+        stream.Load(new StringReader(yaml));
+        return stream.Documents.Count > 0
+            && stream.Documents[0].RootNode is YamlMappingNode root
+            && root.Children.Keys.Any(k => k is YamlScalarNode { Value: var v } && v == key);
     }
 
     /// <summary>Normalizes a section's command:/commands: to a list (contracts/file-formats.md); exactly one form is required.</summary>
@@ -131,6 +163,7 @@ public sealed class ProjectConfig
     {
         public int? MaxAttempts { get; set; }
         public int? CommandTimeoutMinutes { get; set; }
+        public int? AgentTimeoutMinutes { get; set; }
     }
 
     private sealed class AgentDto
