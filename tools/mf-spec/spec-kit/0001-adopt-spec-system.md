@@ -1,7 +1,7 @@
 # 0001 — Adopt the spec system in this repo
 
 The `docs/spec-kit/` folder next to this prompt is a copy of the spec
-kit (1.5, spec-first): one markdown spec per page grouped per surface,
+kit (1.6, spec-first): one markdown spec per page grouped per surface,
 `concepts/` for cross-cutting logic (always including `design.md`),
 split by a `# Technical` marker into user help and developer notes,
 guarded by a spec-first rule, a drift audit and a format lint. Install
@@ -35,9 +35,10 @@ Steps:
    - `spec-kit/skills/specs/SKILL.md` → `.claude/skills/specs/SKILL.md`
    - `spec-kit/skills/brainstorm/`, `skills/architect/` and
      `skills/cc-review/` (`SKILL.md` each) → `.claude/skills/<name>/` —
-     idea sparring before design (`/brainstorm`, writes only to the
-     git-ignored `.scratch/brainstorm/`; add `.scratch/` to
-     `.gitignore`), the design role (`/architect`) and the review of an
+     idea sparring before design (`/brainstorm`, writes only to
+     `.scratch/brainstorm/`, committed but not part of the record; add
+     `.scratch/` to `.ignore` — not `.gitignore` — so agents' default
+     searches skip it), the design role (`/architect`) and the review of an
      executed cmd. Starting points:
      tune them to the project (its constraints, where the app runs, how
      to exercise it); after that they belong to the project.

@@ -9,7 +9,7 @@ changes nothing the second time.
 1. **Read the installed version** from the comment at the top of the OLD
    `docs/specs/README.md`: `spec-kit version: 1.x`, or the older form
    `mf-spec kit version: 0.x` (no comment at all = 0.1). Note it for the
-   summary; the repairs below cover every path to 1.5. Apply every
+   summary; the repairs below cover every path to 1.6. Apply every
    "From X to Y" section whatever the stamp says: each one checks the
    repo's content, not the version, so a stamp from a fork of the kit
    cannot make a step look done.
@@ -48,7 +48,7 @@ changes nothing the second time.
      except the one README repair in "From 1.0 to 1.1" below.
    - `.claude/skills/brainstorm/`, `architect/` and `cc-review/`
      (`SKILL.md` each) from `spec-kit/skills/<name>/`, and a `.scratch/`
-     line in `.gitignore` for the brainstorm notes.
+     line in `.ignore` for the brainstorm notes (see "From 1.5 to 1.6").
      Once present they are the project's (adapted to it): leave them alone.
    - `docs/prompts/` with a `.gitkeep`, and no `.gitignore` rule that
      excludes it, `.claude/` or `docs/specs/`.
@@ -89,6 +89,24 @@ changes nothing the second time.
    section added per "From 1.1 to 1.2" below — never a rewrite of its
    existing text — and `docs/decisions/README.md` and the architect
    skill get the bullets of "From 1.2 to 1.3".
+
+## From 1.5 to 1.6
+
+Brainstorm notes are committed (decision 0021 in the magnaflow repo):
+a laptop that dies or is replaced no longer takes them along, and a
+decision can point at the thinking behind it.
+
+- Remove the `.scratch/` line from `.gitignore`, with the comment line
+  above it if that names the brainstorm notes. Add `.scratch/` to
+  `.ignore` (create it if missing): ripgrep, and with it Claude Code's
+  search, skips the folder unless it is searched by path, so a dropped
+  direction never surfaces as if it were current.
+- Commit nothing. List the files under `.scratch/` that now show as
+  untracked and tell the user to read them before the next commit —
+  in a public repo a commit publishes them.
+- The installed brainstorm skill is the project's: leave it alone. If
+  it still says the note is "git-ignored", say so in the summary; the
+  kit's wording is in `spec-kit/skills/brainstorm/SKILL.md`.
 
 ## From 1.4 to 1.5
 

@@ -1,4 +1,4 @@
-# spec-kit — version 1.5
+# spec-kit — version 1.6
 
 A self-contained copy of the spec system: one markdown spec per page,
 grouped per surface; `concepts/` for cross-cutting logic; a `# Technical`
@@ -24,7 +24,7 @@ magnaflow repo under `tools/mf-spec/`.
   (`tools/mf-spec/spec-kit/`); improvements flow back there.
 
 The version is also stamped in `docs/specs/README.md`; the update prompt
-reads that stamp. Repos on any 0.x or 1.x version are brought to 1.5
+reads that stamp. Repos on any 0.x or 1.x version are brought to 1.6
 in one run of `0002-update-spec-system.md`.
 
 1.1: context is managed, not only appended — one conversation is one
@@ -81,6 +81,11 @@ rules live outside it. Before overwriting a kit file the update moves
 any project edit in it to PROJECT.md, so nothing is lost silently.
 Every "From X to Y" step applies whatever the stamp says, so a fork's
 own version number cannot skip one.
+
+1.6: brainstorm notes are committed (decision 0021 in the magnaflow
+repo). `.scratch/` moves from `.gitignore` to `.ignore`: it travels with
+the repo, but agents' default searches skip it, so it stays outside the
+record — nobody keeps it true, and a spec still never links into it.
 
 The spec system stays tool-neutral: it installs the spec system and
 nothing else. The MagnaFlow parts (`.magnaflow/config.yml` for the

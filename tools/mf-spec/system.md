@@ -217,7 +217,7 @@ the pressure is proportional instead of a wall. Design:
 Master kit: `tools/mf-spec/spec-kit/`; its contents and install/update
 steps are in [KIT.md](spec-kit/KIT.md). The version stamp in the
 conventions README travels with every update; `0002` is idempotent and
-brings any older install to the current version (1.5) in one run. The
+brings any older install to the current version (1.6) in one run. The
 kit is tool-neutral: MagnaFlow's worker config, ignore lines and
 `magnaflow` skill come only with a yes to one optional question in
 0001/0002. Phase 0: copy folder + prompt. Phase 1:
