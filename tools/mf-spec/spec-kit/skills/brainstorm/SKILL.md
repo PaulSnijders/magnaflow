@@ -52,11 +52,10 @@ note (below). Reading anything is fine.
 ## The scratch note
 
 Write and keep updating `.scratch/brainstorm/YYYY-MM-DD-slug.md`
-(committed with the repo, but not part of the record: nobody keeps it
-true, and `.ignore` keeps `.scratch/` out of agents' default searches;
-the user may promote parts to `docs/context/` or `docs/decisions/` via
-the architect). It travels with the repo, so write nothing you would
-not show a colleague. English, short, in this shape:
+(not part of the record: nobody keeps it true; the user may promote
+parts to `docs/context/` or `docs/decisions/` via the architect).
+Write nothing you would not show a colleague. English, short, in this
+shape:
 
 ```markdown
 # <topic>
