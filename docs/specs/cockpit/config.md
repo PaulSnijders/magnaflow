@@ -61,8 +61,8 @@ Save still gets the 409.
 It unregisters and never deletes. The working copy, its git history and
 its `.magnaflow/` stay on disk, and the confirm dialog says so.
 Re-adding is the [Add project](index.md#add-project) → Existing flow.
-The project's scratchpad file is kept as well and reappears on re-add
-under the same name.
+The project's scratchpad note and files are kept as well and reappear
+on re-add under the same name.
 
 `DELETE /api/projects/{name}`:
 
