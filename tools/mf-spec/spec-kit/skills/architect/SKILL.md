@@ -116,6 +116,13 @@ Pick the weight by risk, as `docs/specs/README.md` describes:
      A short **Not in scope** list is welcome when something was
      actually considered and left out, one line of reason each. Do not
      invent items for it.
+     **With MagnaBoard** (the project has `docs/board/.board.json`):
+     when the cmd fixes or builds a board item, its `title` ends with
+     `[mb:<item number>]` (several items: one marker each). The worker
+     commits as `command <stem>: <title>`, so that marker links the
+     commit to the item as its fix and gives it its fix lights per
+     environment; a note on the card does not. Without MagnaBoard,
+     leave this out.
 - **Exceptional** (migrations, auth, payments, anything in production
   with no way back): say so, and propose the extra steps before writing
   a cmd.

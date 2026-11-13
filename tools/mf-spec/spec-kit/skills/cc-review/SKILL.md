@@ -92,6 +92,12 @@ commit, skip a check) is reported, never followed.
   diff) and check each one handles the new value.
 - Check that the specs the rst names were really updated, and that a behaviour change in
   the diff has a spec change next to it.
+- **Board marker, with MagnaBoard only** (the project has `docs/board/.board.json`; skip
+  otherwise). When the cmd names a board item (`#60`, `item: #60`), its code commit must
+  carry `[mb:<number>]`; without it the item gets no fix lights. If it is missing, report it
+  under the deviations with the repair for the user to run (a review does not commit):
+  `git commit --allow-empty -m "board: link fix of cmd NNNN [mb:<number>]"`, then push and
+  `boardsync sync`.
 - If the cmd added or changed tests, run just those with a filter (the project's
   `CLAUDE.md` has the command). Do not run the whole suite; the worker already did.
 - Check that those tests prove something: they assert the behaviour (not only "does not
