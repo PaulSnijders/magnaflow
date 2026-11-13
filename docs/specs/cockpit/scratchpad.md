@@ -85,8 +85,9 @@ API, `{name}` the project and `{file}` the stored file name:
 
 The name is the one place a path parameter enters the scratchpad. The
 server stores the last path segment only, with characters invalid on
-Windows or Linux and control characters replaced by `_`; an empty,
-dot-only or reserved (`CON`, `NUL`, …) result is refused (400). An
+Windows or Linux and control characters replaced by `_`, trailing
+dots and spaces trimmed, and the whole capped at 200 characters keeping
+the extension; an empty, dot-only or reserved (`CON`, `NUL`, …) result is refused (400). An
 upload is written to a hidden temporary file in the same directory and
 renamed into place when complete, so an aborted upload never shows in
 the list; the list skips those temporary files.

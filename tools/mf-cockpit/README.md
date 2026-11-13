@@ -90,7 +90,9 @@ why: [`docs/decisions/0011-cockpit-watch-toggle.md`](../../docs/decisions/0011-c
 - `config.html?p=<name>`: the cockpit's resolved setup and log, the
   `.magnaflow/config.yml` editor, Remove project
   ([spec](../../docs/specs/cockpit/config.md)).
-- `scratchpad.html?p=<name>`: a plain-text notepad per project
+- `scratchpad.html?p=<name>`: a plain-text notepad per project, with a
+  file drop under it (upload, download, delete; up to 200 MB per file)
+  for moving files between machines
   ([spec](../../docs/specs/cockpit/scratchpad.md)).
 
 Live updates come over one SSE endpoint (`/api/events`): project + coarse
@@ -115,7 +117,9 @@ rule the button shows fails). In short:
   Remove project, as narrow text edits of `magnaflow.yml` with a `.bak`
   and verify-or-restore. Remove never deletes files.
 - **Scratchpad**: the one store outside git, kept next to
-  `magnaflow.yml`, never in a working copy.
+  `magnaflow.yml` (`scratchpad/<project>.md` for the note,
+  `scratchpad/<project>.files/` for dropped files), never in a working
+  copy.
 
 It never writes run evidence (`.magnaflow/<id>/`) and never edits specs.
 The exact rules are in the page specs linked under [Pages](#pages).

@@ -1,7 +1,8 @@
 ---
 title: "Scratchpad file drop: upload, download, delete"
-status: ready
+status: done
 created: 2026-11-13
+attempts: 1
 ---
 
 ## Context

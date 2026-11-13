@@ -26,12 +26,16 @@ public sealed class ScratchpadStore(CockpitConfig config)
     /// <summary>The file a given project's notes live in. Name is sanitized like a new-project
     /// dirname; a reserved (CON, NUL, …) or empty result is made safe with a stable hashed fallback,
     /// so no project name can ever escape the scratchpad directory or hit a Windows device name.</summary>
-    public string PathFor(string projectName)
+    public string PathFor(string projectName) => Path.Combine(Directory, SafeNameFor(projectName) + ".md");
+
+    /// <summary>The per-project base name shared by the note (<c>&lt;safe&gt;.md</c>) and the file
+    /// drop (<c>&lt;safe&gt;.files/</c>, ScratchpadFileStore).</summary>
+    public static string SafeNameFor(string projectName)
     {
         var safe = DirNameSanitizer.Sanitize(projectName);
         if (string.IsNullOrEmpty(safe) || DirNameSanitizer.IsReservedName(safe))
             safe = "_" + Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(projectName)))[..12].ToLowerInvariant();
-        return Path.Combine(Directory, safe + ".md");
+        return safe;
     }
 
     public static string ComputeHash(string content) =>

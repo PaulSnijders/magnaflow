@@ -28,10 +28,27 @@
     </h2>
     <p class="muted" style="margin-top:0;">
       A shared notepad for this project, kept on the cockpit host — the same note from every machine
-      that opens this dashboard. Not in git, never read by any tool. Autosaves; Ctrl+S or Ctrl+Enter
-      saves now.
+      that opens this dashboard. Like the files below: not in git, never read by any tool. Autosaves;
+      Ctrl+S or Ctrl+Enter saves now.
     </p>
     <textarea id="scratch-editor" rows="24" spellcheck="false" disabled placeholder="Loading…"></textarea>
+  </div>
+  <div class="card file-drop" id="files-card">
+    <h2>
+      Files
+      <span class="row-inline">
+        <button type="button" id="files-upload">Upload</button>
+        <button type="button" class="secondary" id="files-refresh">Refresh</button>
+      </span>
+    </h2>
+    <input type="file" id="files-input" multiple hidden>
+    <p class="muted" style="margin-top:0;">
+      A drop for moving files between machines, kept on the cockpit host next to the note — the same
+      rule: not in git, never read by any tool. Meant for temporary transfer: delete what you have
+      fetched. Up to 200 MB per file; drop files anywhere on this card to upload.
+    </p>
+    <div id="files-uploads"></div>
+    <div id="files-list"><p class="muted">Loading…</p></div>
   </div>
 </main>
 <script src="assets/app.js"></script>
@@ -166,6 +183,148 @@
   });
 
   loadScratchpad();
+
+  // ---- File drop (docs/specs/cockpit/scratchpad.md#files) ----------------------------------------
+  // No SSE for files (the directory is outside every watched tree): the list reloads after each
+  // upload/delete, on Refresh, and when the tab becomes visible again (switching machines).
+  const filesBase = `/api/projects/${encodeURIComponent(project)}/files`;
+  const filesCard = document.getElementById("files-card");
+  const filesList = document.getElementById("files-list");
+  const filesUploads = document.getElementById("files-uploads");
+  const filesInput = document.getElementById("files-input");
+
+  function humanSize(n) {
+    if (n < 1024) return n + " B";
+    if (n < 1024 * 1024) return (n / 1024).toFixed(n < 10 * 1024 ? 1 : 0) + " KB";
+    return (n / (1024 * 1024)).toFixed(n < 10 * 1024 * 1024 ? 1 : 0) + " MB";
+  }
+
+  function whenOf(iso) {
+    const d = new Date(iso);
+    if (isNaN(d)) return "";
+    const time = d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    return d.toDateString() === new Date().toDateString() ? time : d.toLocaleDateString() + " " + time;
+  }
+
+  async function loadFiles() {
+    try {
+      const files = await Cockpit.api(filesBase);
+      if (!files.length) {
+        filesList.innerHTML = '<p class="muted">No files.</p>';
+        return;
+      }
+      filesList.innerHTML = '<ul class="file-list">' + files.map((f) => {
+        const href = filesBase + "/" + encodeURIComponent(f.name);
+        return `<li>
+          <span class="file-name">${Cockpit.escapeHtml(f.name)}</span>
+          <span class="muted file-meta">${humanSize(f.size)} · ${Cockpit.escapeHtml(whenOf(f.uploadedAt))}</span>
+          <span class="row-inline file-actions">
+            <a class="btn secondary" href="${Cockpit.escapeHtml(href)}" download="${Cockpit.escapeHtml(f.name)}">Download</a>
+            <button type="button" class="danger" data-delete="${Cockpit.escapeHtml(f.name)}">Delete</button>
+          </span>
+        </li>`;
+      }).join("") + "</ul>";
+    } catch (err) {
+      filesList.innerHTML = `<p class="run-error">${Cockpit.escapeHtml(err.message)}</p>`;
+    }
+  }
+
+  // Delete acts at once, no confirm: this is a transfer area, not storage.
+  filesList.addEventListener("click", async (e) => {
+    const btn = e.target.closest("button[data-delete]");
+    if (!btn) return;
+    btn.disabled = true;
+    try {
+      await Cockpit.api(filesBase + "/" + encodeURIComponent(btn.dataset.delete), { method: "DELETE" });
+    } catch (err) {
+      if (!err.message.startsWith("404")) alert(err.message);
+    }
+    loadFiles();
+  });
+
+  // One XHR PUT per file (fetch has no upload progress); the row shows name · NN% and is removed on
+  // success, or turns into the error text on failure.
+  function uploadOne(file) {
+    return new Promise((resolve) => {
+      const row = document.createElement("div");
+      row.className = "file-upload";
+      const label = (text) => { row.textContent = file.name + " · " + text; };
+      label("0%");
+      filesUploads.appendChild(row);
+
+      const xhr = new XMLHttpRequest();
+      xhr.open("PUT", filesBase + "/" + encodeURIComponent(file.name));
+      xhr.setRequestHeader("Content-Type", "application/octet-stream");
+      xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable) label(Math.floor((e.loaded / e.total) * 100) + "%");
+      };
+      const fail = (text) => {
+        row.classList.add("run-error");
+        label(text);
+        resolve(false);
+      };
+      xhr.onload = () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          row.remove();
+          resolve(true);
+          return;
+        }
+        let detail = "";
+        try { detail = JSON.parse(xhr.responseText).error || ""; } catch { /* not JSON */ }
+        fail(xhr.status + (detail ? ": " + detail : " " + xhr.statusText));
+      };
+      xhr.onerror = () => fail("upload failed (connection error)");
+      xhr.onabort = () => fail("upload aborted");
+      xhr.send(file);
+    });
+  }
+
+  async function uploadAll(fileList) {
+    for (const file of Array.from(fileList)) {
+      await uploadOne(file);
+      loadFiles();
+    }
+  }
+
+  document.getElementById("files-upload").addEventListener("click", () => filesInput.click());
+  document.getElementById("files-refresh").addEventListener("click", () => loadFiles());
+  filesInput.addEventListener("change", () => {
+    const picked = Array.from(filesInput.files);
+    filesInput.value = "";
+    uploadAll(picked);
+  });
+
+  // Drag & drop onto the card. dragenter/dragleave fire per child element, so count depth.
+  let dragDepth = 0;
+  const hasFiles = (e) => Array.from(e.dataTransfer?.types || []).includes("Files");
+  filesCard.addEventListener("dragenter", (e) => {
+    if (!hasFiles(e)) return;
+    e.preventDefault();
+    dragDepth++;
+    filesCard.classList.add("drag-over");
+  });
+  filesCard.addEventListener("dragover", (e) => {
+    if (!hasFiles(e)) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "copy";
+  });
+  filesCard.addEventListener("dragleave", () => {
+    dragDepth = Math.max(0, dragDepth - 1);
+    if (dragDepth === 0) filesCard.classList.remove("drag-over");
+  });
+  filesCard.addEventListener("drop", (e) => {
+    if (!hasFiles(e)) return;
+    e.preventDefault();
+    dragDepth = 0;
+    filesCard.classList.remove("drag-over");
+    uploadAll(e.dataTransfer.files);
+  });
+
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") loadFiles();
+  });
+
+  loadFiles();
 </script>
 </body>
 </html>

@@ -62,6 +62,7 @@ builder.Services.AddSingleton(sp => new TtlCache<ProjectGitInfoDto>(sp.GetRequir
 builder.Services.AddSingleton(sp => new TtlCache<RunStatusDto>(sp.GetRequiredService<IClock>(), TimeSpan.FromSeconds(3)));
 builder.Services.AddSingleton<ChatSessionStore>();
 builder.Services.AddSingleton<ScratchpadStore>();
+builder.Services.AddSingleton<ScratchpadFileStore>();
 builder.Services.AddSingleton<DraftWriter>();
 builder.Services.AddSingleton<ProjectScaffolder>();
 builder.Services.AddSingleton<SseHub>();
@@ -95,6 +96,7 @@ app.MapRunApi();
 app.MapProjectConfigApi();
 app.MapNewProjectApi();
 app.MapScratchpadApi();
+app.MapScratchpadFileApi();
 
 Console.WriteLine($"mf-cockpit: listening on http://{config.Bind}:{config.Port} ({config.Projects.Count} project(s) configured)");
 app.Run();

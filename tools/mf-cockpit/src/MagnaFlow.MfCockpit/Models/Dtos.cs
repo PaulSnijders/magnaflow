@@ -203,3 +203,6 @@ public sealed record ActionsDto(bool Exists, string? Error, bool Ignored, IReadO
 public sealed record ActionDto(string Name, string? Description, string Kind, string Schedule, ActionLastDto? Last, bool Pending);
 
 public sealed record ActionLastDto(string? RunAt, string? Trigger, string? Result, int? DurationSeconds, string? RefusedAt, string? Refused);
+
+/// <summary>One file in the scratchpad file drop (docs/specs/cockpit/scratchpad.md#files).</summary>
+public sealed record ScratchpadFileDto(string Name, long Size, string UploadedAt);

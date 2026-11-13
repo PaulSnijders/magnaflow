@@ -617,3 +617,26 @@ button.danger:disabled { background: transparent; color: var(--muted); border-co
   dialog { width: 94vw; }
   dialog form { padding: 1rem 1.1rem 1.25rem; }
 }
+
+/* Scratchpad file drop (docs/specs/cockpit/scratchpad.md#files): drop highlight, a list whose long
+   names break and whose buttons wrap under the name on a phone-width screen. */
+a.btn { display: inline-block; text-decoration: none; }
+.file-drop { transition: border-color 0.1s, background 0.1s; }
+.file-drop.drag-over { border: 1px dashed var(--lava-bright); background: var(--panel); }
+.file-drop h2 { flex-wrap: wrap; }
+.file-drop h2 .row-inline { flex-wrap: wrap; }
+.file-upload { font-size: 0.85rem; padding: 0.3rem 0; overflow-wrap: anywhere; }
+.file-list { list-style: none; margin: 0; padding: 0; }
+.file-list li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.75rem;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--border);
+}
+.file-list li:last-child { border-bottom: none; }
+.file-list .file-name { flex: 1 1 12rem; min-width: 0; overflow-wrap: anywhere; }
+.file-list .file-meta { font-size: 0.85rem; white-space: nowrap; }
+.file-list .file-actions { flex-wrap: wrap; }
+.file-list .file-actions .btn, .file-list .file-actions button { padding: 0.35rem 0.75rem; font-size: 0.85rem; }
