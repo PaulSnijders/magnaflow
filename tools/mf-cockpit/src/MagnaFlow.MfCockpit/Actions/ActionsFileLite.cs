@@ -6,12 +6,13 @@ using YamlDotNet.Serialization.NamingConventions;
 namespace MagnaFlow.MfCockpit.Actions;
 
 /// <summary>One action as the Actions card shows it. Schedule is display text: `every N min`,
-/// `daily HH:mm` or `manual`.</summary>
+/// `daily HH:mm` or `manual`, followed by ` · if &lt;condition&gt;` when the action has one.</summary>
 public sealed record ActionLite(string Name, string? Description, string Kind, string Schedule);
 
 /// <summary>`.magnaflow/actions/&lt;name&gt;.last.yml` as written by mf-worker: the last run, plus a
-/// refusal newer than that run. Times are passed through as written.</summary>
-public sealed record ActionLastLite(string? RunAt, string? Trigger, string? Result, int? DurationSeconds, string? RefusedAt, string? Refused);
+/// refusal and a condition skip newer than that run. Times are passed through as written.</summary>
+public sealed record ActionLastLite(string? RunAt, string? Trigger, string? Result, int? DurationSeconds, string? RefusedAt, string? Refused,
+    string? SkippedAt, string? Skipped);
 
 /// <summary>
 /// The cockpit's reader of .magnaflow/actions.yml (docs/specs/concepts/actions.md "The file"):
@@ -72,10 +73,18 @@ public static class ActionsFileLite
                 Problem("at", $"'{a.At}' is not a time as HH:mm");
             if (a?.TimeoutMinutes is <= 0)
                 Problem("timeout_minutes", "must be a positive integer");
+            if (a?.Condition is not null && string.IsNullOrWhiteSpace(a.Condition))
+                Problem("condition", "must name a script");
+            if (a?.ConditionArgs is not null && a.Condition is null)
+                Problem("condition_args", "needs condition");
+            if (!string.IsNullOrWhiteSpace(a?.Condition) && a.EveryMinutes is null && a.At is null)
+                Problem("condition", "needs every_minutes or at (only a scheduled run evaluates it)");
             if (problems.Count > before)
                 continue;
 
             var schedule = a!.EveryMinutes is { } n ? $"every {n} min" : a.At is { } at ? $"daily {at.Trim()}" : "manual";
+            if (!string.IsNullOrWhiteSpace(a.Condition))
+                schedule += $" · if {a.Condition.Trim()}";
             result.Add(new ActionLite(name, string.IsNullOrWhiteSpace(a.Description) ? null : a.Description.Trim(),
                 hasScript ? "script" : "prompt", schedule));
         }
@@ -92,7 +101,8 @@ public static class ActionsFileLite
             if (!File.Exists(path))
                 return null;
             var dto = Deserializer().Deserialize<LastDto>(File.ReadAllText(path));
-            return dto is null ? null : new ActionLastLite(dto.RunAt, dto.Trigger, dto.Result, dto.DurationSeconds, dto.RefusedAt, dto.Refused);
+            return dto is null ? null : new ActionLastLite(dto.RunAt, dto.Trigger, dto.Result, dto.DurationSeconds, dto.RefusedAt, dto.Refused,
+                dto.SkippedAt, dto.Skipped);
         }
         catch (Exception)
         {
@@ -118,6 +128,8 @@ public static class ActionsFileLite
         public int? EveryMinutes { get; set; }
         public string? At { get; set; }
         public int? TimeoutMinutes { get; set; }
+        public string? Condition { get; set; }
+        public List<string>? ConditionArgs { get; set; }
     }
 
     private sealed class LastDto
@@ -128,5 +140,7 @@ public static class ActionsFileLite
         public int? DurationSeconds { get; set; }
         public string? RefusedAt { get; set; }
         public string? Refused { get; set; }
+        public string? SkippedAt { get; set; }
+        public string? Skipped { get; set; }
     }
 }

@@ -25,6 +25,7 @@ public sealed class WatchLoop(
     TimeZoneInfo? timeZone = null)
 {
     private const string RefusedPrefix = "refused: ";
+    private const string SkippedPrefix = "skipped: ";
 
     private readonly IClock _clock = clock ?? new SystemClock();
     private readonly TimeZoneInfo _zone = timeZone ?? TimeZoneInfo.Local;
@@ -356,7 +357,7 @@ public sealed class WatchLoop(
             {
                 if (cancellationToken.IsCancellationRequested)
                     break;
-                if (ActionSchedule.IsDue(action, WatchActions.LastRunAt(projectRoot, action.Name), _startedAt, _clock.UtcNow, _zone))
+                if (ActionSchedule.IsDue(action, WatchActions.LastSettledAt(projectRoot, action.Name), _startedAt, _clock.UtcNow, _zone))
                     await SpawnAsync(action.Name, "schedule");
             }
         }
@@ -366,7 +367,7 @@ public sealed class WatchLoop(
         var now = _clock.UtcNow;
         NextActionDue = scheduled
             .Where(a => !refusedNow.Contains(a.Name))
-            .Select(a => ActionSchedule.NextDue(a, WatchActions.LastRunAt(projectRoot, a.Name), _startedAt, now, _zone))
+            .Select(a => ActionSchedule.NextDue(a, WatchActions.LastSettledAt(projectRoot, a.Name), _startedAt, now, _zone))
             .Where(due => due > now)
             .Min();
 
@@ -417,6 +418,18 @@ public sealed class WatchLoop(
         }
 
         _loggedRefusals.Remove(name);
+        // A condition skip (exit 0) or condition error (exit 1): the worker's `skipped:` line is
+        // already in the log via the output callback.
+        var skipped = result.TimedOut ? null : result.StdOut.Split('\n')
+            .Select(l => l.Trim())
+            .FirstOrDefault(l => l.StartsWith(SkippedPrefix, StringComparison.Ordinal))?[SkippedPrefix.Length..];
+        if (skipped is not null && result.ExitCode == 0)
+            return false;
+        if (skipped is not null && result.ExitCode == 1 && skipped.StartsWith("condition error", StringComparison.Ordinal))
+        {
+            await notifier.NotifyAsync($"action {name}: condition error", skipped);
+            return false;
+        }
         if (!result.TimedOut && result.ExitCode == 0)
         {
             log($"[action {name}] finished: ok");

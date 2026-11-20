@@ -35,7 +35,7 @@ public static class ActionsEndpoints
             {
                 var last = ActionsFileLite.LoadLast(project.Path, a.Name);
                 return new ActionDto(a.Name, a.Description, a.Kind, a.Schedule,
-                    last is null ? null : new ActionLastDto(last.RunAt, last.Trigger, last.Result, last.DurationSeconds, last.RefusedAt, last.Refused),
+                    last is null ? null : new ActionLastDto(last.RunAt, last.Trigger, last.Result, last.DurationSeconds, last.RefusedAt, last.Refused, last.SkippedAt, last.Skipped),
                     File.Exists(ActionsFileLite.RequestPath(project.Path, a.Name)));
             }).ToList();
             return Results.Ok(new ActionsDto(true, error, ignored, rows));

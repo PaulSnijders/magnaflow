@@ -6,7 +6,8 @@ using YamlDotNet.Serialization.NamingConventions;
 namespace MagnaFlow.WorkerController.Actions;
 
 /// <summary>One validated entry under `actions:` (docs/specs/concepts/actions.md "The file").
-/// Exactly one of Script and Prompt is set; at most one of EveryMinutes and At.</summary>
+/// Exactly one of Script and Prompt is set; at most one of EveryMinutes and At. Condition (with
+/// ConditionArgs) only on a scheduled action: only `--trigger schedule` evaluates it.</summary>
 public sealed record ActionDefinition(
     string Name,
     string? Description,
@@ -15,7 +16,9 @@ public sealed record ActionDefinition(
     string? Prompt,
     int? EveryMinutes,
     TimeOnly? At,
-    TimeSpan Timeout);
+    TimeSpan Timeout,
+    string? Condition,
+    IReadOnlyList<string> ConditionArgs);
 
 /// <summary>
 /// .magnaflow/actions.yml — a project's own named jobs. Optional: a project without the file has
@@ -93,6 +96,13 @@ public static class ActionsFile
             if (a.TimeoutMinutes is <= 0)
                 Problem("timeout_minutes", "must be a positive integer");
 
+            if (a.Condition is not null && string.IsNullOrWhiteSpace(a.Condition))
+                Problem("condition", "must name a script");
+            if (a.ConditionArgs is not null && a.Condition is null)
+                Problem("condition_args", "needs condition");
+            if (!string.IsNullOrWhiteSpace(a.Condition) && a.EveryMinutes is null && a.At is null)
+                Problem("condition", "needs every_minutes or at (only a scheduled run evaluates it)");
+
             if (problems.Count > before)
                 continue;
 
@@ -104,7 +114,9 @@ public static class ActionsFile
                 hasPrompt ? a.Prompt : null,
                 a.EveryMinutes,
                 at,
-                TimeSpan.FromMinutes(a.TimeoutMinutes ?? DefaultTimeoutMinutes)));
+                TimeSpan.FromMinutes(a.TimeoutMinutes ?? DefaultTimeoutMinutes),
+                a.Condition?.Trim(),
+                a.ConditionArgs ?? []));
         }
 
         return problems.Count > 0
@@ -126,5 +138,7 @@ public static class ActionsFile
         public int? EveryMinutes { get; set; }
         public string? At { get; set; }
         public int? TimeoutMinutes { get; set; }
+        public string? Condition { get; set; }
+        public List<string>? ConditionArgs { get; set; }
     }
 }

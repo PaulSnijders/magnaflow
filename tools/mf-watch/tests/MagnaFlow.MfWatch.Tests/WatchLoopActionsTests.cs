@@ -202,6 +202,45 @@ public class WatchLoopActionsTests : IDisposable
     }
 
     [Fact]
+    public async Task A_condition_skip_is_no_notification_and_no_activity()
+    {
+        WriteActions(Board);
+        _actionResults["board"] = () => new ProcessResult(0, "skipped: condition\n", "", false);
+
+        var activity = await Loop().PollOnceAsync();
+
+        Assert.Equal(["action board schedule"], _events);
+        Assert.False(activity);
+        Assert.Empty(_notifier.Notifications);
+        Assert.DoesNotContain(_log, l => l.Contains("finished"));
+    }
+
+    [Fact]
+    public async Task A_condition_error_notifies_condition_error_not_failed()
+    {
+        WriteActions(Board);
+        _actionResults["board"] = () => new ProcessResult(1, "skipped: condition error (exit 2)\n", "", false);
+
+        await Loop().PollOnceAsync();
+
+        Assert.Equal([("action board: condition error", "condition error (exit 2)")], _notifier.Notifications);
+        Assert.DoesNotContain(_log, l => l.Contains("failed"));
+    }
+
+    [Fact]
+    public async Task An_invalid_condition_skips_the_actions_with_one_log_line()
+    {
+        WriteActions("actions:\n  dream:\n    prompt: x\n    condition: tools/check\n");
+        var loop = Loop();
+
+        await loop.PollOnceAsync();
+        await loop.PollOnceAsync();
+
+        Assert.Empty(_events);
+        Assert.Single(_log, l => l == "actions.yml: action 'dream': condition needs every_minutes or at (only a scheduled run evaluates it); actions skipped");
+    }
+
+    [Fact]
     public async Task An_action_that_moved_head_is_activity()
     {
         WriteActions("actions:\n  fix:\n    prompt: x\n");

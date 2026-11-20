@@ -98,4 +98,42 @@ public class ActionScheduleTests
         Assert.True(ActionSchedule.IsDue(At(13, 30), null, Started, Now, amsterdam));
         Assert.False(ActionSchedule.IsDue(At(14, 30), null, Started, Now, amsterdam));
     }
+
+    // --- last settled: the later of run_at and skipped_at (a condition skip settles the slot) ---
+
+    private static DateTimeOffset? Settled(string lastYml)
+    {
+        using var project = new TempProject();
+        project.WriteFile(".magnaflow/actions/nightly.last.yml", lastYml);
+        return WatchActions.LastSettledAt(project.Root, "nightly");
+    }
+
+    [Fact]
+    public void A_skip_today_after_the_time_makes_at_wait_until_tomorrow()
+    {
+        // Ran yesterday at 02:30, skipped today at 02:30; now 12:00.
+        var settled = Settled("run_at: 2026-10-12T02:30:00+00:00\nresult: \"ok\"\nskipped_at: 2026-10-13T02:30:05+00:00\nskipped: \"condition\"\n");
+
+        Assert.Equal(new DateTimeOffset(2026, 10, 13, 2, 30, 5, TimeSpan.Zero), settled);
+        Assert.False(ActionSchedule.IsDue(At(2, 30), settled, Started, Now, Utc));
+        Assert.Equal(new DateTimeOffset(2026, 10, 14, 2, 30, 0, TimeSpan.Zero), ActionSchedule.NextDue(At(2, 30), settled, Started, Now, Utc));
+    }
+
+    [Fact]
+    public void A_skip_newer_than_the_run_settles_every_minutes()
+    {
+        var settled = Settled("run_at: 2026-10-13T11:00:00+00:00\nskipped_at: 2026-10-13T11:55:00+00:00\nskipped: \"condition error (exit 2)\"\n");
+
+        Assert.False(ActionSchedule.IsDue(Every10, settled, Started, Now, Utc));
+        Assert.Equal(Now.AddMinutes(5), ActionSchedule.NextDue(Every10, settled, Started, Now, Utc));
+    }
+
+    [Fact]
+    public void Only_run_at_or_only_skipped_at_or_neither()
+    {
+        Assert.Equal(Now.AddMinutes(-30), Settled("run_at: 2026-10-13T11:30:00+00:00\nresult: \"ok\"\n"));
+        Assert.Equal(Now.AddMinutes(-20), Settled("skipped_at: 2026-10-13T11:40:00+00:00\nskipped: \"condition\"\n"));
+        Assert.Null(Settled("refused_at: 2026-10-13T11:40:00+00:00\nrefused: \"the working tree is dirty\"\n"));
+        Assert.Equal(Now.AddMinutes(-30), Settled("run_at: 2026-10-13T11:30:00+00:00\nskipped_at: 2026-10-13T11:10:00+00:00\n"));
+    }
 }

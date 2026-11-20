@@ -588,6 +588,12 @@
     if (last.refusedAt) {
       parts.push(`<br><span class="muted">refused ${Cockpit.escapeHtml(Cockpit.formatDate(last.refusedAt))}: ${Cockpit.escapeHtml(last.refused || "")}</span>`);
     }
+    // A skip by the action's condition (the worker clears it on every run, so it is newer):
+    // `condition` muted, `condition error (…)` in the failed style.
+    if (last.skippedAt) {
+      const cls = (last.skipped || "").startsWith("condition error") ? "action-error" : "muted";
+      parts.push(`<br><span class="${cls}">skipped ${Cockpit.escapeHtml(Cockpit.formatDate(last.skippedAt))}: ${Cockpit.escapeHtml(last.skipped || "")}</span>`);
+    }
     return parts.join("");
   }
 

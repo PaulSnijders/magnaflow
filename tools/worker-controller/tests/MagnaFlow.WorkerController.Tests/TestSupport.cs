@@ -268,11 +268,17 @@ public sealed class FakeProcessRunner : IProcessRunner
     /// rest of the world (git, files) looked like at that moment.</summary>
     public Action<IReadOnlyList<string>>? OnExecutable;
 
+    /// <summary>Opt-in: feed each line of the result's StdOut to onOutputLine, as a real process would.</summary>
+    public bool EchoExecutableStdOut;
+
+    public List<TimeSpan?> ExecutableTimeouts = [];
+
     public Task<ProcessResult> RunExecutableAsync(string executable, IReadOnlyList<string> arguments,
         string workingDirectory, Action<string>? onOutputLine = null, TimeSpan? timeout = null,
         string? standardInput = null, CancellationToken cancellationToken = default)
     {
         ExecutableCalls.Add((executable, arguments));
+        ExecutableTimeouts.Add(timeout);
         OnExecutable?.Invoke(arguments);
         if (NextExecutableThrows is { } ex)
         {
@@ -280,6 +286,9 @@ public sealed class FakeProcessRunner : IProcessRunner
             throw ex;
         }
         var result = ExecutableResults.Count > 0 ? ExecutableResults.Dequeue() : new ProcessResult(0, "", "", false);
+        if (EchoExecutableStdOut && onOutputLine is not null && result.StdOut.Length > 0)
+            foreach (var line in result.StdOut.Split('\n'))
+                onOutputLine(line);
         return Task.FromResult(result);
     }
 

@@ -1,7 +1,8 @@
 ---
 title: "Action condition: a scheduled action runs only when its condition holds"
-status: ready
+status: done
 created: 2026-11-20
+attempts: 1
 ---
 
 ## Context

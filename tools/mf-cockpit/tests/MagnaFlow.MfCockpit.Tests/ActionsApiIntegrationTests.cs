@@ -90,6 +90,48 @@ public class ActionsApiIntegrationTests : IDisposable
     }
 
     [Fact]
+    public async Task A_condition_shows_in_the_schedule_and_a_newer_skip_in_the_last_run()
+    {
+        WriteActions("""
+            actions:
+              dream:
+                prompt: Dream.
+                at: "03:00"
+                condition: scripts/actions/commits-since
+                condition_args: ["16", "dream:"]
+            """);
+        Directory.CreateDirectory(ActionsDir);
+        File.WriteAllText(Path.Combine(ActionsDir, "dream.last.yml"),
+            "run_at: 2026-10-12T03:00:00+02:00\ntrigger: schedule\nresult: \"ok\"\nduration_seconds: 40\n"
+            + "skipped_at: 2026-10-13T03:00:00+02:00\nskipped: \"condition error (exit 2)\"\n");
+        using var factory = Factory();
+        using var client = factory.CreateClient();
+
+        var dto = await client.GetFromJsonAsync<ActionsDto>("/api/projects/proj/actions");
+
+        var dream = dto!.Actions.Single();
+        Assert.Equal("daily 03:00 · if scripts/actions/commits-since", dream.Schedule);
+        Assert.Equal(("ok", "2026-10-13T03:00:00+02:00", "condition error (exit 2)"),
+            (dream.Last!.Result, dream.Last.SkippedAt, dream.Last.Skipped));
+    }
+
+    [Theory]
+    [InlineData("    condition: tools/check\n", "action 'hello': condition needs every_minutes or at (only a scheduled run evaluates it)")]
+    [InlineData("    every_minutes: 5\n    condition: \"\"\n", "action 'hello': condition must name a script")]
+    [InlineData("    every_minutes: 5\n    condition_args: [\"1\"]\n", "action 'hello': condition_args needs condition")]
+    public async Task An_invalid_condition_is_the_inline_error(string fields, string expected)
+    {
+        WriteActions("actions:\n  hello:\n    script: x\n" + fields);
+        using var factory = Factory();
+        using var client = factory.CreateClient();
+
+        var dto = await client.GetFromJsonAsync<ActionsDto>("/api/projects/proj/actions");
+
+        Assert.Equal(expected, dto!.Error);
+        Assert.Empty(dto.Actions);
+    }
+
+    [Fact]
     public async Task The_list_reports_a_parse_error_and_an_ignored_file()
     {
         WriteActions("actions:\n  hello:\n    script: x\n    prompt: y\n");

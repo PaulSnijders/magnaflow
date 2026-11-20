@@ -319,6 +319,7 @@ input[type="text"], textarea, select {
   word-break: break-word;
 }
 .run-result.run-error { color: var(--status-aborted); }
+.action-error { color: var(--status-aborted); }
 /* The action worked but left something to look at — a branch switch under a live watcher or with
    the old tree's services still up (docs/prompts/0014). Same colour as .run-dot.warning. */
 .run-result.run-warning { color: var(--status-questions); }

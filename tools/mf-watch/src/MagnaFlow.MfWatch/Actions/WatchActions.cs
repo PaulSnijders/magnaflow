@@ -13,10 +13,10 @@ public sealed record WatchAction(string Name, int? EveryMinutes, TimeOnly? At)
 
 /// <summary>
 /// mf-watch's own reader of .magnaflow/actions.yml (docs/specs/concepts/actions.md). It reads only
-/// the names and the schedule fields: what an action *does* is mf-worker's business, which also
+/// the names, the schedule fields and the condition's presence: what an action *does* is mf-worker's business, which also
 /// validates the rest. Duplicated rather than referenced, like every other file format mf-watch
 /// shares with the worker. Plus the two machine-local files per action it touches: the request
-/// (consumed) and last.yml's `run_at` (read).
+/// (consumed) and last.yml's `run_at`/`skipped_at` (read).
 /// </summary>
 public static class WatchActions
 {
@@ -62,6 +62,14 @@ public static class WatchActions
                     return (null, $"action '{name}': at '{a.At}' is not a time as HH:mm");
                 at = parsed;
             }
+            // Mirrors mf-worker's rules, so a bad condition is one "actions skipped" line, not a
+            // worker exit 2 on every poll.
+            if (a?.Condition is not null && string.IsNullOrWhiteSpace(a.Condition))
+                return (null, $"action '{name}': condition must name a script");
+            if (a?.ConditionArgs is not null && a.Condition is null)
+                return (null, $"action '{name}': condition_args needs condition");
+            if (!string.IsNullOrWhiteSpace(a?.Condition) && a.EveryMinutes is null && a.At is null)
+                return (null, $"action '{name}': condition needs every_minutes or at (only a scheduled run evaluates it)");
             result.Add(new WatchAction(name, a?.EveryMinutes, at));
         }
         return (result, null);
@@ -79,8 +87,10 @@ public static class WatchActions
             .Order(StringComparer.Ordinal)];
     }
 
-    /// <summary>`run_at` from &lt;name&gt;.last.yml; null when missing or unreadable (never run).</summary>
-    public static DateTimeOffset? LastRunAt(string projectRoot, string name)
+    /// <summary>When the action's slot was last settled: the later of `run_at` and `skipped_at`
+    /// from &lt;name&gt;.last.yml (a condition skip settles it like a run); either one when the other
+    /// is missing; null when both are missing or the file is unreadable (never run).</summary>
+    public static DateTimeOffset? LastSettledAt(string projectRoot, string name)
     {
         var path = Path.Combine(Directory(projectRoot), $"{name}.last.yml");
         try
@@ -92,13 +102,20 @@ public static class WatchActions
                 .IgnoreUnmatchedProperties()
                 .Build()
                 .Deserialize<LastDto>(File.ReadAllText(path));
-            return DateTimeOffset.TryParse(dto?.RunAt, CultureInfo.InvariantCulture, DateTimeStyles.None, out var t) ? t : null;
+            var runAt = ParseTime(dto?.RunAt);
+            var skippedAt = ParseTime(dto?.SkippedAt);
+            return runAt is null ? skippedAt
+                : skippedAt is null ? runAt
+                : runAt > skippedAt ? runAt : skippedAt;
         }
         catch (Exception)
         {
             return null;
         }
     }
+
+    private static DateTimeOffset? ParseTime(string? value) =>
+        DateTimeOffset.TryParse(value, CultureInfo.InvariantCulture, DateTimeStyles.None, out var t) ? t : null;
 
     private sealed class FileDto
     {
@@ -109,10 +126,13 @@ public static class WatchActions
     {
         public int? EveryMinutes { get; set; }
         public string? At { get; set; }
+        public string? Condition { get; set; }
+        public List<string>? ConditionArgs { get; set; }
     }
 
     private sealed class LastDto
     {
         public string? RunAt { get; set; }
+        public string? SkippedAt { get; set; }
     }
 }

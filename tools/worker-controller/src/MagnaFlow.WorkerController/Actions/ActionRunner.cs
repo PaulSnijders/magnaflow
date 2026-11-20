@@ -8,9 +8,9 @@ namespace MagnaFlow.WorkerController.Actions;
 
 /// <summary>
 /// `mf-worker action &lt;name&gt;`: runs one project action once, in the order of
-/// docs/specs/worker/action.md — read the file, check what the action needs, the guards, run,
-/// check the tree, record. mf-watch relies on the exit codes, and on a refusal being exactly one
-/// stdout line `refused: &lt;reason&gt;`.
+/// docs/specs/worker/action.md — read the file, check what the action needs, the guards, the
+/// condition (schedule only), run, check the tree, record. mf-watch relies on the exit codes, and on
+/// a refusal or a skip being exactly one stdout line `refused: &lt;reason&gt;` / `skipped: &lt;reason&gt;`.
 /// </summary>
 public sealed class ActionRunner(
     IGitClient git,
@@ -23,6 +23,9 @@ public sealed class ActionRunner(
     bool? isWindows = null)
 {
     public const string RefusedPrefix = "refused: ";
+    public const string SkippedPrefix = "skipped: ";
+    public static readonly TimeSpan ConditionTimeout = TimeSpan.FromSeconds(30);
+    private const string ConditionSkip = "condition";
 
     private readonly Func<DateTimeOffset> _now = clock ?? (() => DateTimeOffset.Now);
     private readonly bool _isWindows = isWindows ?? RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
@@ -90,9 +93,9 @@ public sealed class ActionRunner(
             return ExitCodes.PreconditionRefused;
         }
 
-        // 4. Run, appending to the action log as output arrives.
+        // 4. The condition (schedule only), then 5. run, appending to the action log as output
+        // arrives. One log block holds both: the header, the condition's output, then the run's.
         var start = _now();
-        output($"action {name} ({trigger}): started");
         string result;
         using (var log = ActionLog.OpenAppend(projectRoot, name))
         {
@@ -103,24 +106,67 @@ public sealed class ActionRunner(
             }
 
             log.WriteLine(ActionLog.Header(name, trigger, start));
+
+            if (trigger == "schedule" && action.Condition is not null)
+            {
+                var skip = await EvaluateConditionAsync(action.Condition, action.ConditionArgs, Append);
+                if (skip is not null)
+                {
+                    var skipSeconds = (int)Math.Round((_now() - start).TotalSeconds);
+                    Append(ActionLog.ResultLine(skip == ConditionSkip ? "skipped (condition)" : skip, skipSeconds));
+                    var last = ActionLastRun.Load(projectRoot, name);
+                    (last with { SkippedAt = start, Skipped = skip }).Save(projectRoot, name);
+                    output(SkippedPrefix + skip);
+                    return skip == ConditionSkip ? ExitCodes.Success : ExitCodes.TaskFailed;
+                }
+            }
+
+            output($"action {name} ({trigger}): started");
             if (scriptPath is not null)
                 result = await RunScriptAsync(action, scriptPath, line => { Append(line); output(line); });
             else
                 result = await RunPromptAsync(action, agent!, Append);
         } // flushed and closed before the tree is looked at
 
-        // 5. A tree left dirty would make the worker refuse every next command.
+        // 6. A tree left dirty would make the worker refuse every next command.
         if (result == "ok" && !await git.IsWorkingTreeCleanAsync())
             result = "failed (left the tree dirty)";
 
-        // 6. Record.
+        // 7. Record.
         var seconds = (int)Math.Round((_now() - start).TotalSeconds);
         using (var log = ActionLog.OpenAppend(projectRoot, name))
             log.WriteLine(ActionLog.ResultLine(result, seconds));
-        new ActionLastRun(start, trigger, result, seconds, null, null).Save(projectRoot, name);
+        new ActionLastRun(start, trigger, result, seconds, null, null, null, null).Save(projectRoot, name);
         output($"action {name}: {result} — {seconds}s");
 
         return result == "ok" ? ExitCodes.Success : ExitCodes.TaskFailed;
+    }
+
+    /// <summary>Runs the condition, its output to the log only. Null: it holds, run the action.
+    /// Otherwise the skip reason: `condition` (exit 1) or `condition error (…)`.</summary>
+    private async Task<string?> EvaluateConditionAsync(string condition, IReadOnlyList<string> args, Action<string> append)
+    {
+        var resolved = ScriptResolver.Resolve(Path.GetFullPath(Path.Combine(projectRoot, condition)), _isWindows);
+        if (resolved.Path is null)
+        {
+            append($"condition not found: tried {string.Join(", ", resolved.Attempted)}");
+            return "condition error (not found)";
+        }
+
+        ProcessResult run;
+        try
+        {
+            run = await processes.RunExecutableAsync(resolved.Path, args, projectRoot, append, ConditionTimeout);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            append($"could not start {resolved.Path}: {ex.Message}");
+            return "condition error (exit -1)";
+        }
+        return run.TimedOut ? "condition error (timeout)"
+            : run.ExitCode == 0 ? null
+            : run.ExitCode == 1 ? ConditionSkip
+            : $"condition error (exit {run.ExitCode})";
     }
 
     private async Task<string> RunScriptAsync(ActionDefinition action, string scriptPath, Action<string> onLine)

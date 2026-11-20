@@ -39,6 +39,31 @@ public class ActionsFileTests
         Assert.Equal("Resolve it.", actions[2].Prompt?.TrimEnd());
         Assert.Null(actions[2].Script);
         Assert.Empty(actions[2].Args);
+        Assert.All(actions, a => Assert.Null(a.Condition));
+        Assert.All(actions, a => Assert.Empty(a.ConditionArgs));
+    }
+
+    [Fact]
+    public void Parses_a_condition_and_its_args()
+    {
+        var (actions, error) = Parse("""
+            actions:
+              dream-learn:
+                at: "03:00"
+                condition: scripts/actions/commits-since
+                condition_args: ["16", "dream:", "lane:"]
+                prompt: Dream.
+              plain:
+                every_minutes: 5
+                condition: tools/check
+                script: tools/run
+            """);
+
+        Assert.Null(error);
+        Assert.Equal("scripts/actions/commits-since", actions![0].Condition);
+        Assert.Equal(["16", "dream:", "lane:"], actions[0].ConditionArgs);
+        Assert.Equal("tools/check", actions[1].Condition);
+        Assert.Empty(actions[1].ConditionArgs);
     }
 
     [Theory]
@@ -51,6 +76,9 @@ public class ActionsFileTests
     [InlineData("a:\n    script: x\n    at: \"25:00\"", "action 'a': at '25:00' is not a time")]
     [InlineData("a:\n    script: x\n    at: \"2:30\"", "action 'a': at '2:30' is not a time")]
     [InlineData("a:\n    script: x\n    timeout_minutes: -1", "action 'a': timeout_minutes must be a positive integer")]
+    [InlineData("a:\n    script: x\n    every_minutes: 5\n    condition: \"  \"", "action 'a': condition must name a script")]
+    [InlineData("a:\n    script: x\n    every_minutes: 5\n    condition_args: [\"1\"]", "action 'a': condition_args needs condition")]
+    [InlineData("a:\n    script: x\n    condition: tools/check", "action 'a': condition needs every_minutes or at (only a scheduled run evaluates it)")]
     public void Each_rule_names_the_action_and_the_field(string body, string expected)
     {
         var (actions, error) = Parse("actions:\n  " + body + "\n");

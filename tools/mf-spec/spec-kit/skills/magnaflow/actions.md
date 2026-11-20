@@ -18,18 +18,29 @@ never overlaps a worker run.
 2. **Write the block** under `actions:`. The name matches
    `[a-z0-9][a-z0-9-]*`. Give exactly one of `script` and `prompt`.
    `description`, `args` (a list, passed as argv) and `timeout_minutes`
-   (default 30) are optional.
+   (default 30) are optional, and so is a `condition` (step 4).
 3. **For a script**, write both a `.cmd` and a `.sh` with the same base
    name, and name it in `actions.yml` without an extension. It runs in
    the project root and resolves per OS. Commit the `.sh` executable:
    `git update-index --chmod=+x scripts/actions/<name>.sh`.
-4. **Check `.gitignore`** for `!.magnaflow/actions.yml` after
+4. **Optionally, a `condition`** (with `condition_args`, a list passed
+   as argv): a cheap script that decides whether a *scheduled* run is
+   worth starting, so an agent session does not start just to find
+   nothing to do. Only with `every_minutes` or `at`. It resolves like
+   `script`, runs in the project root before the action, with a fixed
+   30 s timeout. Exit 0: the action runs. Exit 1: skip. Anything else, a
+   timeout or a script that is not found: condition error. The button
+   and `mf-worker action <name>` by hand ignore it; test it with
+   `mf-worker action <name> --trigger schedule`.
+5. **Check `.gitignore`** for `!.magnaflow/actions.yml` after
    `.magnaflow/*`. Without it the file works on one machine and never
    travels, and the cockpit warns about it.
-5. **Commit** `actions.yml` and the scripts.
-6. **Test once** with `mf-worker action <name>` in the project root. It
+6. **Commit** `actions.yml` and the scripts.
+7. **Test once** with `mf-worker action <name>` in the project root. It
    refuses on a dirty tree, which is why you commit first. Exit 0 means
-   ok, 1 failed or timed out, 2 a config error, and 3 refused.
+   ok (or skipped by its condition, stdout `skipped: condition`), 1
+   failed, timed out or a condition error, 2 a config error, and 3
+   refused.
 
 ## Examples
 
@@ -74,7 +85,31 @@ A prompt:
       and explain what conflicted and why you stopped.
 ```
 
-This one also runs by itself: the watcher's `on_conflict` setting
+A nightly prompt that only runs after a day of work, through the
+condition the skill ships:
+
+```yaml
+  dream-learn:
+    at: "02:00"
+    condition: scripts/actions/commits-since
+    condition_args: ["16", "dream:", "review:", "lane:"]
+    prompt: |
+      Follow .claude/skills/dream/SKILL.md as `/dream learn`.
+```
+
+`commits-since <hours> [prefix...]` exits 0 when `HEAD` has a commit
+from the last `<hours>` hours whose subject starts with none of the
+prefixes (literal, case-sensitive), 1 when it has none, 2 on bad usage
+or a git failure, and prints one line such as `3 commits in the last 16h
+(2 ignored)`. So the action's own commits and bookkeeping do not count
+as work. To install it, copy both files from
+`.claude/skills/magnaflow/conditions/` to `scripts/actions/`, run
+`git update-index --chmod=+x scripts/actions/commits-since.sh` after
+`git add`, and commit. Copy it rather than pointing at the skill
+folder: an update overwrites that folder, and an unzip may drop the
+exec bit.
+
+The `resolve-conflicts` prompt above also runs by itself: the watcher's `on_conflict` setting
 (default `resolve-conflicts`) names the action it runs, with `--trigger
 conflict`, as soon as a `git_sync` pull stops on a rebase conflict. A
 second pull is the verdict. If it succeeds the watcher notifies
@@ -104,17 +139,30 @@ human.
   with `git_sync` off). `at` catches up once if the watcher was down at
   that time. A new machine does not fire an `at` job before its first
   `HH:mm`. The `on_conflict` action also runs on a rebase conflict. Each run is also bounded by the watcher's own worker timeout.
+- **A condition skip settles the slot**: an `at` action is next due the
+  following day, an `every_minutes` action after N minutes. A skip is
+  not a failure and does not notify. A condition error settles the slot
+  too, so a broken condition errors once per slot, and it notifies
+  `action <name>: condition error`. A refusal is decided before the
+  condition runs and is retried at the next poll, as before.
 
 ## Why did it not run?
 
-- The cockpit's **Actions** card: schedule, last run with result, a newer
-  refusal and its reason, and the log tail. **Run** is disabled while no
+- The cockpit's **Actions** card: schedule (with `· if <condition>`),
+  last run with result, a newer refusal and its reason, a newer skip
+  (`skipped <time>: condition` or `condition error (…)`), and the log
+  tail. **Run** is disabled while no
   watcher runs.
 - `.magnaflow/actions/<name>.last.yml`: `run_at`, `trigger`, `result`,
   `duration_seconds`, plus `refused_at` and `refused` when a refusal is
-  newer than the last run.
+  newer than the last run, and `skipped_at` and `skipped` (`condition`,
+  or `condition error (exit N|timeout|not found)`) when a condition skip
+  is.
 - `.magnaflow/actions/<name>.log`: every run's output between
-  `=== action … ===` and `=== result: … ===`.
+  `=== action … ===` and `=== result: … ===`. A condition's output comes
+  first in the block; a skip ends it with `=== result: skipped
+  (condition) … ===` or the `condition error (…)` reason.
 - `.magnaflow/mf-watch.log`: lines prefixed `[action <name>]`, refusals,
+  `skipped:` lines from a condition,
   and `actions.yml: <error>; actions skipped` when the file does not
   parse.

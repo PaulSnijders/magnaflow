@@ -6,9 +6,9 @@ using YamlDotNet.Serialization.NamingConventions;
 namespace MagnaFlow.WorkerController.Actions;
 
 /// <summary>
-/// .magnaflow/actions/&lt;name&gt;.last.yml: the last run, plus a refusal newer than that run
-/// (docs/specs/concepts/actions.md "Files"). mf-watch reads `run_at` for what is due, the cockpit
-/// shows the rest. Written through a temp file and a move, so a concurrent reader never sees half
+/// .magnaflow/actions/&lt;name&gt;.last.yml: the last run, plus a refusal and a condition skip newer
+/// than that run (docs/specs/concepts/actions.md "Files"). mf-watch reads `run_at` and `skipped_at`
+/// for what is due, the cockpit shows the rest. Written through a temp file and a move, so a concurrent reader never sees half
 /// a file.
 /// </summary>
 public sealed record ActionLastRun(
@@ -17,7 +17,9 @@ public sealed record ActionLastRun(
     string? Result,
     int? DurationSeconds,
     DateTimeOffset? RefusedAt,
-    string? Refused)
+    string? Refused,
+    DateTimeOffset? SkippedAt = null,
+    string? Skipped = null)
 {
     public const string TimeFormat = "yyyy-MM-ddTHH:mm:sszzz";
 
@@ -41,7 +43,7 @@ public sealed record ActionLastRun(
             if (dto is null)
                 return None;
             return new ActionLastRun(ParseTime(dto.RunAt), dto.Trigger, dto.Result, dto.DurationSeconds,
-                ParseTime(dto.RefusedAt), dto.Refused);
+                ParseTime(dto.RefusedAt), dto.Refused, ParseTime(dto.SkippedAt), dto.Skipped);
         }
         catch (Exception)
         {
@@ -63,6 +65,11 @@ public sealed record ActionLastRun(
         {
             text.Append("refused_at: ").AppendLine(refusedAt.ToString(TimeFormat, CultureInfo.InvariantCulture));
             text.Append("refused: ").AppendLine(Quote(Refused));
+        }
+        if (SkippedAt is { } skippedAt)
+        {
+            text.Append("skipped_at: ").AppendLine(skippedAt.ToString(TimeFormat, CultureInfo.InvariantCulture));
+            text.Append("skipped: ").AppendLine(Quote(Skipped));
         }
 
         var path = PathFor(projectRoot, name);
@@ -86,5 +93,7 @@ public sealed record ActionLastRun(
         public int? DurationSeconds { get; set; }
         public string? RefusedAt { get; set; }
         public string? Refused { get; set; }
+        public string? SkippedAt { get; set; }
+        public string? Skipped { get; set; }
     }
 }

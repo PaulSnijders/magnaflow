@@ -101,7 +101,7 @@ to the one MagnaFlow question in the adopt and update prompts. It coexists with 
 | `docs/specs/config.yml` | `docs/specs/config.yml` | project (derived once) |
 | `commands/spec.md`, `commands/spec-drift.md`, `commands/cmd-go.md` | `.claude/commands/` | kit |
 | `skills/specs/SKILL.md` | `.claude/skills/specs/SKILL.md` | kit |
-| `skills/magnaflow/` (`SKILL.md`, `config.md`, `actions.md`) | `.claude/skills/magnaflow/`, only with a yes to the MagnaFlow question | kit |
+| `skills/magnaflow/` (`SKILL.md`, `config.md`, `actions.md`, `conditions/`) | `.claude/skills/magnaflow/`, only with a yes to the MagnaFlow question | kit |
 | `skills/brainstorm/SKILL.md`, `skills/architect/SKILL.md`, `skills/cc-review/SKILL.md` | `.claude/skills/<name>/SKILL.md` | project (starting point, adapt to the project) |
 | `scripts/spec_lint.mjs` | `scripts/spec_lint.mjs` | kit |
 | `docs/CLAUDE.md` | `docs/CLAUDE.md` | kit |
