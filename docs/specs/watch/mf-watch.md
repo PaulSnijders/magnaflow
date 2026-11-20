@@ -99,7 +99,12 @@ string turns it off.
    request file that cannot be deleted (held open on Windows) is retried
    as a delete on the next poll, never run again. Exit 3 (refused) is
    logged once per action and reason, and the memory clears once the
-   action runs. An `actions.yml` that does not parse logs
+   action runs. A worker stdout line `skipped: <reason>` is the
+   action's [condition](../concepts/actions.md#condition) at work: with
+   exit 0 it is only logged (a skip, not activity), with exit 1 it raises
+   `action <name>: condition error` instead of `failed`. Due is computed
+   from the later of `run_at` and `skipped_at`, so a skip settles its
+   slot. An `actions.yml` that does not parse logs
    `actions.yml: <error>; actions skipped` once per file modification
    time and never stops the loop. An action that moved `HEAD` counts as
    activity.
@@ -233,6 +238,7 @@ stalls the loop.
 | `mf-watch: git pull failed` | any other pull failure. Once per state |
 | `mf-watch: git push failed` | push failed (also after the rebase-retry) |
 | `action <name>: failed` | the action exited 1 (failed or timeout), or any exit other than 0, 1 and 3. A refusal (3) is only logged |
+| `action <name>: condition error` | the action exited 1 with a `skipped: condition error (…)` line; the reason is the message. A skip (exit 0) is only logged |
 
 The message carries the command's `title:` from its frontmatter. A title
 with shell metacharacters reaches the shell as-is.

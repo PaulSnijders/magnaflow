@@ -124,8 +124,11 @@ state survives a live refresh. See
 Shown only when the project has `.magnaflow/actions.yml`. It sits below
 the Watcher card. See [actions](../concepts/actions.md). One row per
 action, in file order: name, `description`, the schedule (`every N min`,
-`daily HH:mm` or `manual`), the last run (`run_at`, trigger, result,
-duration) and a newer refusal if there is one. Each row has **Run** and
+`daily HH:mm` or `manual`, followed by `· if <condition>` when the action
+has one), the last run (`run_at`, trigger, result, duration), a newer
+refusal if there is one, and a newer skip if there is one:
+`skipped <skipped_at>: condition` muted, a `condition error (…)` styled
+like a failed result. Each row has **Run** and
 a log tail of the last 100 lines of `.magnaflow/actions/<name>.log`,
 collapsed by default.
 
