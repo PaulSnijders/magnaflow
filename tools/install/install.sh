@@ -91,6 +91,37 @@ have_systemctl_user() {
     command -v systemctl >/dev/null 2>&1 && systemctl --user status >/dev/null 2>&1
 }
 
+# --- 0. resolve the .NET root --------------------------------------------------
+# The units run outside the interactive shell, so a .NET that the shell finds
+# through DOTNET_ROOT or a version manager (mise, asdf) on PATH is invisible to
+# them: the apphost then falls back to the system location (/usr/share/dotnet),
+# which may hold only the base runtime and not Microsoft.AspNetCore.App — the
+# cockpit then crash-loops. Resolve the root once, publish with that dotnet,
+# and pin it into every unit (DOTNET_ROOT for the apphosts, PATH for the
+# worker's and the self-update's own `dotnet` calls).
+# Order: $DOTNET_ROOT when it holds a dotnet, else the root of the SDK that
+# `dotnet` on PATH reports.
+dotnet_root=""
+if [[ -n "${DOTNET_ROOT:-}" && -x "$DOTNET_ROOT/dotnet" ]]; then
+    dotnet_root="$(cd "$DOTNET_ROOT" && pwd)"
+elif command -v dotnet >/dev/null 2>&1; then
+    sdk_dir="$(dotnet --list-sdks 2>/dev/null | tail -n 1 | sed -n 's/.*\[\(.*\)\]$/\1/p')"
+    [[ -n "$sdk_dir" ]] && dotnet_root="$(dirname "$sdk_dir")"
+fi
+if [[ -n "$dotnet_root" ]]; then
+    dotnet_cmd="$dotnet_root/dotnet"
+    echo "-- .NET root: $dotnet_root"
+    if [[ ! -d "$dotnet_root/shared/Microsoft.AspNetCore.App" ]]; then
+        echo "-- warning: no Microsoft.AspNetCore.App runtime under $dotnet_root — mf-cockpit will not start" >&2
+    fi
+else
+    dotnet_cmd="dotnet"
+    echo "-- warning: could not resolve a .NET root (no DOTNET_ROOT, no SDK on PATH); units fall back to the system .NET" >&2
+fi
+unit_path="%h/.local/bin:${dotnet_root:+$dotnet_root:}/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:%h/.dotnet/tools"
+unit_dotnet_env=""
+[[ -n "$dotnet_root" ]] && unit_dotnet_env="Environment=\"DOTNET_ROOT=$dotnet_root\""
+
 # --- 1. publish the tools into staging (daemons keep running) ----------------
 tool_names=(mf-run mf-worker mf-watch mf-cockpit)
 tool_csproj=(
@@ -110,7 +141,7 @@ for i in "${!tool_names[@]}"; do
     name="${tool_names[$i]}"
     out="$staging_dir/$name"
     echo "-- publishing $name -> $out"
-    if ! act dotnet publish "$repo_root/${tool_csproj[$i]}" -c Release -o "$out" "-p:AssemblyName=$name" --nologo; then
+    if ! act "$dotnet_cmd" publish "$repo_root/${tool_csproj[$i]}" -c Release -o "$out" "-p:AssemblyName=$name" --nologo; then
         rm -rf "$staging_dir"
         echo "error: dotnet publish failed for $name — nothing was stopped, the installed tools in $install_dir are untouched" >&2
         exit 1
@@ -235,8 +266,10 @@ WorkingDirectory=$install_dir/mf-cockpit
 # A lingering user manager can start this unit before the graphical login has
 # imported the interactive shell environment. Keep PATH and the stable GNOME
 # keyring socket explicit so git, systemctl/systemd-escape and Claude resolve
-# the same way before and after a manual restart.
-Environment="PATH=%h/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:%h/.dotnet/tools"
+# the same way before and after a manual restart; DOTNET_ROOT (step 0) so the
+# apphost finds the .NET it was published with.
+Environment="PATH=$unit_path"
+$unit_dotnet_env
 Environment="SSH_AUTH_SOCK=%t/keyring/ssh"
 Restart=on-failure
 RestartSec=2
@@ -257,7 +290,8 @@ After=network.target
 [Service]
 Type=simple
 ExecStart=$install_dir/mf-watch/mf-watch --project %I
-Environment="PATH=%h/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:%h/.dotnet/tools"
+Environment="PATH=$unit_path"
+$unit_dotnet_env
 Environment="SSH_AUTH_SOCK=%t/keyring/ssh"
 Restart=no
 
@@ -289,7 +323,8 @@ Description=MagnaFlow self-update (re-install when tools/ changed and nothing ru
 [Service]
 Type=oneshot
 ExecStart=$selfupdate_script --repo $repo_root --install-dir $install_dir --config $machine_config
-Environment="PATH=%h/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:%h/.dotnet/tools"
+Environment="PATH=$unit_path"
+$unit_dotnet_env
 Environment="SSH_AUTH_SOCK=%t/keyring/ssh"
 TimeoutStartSec=15min
 EOF
