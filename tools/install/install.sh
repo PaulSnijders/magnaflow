@@ -118,7 +118,13 @@ else
     dotnet_cmd="dotnet"
     echo "-- warning: could not resolve a .NET root (no DOTNET_ROOT, no SDK on PATH); units fall back to the system .NET" >&2
 fi
-unit_path="%h/.local/bin:${dotnet_root:+$dotnet_root:}/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:%h/.dotnet/tools"
+# Tools installed through mise (claude and other agents, node, gh) reach the
+# shell via mise's activation, which the units never run. Its shims directory
+# resolves them without activation, so it goes on the unit PATH when present.
+mise_shims="${MISE_DATA_DIR:-$HOME/.local/share/mise}/shims"
+[[ -d "$mise_shims" ]] || mise_shims=""
+[[ -n "$mise_shims" ]] && echo "-- mise shims on unit PATH: $mise_shims"
+unit_path="%h/.local/bin:${dotnet_root:+$dotnet_root:}${mise_shims:+$mise_shims:}/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:%h/.dotnet/tools"
 unit_dotnet_env=""
 [[ -n "$dotnet_root" ]] && unit_dotnet_env="Environment=\"DOTNET_ROOT=$dotnet_root\""
 

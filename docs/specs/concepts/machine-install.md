@@ -95,8 +95,10 @@ install.sh [--install-dir <dir>] [--config <path>] [--self-update] [--dry-run]
   install dir on seeding. `cockpit.projects` is not replaced. It is an
   example to edit. The repo copy is never read by a tool.
 - Every unit (cockpit, watch, self-update) sets `PATH` (incl.
-  `~/.local/bin`, the .NET root, `~/.dotnet/tools`) and `SSH_AUTH_SOCK`
-  explicitly. A lingering user manager can start before login has
+  `~/.local/bin`, the .NET root, mise's shims directory when it exists,
+  `~/.dotnet/tools`) and `SSH_AUTH_SOCK` explicitly. The shims make
+  mise-installed tools (the agent CLI among them) resolvable without
+  mise's shell activation, which the units never run. A lingering user manager can start before login has
   imported the shell environment, and git, systemctl and Claude must
   resolve the same either way.
 - The .NET root is resolved once per run: `$DOTNET_ROOT` when it holds a
