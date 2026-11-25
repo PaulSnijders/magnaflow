@@ -80,6 +80,26 @@ duplicate name (case-sensitive) or the same full path
 (case-insensitive) is a 409. A missing `.git` is a returned warning,
 never a refusal.
 
+**Browse** (Existing tab): a "Browse…" button next to Path opens a
+folder picker inline in the dialog, over the cockpit's own machine (not
+the browser's). It starts at the folder in Path when that resolves to an
+existing directory, else at `cockpit.new_project.root`, else the user's
+home directory. It shows the current absolute path, an Up button
+(disabled at a root), the roots as buttons (drives on Windows, `/`
+elsewhere), and the subfolders sorted case-insensitively; a folder with
+a `.git` carries a `git` badge. Clicking a folder enters it. "Use this
+folder" writes the current path into Path and, when Name is empty, the
+folder's name into Name; typing a path by hand keeps working.
+
+`GET /api/browse?path=<abs>` (without `path`: the start folder as
+above, with the Path field's value sent as `hint`) returns `{path, parent, roots, dirs: [{name, path, git}]}`, `parent`
+null at a root. Only directory names leave the server, never files.
+Hidden folders (the Hidden attribute, or a name starting with `.`) are
+left out; a subfolder that cannot be read is still listed. A relative or
+empty `path` is a 400, a missing directory a 404, an unreadable one a
+403, each with `{error}` shown in the picker. It writes nothing. The
+perimeter is the network, as for every cockpit endpoint (decision 0013).
+
 **New** is offered only when `cockpit.new_project.root` is configured.
 Otherwise the tab says what to add. `GET /api/new-project` returns
 `{root, templates: [names], specKit: bool, separator}`; the target
