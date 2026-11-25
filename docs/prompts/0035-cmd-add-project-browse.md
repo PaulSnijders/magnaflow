@@ -1,7 +1,8 @@
 ---
 title: "Add project: browse for the path of an existing project"
-status: ready
+status: done
 created: 2026-11-25
+attempts: 2
 ---
 
 ## Context

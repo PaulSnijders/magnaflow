@@ -115,7 +115,9 @@ rule the button shows fails). In short:
   the watcher, Check now (writes `.magnaflow/mf-watch.wake`).
 - **Machine config**: Add project (existing or newly scaffolded) and
   Remove project, as narrow text edits of `magnaflow.yml` with a `.bak`
-  and verify-or-restore. Remove never deletes files.
+  and verify-or-restore. Remove never deletes files. Existing has a
+  Browse… folder picker over the cockpit's own machine (`GET /api/browse`:
+  folder names only, read-only).
 - **Scratchpad**: the one store outside git, kept next to
   `magnaflow.yml` (`scratchpad/<project>.md` for the note,
   `scratchpad/<project>.files/` for dropped files), never in a working

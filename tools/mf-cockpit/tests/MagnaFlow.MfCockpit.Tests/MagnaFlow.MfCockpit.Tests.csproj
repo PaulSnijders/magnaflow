@@ -5,6 +5,10 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <IsPackable>false</IsPackable>
+    <!-- SDK 11 generates Hot Reload browser-tools static web assets for Debug builds; in this test
+         project (Web SDK + a reference to the cockpit) their JS module has no endpoint and the
+         build fails ("scoped css bundles do not have matching endpoints"). Tests never hot-reload. -->
+    <EnableHotReloadInRuntimeConfigDevFile>false</EnableHotReloadInRuntimeConfigDevFile>
   </PropertyGroup>
 
   <ItemGroup>

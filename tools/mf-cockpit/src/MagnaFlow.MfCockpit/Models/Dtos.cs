@@ -189,6 +189,12 @@ public sealed record ScratchpadSaveResponse(string Hash, string SavedAt);
 /// (command/args/source) never leave the server.</summary>
 public sealed record NewProjectInfoDto(string? Root, IReadOnlyList<string> Templates, bool SpecKit, string Separator);
 
+/// <summary>GET /api/browse (docs/specs/cockpit/index.md "Browse"): one folder's subfolders on the
+/// cockpit's machine — directory names only, never files. Parent is null at a root.</summary>
+public sealed record BrowseListingDto(string Path, string? Parent, IReadOnlyList<string> Roots, IReadOnlyList<BrowseDirDto> Dirs);
+
+public sealed record BrowseDirDto(string Name, string Path, bool Git);
+
 /// <summary>POST /api/projects — write #6 (ontwerp-v0.4.md "Creating a project"). Mode is "new" or
 /// "existing"; Path is used by "existing" only, Template by "new" only.</summary>
 public sealed record CreateProjectRequest(string Mode, string Name, string? Path, string? Template);

@@ -53,7 +53,22 @@
       <div class="field"><label for="existing-name">Name</label><input type="text" id="existing-name" placeholder="my-project"></div>
       <div class="field">
         <label for="existing-path">Path</label>
-        <input type="text" id="existing-path" placeholder="absolute, or relative to new_project.root">
+        <div class="browse-path-row">
+          <input type="text" id="existing-path" placeholder="absolute, or relative to new_project.root">
+          <button type="button" id="browse-toggle" class="secondary" aria-expanded="false" aria-controls="browse-panel">Browse…</button>
+        </div>
+        <div id="browse-panel" class="browse-panel" style="display:none;">
+          <div id="browse-current" class="browse-current">-</div>
+          <div class="browse-toolbar">
+            <button type="button" id="browse-up" class="secondary browse-small" disabled>Up</button>
+            <span id="browse-roots" class="browse-roots"></span>
+          </div>
+          <ul id="browse-list" class="browse-list"></ul>
+          <div id="browse-error" class="dialog-error"></div>
+          <div class="browse-toolbar browse-actions">
+            <button type="button" id="browse-use" class="secondary" disabled>Use this folder</button>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -258,8 +273,99 @@
     document.getElementById("add-project-submit").textContent = "Add project";
   }
 
+  // Browse (docs/specs/cockpit/index.md "Browse"): a server-side folder picker over the cockpit's
+  // own machine, inline under Path. The Path field stays the source of truth for the request.
+  let browseListing = null; // last GET /api/browse result — {path, parent, roots, dirs}
+
+  function browsePanelOpen() { return document.getElementById("browse-panel").style.display !== "none"; }
+
+  function resetBrowsePanel() {
+    browseListing = null;
+    document.getElementById("browse-panel").style.display = "none";
+    document.getElementById("browse-toggle").setAttribute("aria-expanded", "false");
+    document.getElementById("browse-current").textContent = "-";
+    document.getElementById("browse-roots").innerHTML = "";
+    document.getElementById("browse-list").innerHTML = "";
+    document.getElementById("browse-error").textContent = "";
+    document.getElementById("browse-up").disabled = true;
+    document.getElementById("browse-use").disabled = true;
+  }
+
+  function renderBrowseListing(listing) {
+    browseListing = listing;
+    document.getElementById("browse-current").textContent = listing.path;
+    document.getElementById("browse-up").disabled = !listing.parent;
+    document.getElementById("browse-use").disabled = false;
+    document.getElementById("browse-roots").innerHTML = listing.roots.map((r) =>
+      `<button type="button" class="secondary browse-small" data-browse="${Cockpit.escapeHtml(r)}">${Cockpit.escapeHtml(r)}</button>`).join("");
+    document.getElementById("browse-list").innerHTML = listing.dirs.length
+      ? listing.dirs.map((d) =>
+          `<li><button type="button" class="browse-dir" data-browse="${Cockpit.escapeHtml(d.path)}">` +
+          `<span class="browse-name">${Cockpit.escapeHtml(d.name)}</span>` +
+          (d.git ? ' <span class="pill done">git</span>' : "") + "</button></li>").join("")
+      : '<li class="muted browse-empty">No subfolders.</li>';
+    document.getElementById("browse-list").scrollTop = 0;
+  }
+
+  async function loadBrowse(query) {
+    const errorEl = document.getElementById("browse-error");
+    errorEl.textContent = "";
+    try {
+      renderBrowseListing(await Cockpit.api("/api/browse?" + query));
+    } catch (err) {
+      errorEl.textContent = (err.body && err.body.error) || err.message;
+    }
+  }
+
+  const browseTo = (path) => loadBrowse("path=" + encodeURIComponent(path));
+
+  document.getElementById("browse-toggle").addEventListener("click", () => {
+    if (browsePanelOpen()) { resetBrowsePanel(); return; }
+    document.getElementById("browse-panel").style.display = "";
+    document.getElementById("browse-toggle").setAttribute("aria-expanded", "true");
+    loadBrowse("hint=" + encodeURIComponent(document.getElementById("existing-path").value.trim()));
+  });
+
+  document.getElementById("browse-up").addEventListener("click", () => {
+    if (browseListing && browseListing.parent) browseTo(browseListing.parent);
+  });
+
+  // Folder rows and root buttons both carry data-browse.
+  document.getElementById("browse-panel").addEventListener("click", (e) => {
+    const target = e.target.closest("[data-browse]");
+    if (target) browseTo(target.dataset.browse);
+  });
+
+  function lastPathSegment(path) {
+    const parts = path.split(/[\\/]+/).filter(Boolean);
+    const last = parts.length ? parts[parts.length - 1] : "";
+    return /^[A-Za-z]:$/.test(last) && parts.length === 1 ? "" : last; // a drive root has no name
+  }
+
+  document.getElementById("browse-use").addEventListener("click", () => {
+    if (!browseListing) return;
+    document.getElementById("existing-path").value = browseListing.path;
+    const nameEl = document.getElementById("existing-name");
+    if (!nameEl.value.trim()) nameEl.value = lastPathSegment(browseListing.path);
+    resetBrowsePanel();
+    document.getElementById("existing-path").focus();
+  });
+
+  // Ctrl+Enter submits from inside the panel too; a plain Enter there never submits the form
+  // (on a panel button it just clicks that button).
+  document.getElementById("browse-panel").addEventListener("keydown", (e) => {
+    if (e.key !== "Enter") return;
+    if (e.ctrlKey || e.metaKey) {
+      e.preventDefault();
+      document.getElementById("add-project-form").requestSubmit();
+    } else if (!e.target.closest("button")) {
+      e.preventDefault();
+    }
+  });
+
   function openAddProjectDialog() {
     resetAddProjectResult();
+    resetBrowsePanel();
     document.getElementById("existing-name").value = "";
     document.getElementById("existing-path").value = "";
     document.getElementById("new-name").value = "";

@@ -65,6 +65,8 @@ builder.Services.AddSingleton<ScratchpadStore>();
 builder.Services.AddSingleton<ScratchpadFileStore>();
 builder.Services.AddSingleton<DraftWriter>();
 builder.Services.AddSingleton<ProjectScaffolder>();
+builder.Services.AddSingleton(sp => new DirectoryBrowser(
+    sp.GetRequiredService<NewProjectConfig>(), Environment.GetFolderPath(Environment.SpecialFolder.UserProfile)));
 builder.Services.AddSingleton<SseHub>();
 // One instance, exposed both as the hosted service and as IProjectWatcherRegistry (write #7 needs
 // to dispose a single project's watcher on remove — ontwerp-v0.5.md item 4).
@@ -95,6 +97,7 @@ app.MapGitApi();
 app.MapRunApi();
 app.MapProjectConfigApi();
 app.MapNewProjectApi();
+app.MapBrowseApi();
 app.MapScratchpadApi();
 app.MapScratchpadFileApi();
 
