@@ -1,6 +1,6 @@
 ---
 title: "Add project: browse for the path of an existing project"
-status: ready
+status: running
 created: 2026-11-25
 ---
 
