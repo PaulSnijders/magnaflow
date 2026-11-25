@@ -81,16 +81,20 @@ are open and vendor-neutral, readable without MagnaFlow.
 - **Paths in messages and config** are repo-relative where they refer
   to a project, absolute where they refer to the machine.
 - **Cockpit appearance**: dark theme derived from
-  `assets/magnaflow-banner-wide.png`, plain HTML + CSS in `wwwroot/`, no
-  SPA framework; the logo and banner are build-time links from
-  `assets/`.
+  `assets/magnaflow-banner-wide.png`, HTML + CSS in `wwwroot/` with
+  `style.css` as the design system (no CSS library). Page logic is ES
+  modules rendered with Preact + htm, vendored in
+  `wwwroot/assets/vendor/`: no npm, no build step, no CDN. Every page
+  stays its own HTML file (no SPA). The logo and banner are build-time
+  links from `assets/`. Why: decisions/0022-cockpit-preact-htm.md
 
 ## Technology
 
 - C#/.NET 10; each tool a standalone cross-platform console app in
   `tools/<name>/` with its own solution, `src/` and `tests/`.
-- Libraries: Spectre.Console.Cli, CliWrap, YamlDotNet. New dependencies
-  need a concrete need — KISS.
+- Libraries: Spectre.Console.Cli, CliWrap, YamlDotNet; in the cockpit
+  frontend Preact + htm (one vendored file). New dependencies need a
+  concrete need — KISS.
 - AI execution: Claude Code headless (`claude -p`), session reuse via
   `--resume`; the user's own account, API keys only as a deliberate
   opt-in.

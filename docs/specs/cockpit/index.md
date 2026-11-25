@@ -161,6 +161,20 @@ changed, so after an install it never mixes an old `app.js` with a new
 `style.css`. API responses are not static files and are not covered by
 this rule.
 
+## Page rendering {#page-rendering}
+
+This holds for every cockpit page. Each page's script is an ES module
+under `assets/pages/` that renders with the vendored Preact + htm
+(`assets/vendor/preact-htm.js`). Shared pieces (status pill, live badge,
+breadcrumb, log view, summary bar, markdown) are components in
+`assets/ui.js`. Text from files, the API or model output is escaped by
+the template. The only HTML injected as a string is `md.js` output,
+which vets its own links ([markdown rendering](chat.md#markdown-rendering)).
+
+A live refetch re-renders in place. Open `<details>`, expanded lists,
+log tails, focus, caret, scroll position and unsaved input survive it.
+A guarded handler still skips the refetch while its input is dirty.
+
 ## Live updates
 
 SSE kinds `lane`, `projects`, `watch` and `run` from any project
@@ -174,4 +188,4 @@ starts.
 
 DRAFT: generated from code, not human-reviewed.
 
-Why: decisions/0009-cockpit-add-project.md
+Why: decisions/0009-cockpit-add-project.md, decisions/0022-cockpit-preact-htm.md
