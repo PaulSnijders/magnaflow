@@ -663,3 +663,6 @@ const Cockpit = (() => {
     chirp: sound.chirp, cueTracker: sound.cueTracker, detectCue: sound.detectCue, soundToggle: sound.toggleButton,
   };
 })();
+// A top-level const is a global binding but not a window property; the ES-module pages
+// (assets/pages/, via ui.js) read it from window until 0036B turns this file into a module.
+window.Cockpit = Cockpit;

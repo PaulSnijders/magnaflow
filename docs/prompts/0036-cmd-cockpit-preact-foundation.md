@@ -1,7 +1,8 @@
 ---
 title: "Cockpit on Preact + htm: foundation, project page, front door"
-status: ready
+status: done
 created: 2026-11-25
+attempts: 1
 ---
 
 ## Context

@@ -30,6 +30,9 @@ public class StaticFilesCacheTests : IDisposable
     [InlineData("/specs.html")]
     [InlineData("/assets/app.js")]
     [InlineData("/assets/style.css")]
+    [InlineData("/assets/vendor/preact-htm.js")]
+    [InlineData("/assets/ui.js")]
+    [InlineData("/assets/pages/project.js")]
     public async Task Static_file_is_served_with_no_cache_and_an_etag(string path)
     {
         using var factory = new CockpitFactory(_configPath);

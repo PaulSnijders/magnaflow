@@ -1,6 +1,8 @@
 # mf-cockpit — MagnaFlow dashboard + chat
 
-A small ASP.NET Core app (Kestrel, static files, no SPA framework). It
+A small ASP.NET Core app (Kestrel, static files). Pages render with a vendored
+Preact + htm (`wwwroot/assets/vendor/`), one ES module per page: still no SPA
+and no build step. It
 renders the plain-text state of one or more MagnaFlow projects (the prompt
 lane, per-command evidence, the mf-watch diary, the spec tree) and offers a
 read-only AI chat that can turn an answer into a new `draft` command.
