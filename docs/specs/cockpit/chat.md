@@ -25,7 +25,9 @@ message is a 400) answers with an SSE stream of `data:` frames:
   none was sent.
 - `{type: "line", text}`: every raw agent output line, as it arrives. The
   page previews only the assistant's text from these and never shows the
-  raw JSON.
+  raw JSON. The preview grows in place, and the log follows it only
+  while you are scrolled to the bottom. Scroll up to reread and it stays
+  where you are; sending a message always scrolls down.
 - `{type: "done", chatId, sessionId, finalText, timedOut, exitCode}`:
   last. `finalText` is the `result` field of the stream's terminal
   `result` event, the same value the worker harvests. It replaces the

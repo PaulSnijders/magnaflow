@@ -5,8 +5,9 @@
 // input, in-flight buttons) is useState inside the card that owns it, so a refetch never has to
 // carry it. Derived controls (Switch, Pull/Sync, Commit all, Promote, Run) are computed in render.
 import {
-  html, render, useState, useEffect, Cockpit, SummaryBar, Breadcrumb, StatusPill, ctrlEnter,
+  html, render, useState, useEffect, SummaryBar, Breadcrumb, StatusPill, ctrlEnter,
 } from "../ui.js";
+import * as Cockpit from "../app.js";
 
 /** @typedef {import("../types.js").LaneCommand} LaneCommand */
 /** @typedef {import("../types.js").GitInfo} GitInfo */

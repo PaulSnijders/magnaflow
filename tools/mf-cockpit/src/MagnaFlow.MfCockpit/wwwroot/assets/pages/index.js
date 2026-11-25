@@ -3,8 +3,9 @@
 // server data in `state`, loaders assign and rerender(); dialog contents, tabs and unsaved input
 // are useState in the component that owns them.
 import {
-  html, render, useState, useEffect, useLayoutEffect, useRef, Cockpit, StatusPill, LiveBadge, SoundToggle, Dialog, ctrlEnter,
+  html, render, useState, useEffect, useLayoutEffect, useRef, StatusPill, LiveBadge, SoundToggle, Dialog, ctrlEnter,
 } from "../ui.js";
+import * as Cockpit from "../app.js";
 
 /** @typedef {import("../types.js").ProjectSummary} ProjectSummary */
 /** @typedef {import("../types.js").LiveState} LiveState */

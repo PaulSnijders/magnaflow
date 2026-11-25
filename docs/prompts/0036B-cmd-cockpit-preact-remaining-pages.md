@@ -1,7 +1,8 @@
 ---
 title: "Cockpit on Preact + htm: the remaining five pages"
-status: ready
+status: done
 created: 2026-11-25
+attempts: 1
 ---
 
 ## Context

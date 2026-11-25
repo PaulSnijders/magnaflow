@@ -18,6 +18,8 @@
 // link as plain text (specs.html resolves spec cross-links with it). External links open in a new
 // tab; a same-page `#anchor`, or a link rewriteLink changed, is in-cockpit navigation and does not.
 
+// An ES module with one export, renderMarkdown; ui.js's Markdown component is its caller.
+
 // Kept identical to scripts/spec_lint.mjs - change both together.
 const MD_ANCHOR = /\{#([a-z0-9-]+)\}/;
 function mdGhSlug(headingText) {
@@ -26,7 +28,7 @@ function mdGhSlug(headingText) {
   return t.replaceAll(" ", "-");
 }
 
-function renderMarkdown(src, opts) {
+export function renderMarkdown(src, opts) {
   if (!src) return "";
   const rewriteLink = opts && opts.rewriteLink;
 

@@ -126,9 +126,10 @@
  */
 
 /**
- * @typedef {object} LogTail  GET .../run/{service}/log, .../actions/{name}/log
+ * @typedef {object} LogTail  GET .../run/{service}/log, .../actions/{name}/log; a command's evidence logs.
  * @property {boolean} exists
  * @property {string[]} lines
+ * @property {boolean} [truncated]
  */
 
 /**
@@ -189,6 +190,116 @@
  * @property {string} [path]
  * @property {string} [output]
  * @property {string} [error]
+ */
+
+/**
+ * @typedef {object} LaneFile  One lane file of a command detail.
+ * @property {boolean} exists
+ * @property {string | null} content
+ */
+
+/**
+ * @typedef {object} CommandDetail  GET /api/projects/{name}/commands/{id}
+ * @property {string} id
+ * @property {string} title
+ * @property {string} status
+ * @property {number} attempts
+ * @property {number | null} maxAttempts
+ * @property {string | null} branch
+ * @property {string | null} base
+ * @property {string | null} group
+ * @property {string[]} specs
+ * @property {string | null} created
+ * @property {boolean} malformed
+ * @property {string | null} error
+ * @property {LaneFile} cmd  body only; the frontmatter is the fields above
+ * @property {LaneFile} pln
+ * @property {LaneFile} qa
+ * @property {LaneFile} rst
+ * @property {LogTail} claudeLog
+ * @property {LogTail} buildLog
+ * @property {LogTail} testLog
+ * @property {string | null} sessionId
+ * @property {string | null} summary
+ */
+
+/**
+ * @typedef {object} CreatedCommand  POST .../commands (a draft) and POST .../commands/{id}/follow-up.
+ * @property {string} id
+ * @property {string} path
+ * @property {boolean} [resumeSet]  follow-up only
+ * @property {string | null} [warning]  follow-up only
+ */
+
+/**
+ * @typedef {object} SpecsEntry
+ * @property {string} name
+ * @property {boolean} isDirectory
+ */
+
+/**
+ * @typedef {{type: "dir", entries: SpecsEntry[]} | {type: "file", content: string}} SpecsResult
+ *   GET /api/projects/{name}/specs[/{path}]
+ */
+
+/**
+ * @typedef {object} CockpitConfig  GET /api/config
+ * @property {boolean} chatEnabled
+ * @property {string} configPath
+ * @property {string} runCommand
+ * @property {string} chatCommand
+ */
+
+/**
+ * @typedef {object} ConfigSummary
+ * @property {string[]} buildCommands
+ * @property {string[]} testCommands
+ * @property {number} maxAttempts
+ * @property {string[]} runServices
+ */
+
+/**
+ * @typedef {object} ProjectConfig  GET /api/projects/{name}/config
+ * @property {string} content
+ * @property {string} hash
+ * @property {ConfigSummary} summary
+ */
+
+/**
+ * @typedef {object} ConfigSaveResult  PUT /api/projects/{name}/config (409 on a stale baseHash)
+ * @property {string} hash
+ * @property {string[]} warnings
+ */
+
+/**
+ * @typedef {object} Scratchpad  GET /api/projects/{name}/scratchpad
+ * @property {string} content
+ * @property {string} hash
+ * @property {string | null} savedAt
+ */
+
+/**
+ * @typedef {object} ScratchpadSaveResult  PUT /api/projects/{name}/scratchpad (409 on a stale baseHash)
+ * @property {string} hash
+ * @property {string} savedAt
+ */
+
+/**
+ * @typedef {object} ScratchFile  GET /api/projects/{name}/files, one row.
+ * @property {string} name
+ * @property {number} size
+ * @property {string} uploadedAt
+ */
+
+/**
+ * @typedef {object} ChatFrame  One `data:` frame of POST /api/projects/{name}/chat.
+ * @property {"start" | "line" | "done"} type
+ * @property {string} [chatId]
+ * @property {string} [text]  "line": one raw stream-json line
+ * @property {string | null} [finalText]  "done"
+ * @property {boolean} [timedOut]  "done"
+ * @property {string | null} [sessionId]  "done"
+ * @property {number} [exitCode]  "done"
  */
 
 export {};

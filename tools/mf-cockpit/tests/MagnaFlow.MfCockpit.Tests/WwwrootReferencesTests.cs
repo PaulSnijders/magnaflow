@@ -104,18 +104,63 @@ public class WwwrootReferencesTests
         Assert.Contains("assets/ui.js -> ./vendor/preact-htm.js", found);
         Assert.Contains("assets/pages/project.js -> ../ui.js", found);
         Assert.Contains("assets/pages/index.js -> ../ui.js", found);
+        Assert.Contains("assets/ui.js -> ./app.js", found);
+        Assert.Contains("assets/ui.js -> ./md.js", found);
+        foreach (var page in new[] { "index", "project", "specs", "command", "chat", "config", "scratchpad" })
+            Assert.Contains($"assets/pages/{page}.js -> ../app.js", found);
         Assert.True(missing.Count == 0, "unresolved imports: " + string.Join("; ", missing));
     }
 
+    /// <summary>Every page and every asset module except the vendored file and md.js, which builds
+    /// HTML on purpose (its output is the one string Markdown injects).</summary>
+    public static TheoryData<string> RenderingFiles()
+    {
+        var data = new TheoryData<string>();
+        foreach (var file in Directory.GetFiles(Wwwroot, "*.html").Order(StringComparer.Ordinal))
+            data.Add(Path.GetFileName(file));
+        var assets = Path.Combine(Wwwroot, "assets");
+        foreach (var file in Directory.GetFiles(assets, "*.js", SearchOption.AllDirectories).Order(StringComparer.Ordinal))
+        {
+            var rel = Path.GetRelativePath(Wwwroot, file).Replace('\\', '/');
+            if (rel.StartsWith("assets/vendor/") || rel == "assets/md.js") continue;
+            data.Add(rel);
+        }
+        return data;
+    }
+
+    [Fact]
+    public void The_rendering_file_list_covers_every_page_module()
+    {
+        var files = RenderingFiles().Cast<object[]>().Select(row => (string)row[0]).ToList();
+        foreach (var page in new[] { "index", "project", "specs", "command", "chat", "config", "scratchpad" })
+        {
+            Assert.Contains(page + ".html", files);
+            Assert.Contains("assets/pages/" + page + ".js", files);
+        }
+        Assert.Contains("assets/app.js", files);
+        Assert.Contains("assets/ui.js", files);
+        Assert.DoesNotContain("assets/md.js", files);
+        Assert.DoesNotContain("assets/vendor/preact-htm.js", files);
+    }
+
     [Theory]
-    [InlineData("project.html")]
-    [InlineData("index.html")]
-    [InlineData("assets/pages/project.js")]
-    [InlineData("assets/pages/index.js")]
-    public void A_converted_page_injects_no_html_strings(string file)
+    [MemberData(nameof(RenderingFiles))]
+    public void A_page_or_module_injects_no_html_strings(string file)
     {
         var text = File.ReadAllText(Path.Combine(Wwwroot, file));
         Assert.DoesNotContain("innerHTML", text);
         Assert.DoesNotContain("escapeHtml", text);
+    }
+
+    [Theory]
+    [MemberData(nameof(HtmlPages))]
+    public void Every_script_in_a_page_is_a_module(string page)
+    {
+        var text = File.ReadAllText(Path.Combine(Wwwroot, page));
+        var scripts = Regex.Matches(text, @"<script\b([^>]*)>", RegexOptions.IgnoreCase);
+
+        Assert.True(scripts.Count > 0, $"{page}: no <script> found — the pattern no longer matches");
+        foreach (Match m in scripts)
+            Assert.Matches(@"\btype\s*=\s*""module""", m.Groups[1].Value);
     }
 }

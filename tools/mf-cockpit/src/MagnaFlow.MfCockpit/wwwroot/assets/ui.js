@@ -3,20 +3,18 @@
 // Preact + htm, vendored; text interpolated with ${…} is escaped by the template. The one place
 // that injects an HTML string is Markdown below, fed with md.js output (which vets its own links).
 //
-// app.js and md.js are still classic scripts (0036B turns them into modules): a page loads them
-// with a plain <script src> before its module, and this file reads window.Cockpit /
-// window.renderMarkdown for the non-HTML helpers (api, formatDate, displayUrl, sound, ...).
+// The non-rendering helpers (api, live, formatDate, sound, ...) are app.js's named exports, which
+// pages import as a namespace, `* as Cockpit`.
 import {
   html, render, useState, useEffect, useLayoutEffect, useRef, useMemo, useCallback,
 } from "./vendor/preact-htm.js";
+import * as Cockpit from "./app.js";
+import { renderMarkdown } from "./md.js";
 
 /** @typedef {import("./types.js").ProjectSummary} ProjectSummary */
 /** @typedef {import("./types.js").LiveState} LiveState */
 
 export { html, render, useState, useEffect, useLayoutEffect, useRef, useMemo, useCallback };
-
-/** The classic app.js helper object. @type {any} */
-export const Cockpit = /** @type {any} */ (window).Cockpit;
 
 /** @param {{status?: string | null}} props */
 export function StatusPill({ status }) {
@@ -29,8 +27,8 @@ function clock(/** @type {number} */ ms) {
 }
 
 /**
- * The live marker, fed from Cockpit.live()'s onState. Same markup and label as the badge
- * live() renders itself: "connecting…" until the first state arrives.
+ * The live marker, fed from Cockpit.live()'s onState: "connecting…" until the first state
+ * arrives, then live()'s label with the "· HH:MM" of the last refetch.
  * @param {{live?: LiveState | null, class?: string}} props
  */
 export function LiveBadge({ live, class: extra }) {
@@ -88,15 +86,22 @@ function summarizeJson(/** @type {any} */ obj) {
 export function LogView({ lines, raw }) {
   if (raw) return lines.join("\n") || "(empty)";
   if (!lines.length) return html`<span class="muted">(empty)</span>`;
+  // Keyed by content (+ occurrence), so an expanded JSON line stays expanded on its own line when
+  // a bounded tail shifts under a live refetch, rather than the open state staying at its index.
+  /** @type {Map<string, number>} */
+  const seen = new Map();
   return lines.map((line) => {
+    const n = (seen.get(line) || 0) + 1;
+    seen.set(line, n);
+    const key = n + "\u0000" + line;
     const trimmed = line.trim();
     if (trimmed.startsWith("{") || trimmed.startsWith("[")) {
       try {
         const obj = JSON.parse(trimmed);
-        return html`<details class="json-line"><summary>${summarizeJson(obj)}</summary><pre>${JSON.stringify(obj, null, 2)}</pre></details>`;
+        return html`<details key=${key} class="json-line"><summary>${summarizeJson(obj)}</summary><pre>${JSON.stringify(obj, null, 2)}</pre></details>`;
       } catch { /* looked like JSON, wasn't — plain rendering */ }
     }
-    return html`<div class="log-line">${line}</div>`;
+    return html`<div key=${key} class="log-line">${line}</div>`;
   });
 }
 
@@ -107,7 +112,7 @@ export function LogView({ lines, raw }) {
  */
 export function Markdown({ source, opts, project, class: cls, id }) {
   const ref = useRef(/** @type {HTMLDivElement | null} */ (null));
-  const rendered = useMemo(() => /** @type {any} */ (window).renderMarkdown(source || "", opts), [source, opts]);
+  const rendered = useMemo(() => renderMarkdown(source || "", opts), [source, opts]);
   useLayoutEffect(() => {
     if (project && ref.current) Cockpit.rewriteLaneLinks(ref.current, project);
   }, [rendered, project]);
@@ -225,5 +230,38 @@ export function ctrlEnter(submit) {
       e.preventDefault();
       submit();
     }
+  };
+}
+
+/**
+ * The project-scoped chrome every page under a project shares (specs, command, config,
+ * scratchpad): the header breadcrumb `mf-cockpit / <project> / <label>`, the nav hrefs, and the
+ * summary bar's data. `chrome` gets `projects` and `summary` from the one /api/overview request;
+ * the returned `refreshSummary` is the live handler for lane/watch events, and goes to the fast
+ * per-project endpoint like the old app.js bar did.
+ * @param {{project: string, label: string, chrome: {projects: string[], summary: ProjectSummary | null},
+ *   rerender: () => void}} opts
+ */
+export function startProjectChrome({ project, label, chrome, rerender }) {
+  const crumb = document.getElementById("breadcrumb");
+  if (crumb) {
+    render(html`<${Breadcrumb} segments=${[
+      { label: "mf-cockpit", href: "index.html" },
+      { label: project, href: "project.html?p=" + encodeURIComponent(project) },
+      { label },
+    ]}/>`, crumb);
+  }
+  Cockpit.wireNav(project);
+  const setSummary = (/** @type {ProjectSummary} */ s) => {
+    chrome.summary = s;
+    rerender();
+  };
+  Cockpit.getOverview(project).then((/** @type {import("./types.js").Overview} */ o) => {
+    chrome.projects = o.projects || [];
+    if (o.project) setSummary(o.project);
+    else rerender();
+  }).catch(() => {});
+  return async function refreshSummary() {
+    try { setSummary(await Cockpit.api(`/api/projects/${encodeURIComponent(project)}`)); } catch { /* keep last */ }
   };
 }

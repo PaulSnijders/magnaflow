@@ -18,7 +18,7 @@ none
 
 ## Spec ahead (implementation pending)
 
-- cockpit/index.md#page-rendering — holds for `index.html` and `project.html` since 0036; the other five pages (command, specs, config, scratchpad, chat) still render with `innerHTML` on the classic `app.js`/`md.js` until 0036B.
+none
 
 ## Hotfix debt
 
@@ -30,6 +30,7 @@ none
 
 ## Recent spec updates
 
+- 2026-11-25 — 0036B: cockpit/index.md#page-rendering now holds for all seven pages (specs, command, chat, config and scratchpad moved to `assets/pages/`); `app.js` and `md.js` are ES modules, `window.Cockpit` is gone. cockpit/chat.md: the streamed reply autoscrolls only while you are at the bottom. Scratchpad "keep mine" now overwrites at once, as cockpit/scratchpad.md already said (the old page's nested save was swallowed by its own in-flight guard).
 - 2026-11-25 — 0036: cockpit/index.md#page-rendering implemented for `index.html` and `project.html` (vendored Preact + htm, `assets/ui.js`, `assets/pages/`); no behaviour change in cockpit/index.md or cockpit/project.md. `app.js` gained one line, `window.Cockpit = Cockpit`, so the ES modules can read the classic helper.
 - 2026-11-09 — 0032: optional test gate and `defaults.agent_timeout_minutes` implemented (concepts/worker-run.md step 5 and "Attempts and timeouts", concepts/machine-config.md; evidence-layout.md and cockpit/command.md note that `test.log` may be absent). Small additions where the implementation had to choose: the no-test-gate log line; the plan prompt carries the same rules line as the implementation prompt; `test: null` / `test: {}` are malformed with the existing "missing required field(s)" message; an agent timeout below 1 gets its own "invalid value" message.
 - 2026-10-29 — 0031: git sync per command and `on_conflict` auto-resolve implemented (watch/mf-watch.md, worker/action.md, concepts/actions.md, concepts/worker-run.md). Small additions where the implementation had to choose: the rebase-pull of a rejected push that fails also ends dispatch; after an unresolved conflict the state remembered is the one after the second pull (the action may have committed); a failed action also raises its own `action <name>: failed`.
