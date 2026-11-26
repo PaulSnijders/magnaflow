@@ -51,7 +51,7 @@ wants the whole frontend on one model, not one page.
 
 ## Choice
 
-Preact + htm on every page, vendored as one file with its MIT license
+Preact + htm on every page, vendored as one file with its licenses (Preact MIT, htm Apache-2.0)
 beside it. Each page stays its own HTML file with its own module: no
 router, no SPA. `md.js` stays the one markdown renderer, and its output
 is the only HTML injected as a string. No CSS library: `style.css`

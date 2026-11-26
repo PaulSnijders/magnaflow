@@ -61,7 +61,7 @@ first, 10 at a time. The server's ordinal order (`0005 < 0005B < 0006`)
 is reversed only at render time, so a follow-up sits above its parent
 (marker ↱). Duration comes from the first line of `claude.log` up to the
 last evidence write. It renders as `m:ss` under an hour and `h:mm:ss`
-above. A `draft` row offers **Ready**, which flips exactly
+above. A `draft` row offers **Make ready**, which flips exactly
 `draft → ready`. See [command lifecycle](../concepts/command-lifecycle.md).
 
 Sound cues announce terminal transitions over the *full* lane, so a
