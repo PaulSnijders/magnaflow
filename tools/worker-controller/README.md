@@ -107,7 +107,11 @@ run:                             # optional; see "mf-run around the run" below
 `build` and `test` each take exactly one of `command:` (a string) or
 `commands:` (a list, run in order; the first failure stops it and its output
 is the feedback). A monorepo with two stacks gets one `commands:` entry each:
-see [config.yml recipes](EXAMPLES.md#7-configyml-recipes). `build` is
+see [config.yml recipes](EXAMPLES.md#7-configyml-recipes). A `commands:` entry
+may also be a mapping, `{run: <command>, paths: [topo/, ...]}`: it then runs
+only when the cmd touched one of those paths (since its claim commit), and a
+skip counts as passed. See [path-scoped
+commands](../../docs/specs/concepts/machine-config.md#path-scoped-commands). `build` is
 required. `test` is optional: without the key the worker runs only the build,
 a green build passes the attempt, and the prompt tells the agent to run the
 tests itself. A `test:` key that is present but empty is an error, never "off".

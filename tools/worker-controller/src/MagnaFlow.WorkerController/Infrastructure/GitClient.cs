@@ -29,6 +29,12 @@ public interface IGitClient
     /// <summary>The remote to push to ("origin" if present, else the first configured remote), or null if none.</summary>
     Task<string?> GetRemoteAsync();
     Task PushAsync(string remote, string branch);
+    /// <summary>
+    /// Every repo-relative path that differs between <paramref name="startCommit"/> and the
+    /// working tree: commits since then, staged and unstaged changes, and untracked files that
+    /// are not ignored. A rename counts as both its old and its new path. Sorted, distinct.
+    /// </summary>
+    Task<IReadOnlyList<string>> GetTouchedPathsAsync(string startCommit);
 }
 
 /// <summary>
@@ -133,6 +139,28 @@ public sealed class GitClient(IProcessRunner processRunner, string projectRoot) 
 
     public async Task PushAsync(string remote, string branch) =>
         await GitAsync("push", "--quiet", "--set-upstream", remote, branch);
+
+    public async Task<IReadOnlyList<string>> GetTouchedPathsAsync(string startCommit)
+    {
+        // --no-renames reports a rename as delete + add, so both paths count. Newline-separated,
+        // not -z: NUL-separated output hangs the process runner's line reader. core.quotePath=false
+        // keeps non-ASCII names verbatim; git still quotes a name with a control character, '"' or
+        // '\\' — that rare name is unquoted best-effort below.
+        var changed = await GitAsync("-c", "core.quotePath=false", "diff", "--name-only", "--no-renames", startCommit, "--");
+        var untracked = await GitAsync("-c", "core.quotePath=false", "ls-files", "--others", "--exclude-standard");
+        return (changed + "\n" + untracked)
+            .Split('\n', StringSplitOptions.RemoveEmptyEntries)
+            .Select(line => Unquote(line.TrimEnd('\r')))
+            .Where(p => p.Length > 0)
+            .Distinct(StringComparer.Ordinal)
+            .Order(StringComparer.Ordinal)
+            .ToList();
+    }
+
+    private static string Unquote(string path) =>
+        path.Length >= 2 && path[0] == '"' && path[^1] == '"'
+            ? path[1..^1].Replace("\\\"", "\"").Replace("\\\\", "\\")
+            : path;
 
     private async Task<string> GitAsync(params string[] args)
     {

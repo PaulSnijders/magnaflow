@@ -41,9 +41,48 @@ new attempt). The project's `CLAUDE.md` should then say how to run the
 tests. An empty `test:` (a bare key, `commands: []`, a blank `command`)
 is an error, not "off": only leaving the key out switches the gate off.
 
+**Path-scoped commands.** In a monorepo, a `commands:` entry can be a
+mapping with `run:` and `paths:`. It then runs only when the cmd touched
+a file under one of those repo-relative prefixes. A string entry still
+always runs.
+
+```yaml
+build:
+  commands:
+    - node more/cmd/mf-klaas-backend.js build    # string: always runs
+    - run: npm --prefix topo run build
+      paths: [topo/]                             # only when the cmd touched topo/
+test:
+  commands:
+    - run: node more/cmd/mf-klaas-backend.js test
+      paths: [klaas-backend/, more/cmd/mf-klaas-backend.js]
+```
+
+- A trailing `/` means a folder. A path without one is that file (or
+  that folder): `topo` never matches `topology.md`. There are no globs.
+- "Touched" means everything that differs from the cmd's claim commit:
+  the run's commits, uncommitted changes, and untracked files that are
+  not ignored. A rename counts both paths. The cmd's own lane files
+  don't count.
+- A skipped command counts as passed. When every test command is
+  skipped, the attempt passes (`tests: all skipped, no touched paths`).
+  A change to `.magnaflow/config.yml` itself runs every command.
+- The agent's prompt lists which checks will run for its changes so far.
+- `paths` exists only in `commands:` of `build`/`test`, not in the
+  single `command:` form and not in actions.
+- Invalid entries stop every run with exit 2: a missing `run`, an empty
+  `paths`, an absolute path or `..`, or any key other than `run`/`paths`.
+- **The mapping form needs a worker that knows it.** An older mf-worker
+  fails on the config with a YAML error (exit 2, every cmd). Update the
+  tools on every machine that runs this project first
+  (self-update or `install.ps1`), then commit the mapping.
+
 **Only commands that pass today.** A permanently red command makes every
 cmd fail. Leave a broken suite out, and say so in a comment, until a cmd
-fixes it. Never put anything here that deploys, installs or restarts the
+fixes it. That holds per path too: a red check scoped to `topo/` fails
+every cmd that touches `topo/`, even when the cmd did not break it.
+Scoping does not make a broken check harmless; it only limits which cmds
+it blocks. Never put anything here that deploys, installs or restarts the
 MagnaFlow tools.
 
 ## `defaults`

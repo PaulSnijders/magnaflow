@@ -193,6 +193,16 @@ public sealed class TaskRunner(
         // planes are genuinely separate commits, so there is nothing to fold.
         var claimCommit = cmd.Branch is null ? await git.GetHeadCommitAsync() : null;
 
+        // The start point of path-scoped checks (worker-run.md step 5): the claim commit, in both
+        // modes. Everything that differs from it at check time — this run's commits, uncommitted
+        // and untracked files — is "touched". Only asked when some command has `paths:`.
+        var startPoint = config.HasPathScopedCommands ? claimCommit ?? await git.GetHeadCommitAsync() : null;
+        async Task<TouchedPaths?> TouchedAsync() => startPoint is null
+            ? null
+            : TouchedPaths.From(await git.GetTouchedPathsAsync(startPoint), cmd, projectRoot);
+        string? ChecksSection(TouchedPaths? touched) =>
+            touched is null ? null : PromptBuilder.BuildChecksSection(config.BuildCommands, config.TestCommands, touched);
+
         // Session continuity, in order of precedence (spec FR-013 amends v0.1 FR-013a):
         // 1. explicit resume: (raw session ID or another command's recorded session)
         // 2. same group as the immediately preceding command in this invocation (v0.1 FR-013)
@@ -242,10 +252,11 @@ public sealed class TaskRunner(
 
                 // A retry that cannot resume a session starts a fresh one, which has never seen
                 // the command: it gets the full plan prompt again, with the feedback appended.
+                var planChecks = ChecksSection(await TouchedAsync());
                 var planPrompt = feedbackPhase is null
-                    ? PromptBuilder.BuildPlan(cmd, projectRoot, conventions, hasTestGate)
+                    ? PromptBuilder.BuildPlan(cmd, projectRoot, conventions, hasTestGate, planChecks)
                     : resumeSession is null
-                        ? PromptBuilder.BuildPlan(cmd, projectRoot, conventions, hasTestGate) + Environment.NewLine + PromptBuilder.BuildFailureFeedback(feedbackPhase, feedbackOutput!)
+                        ? PromptBuilder.BuildPlan(cmd, projectRoot, conventions, hasTestGate, planChecks) + Environment.NewLine + PromptBuilder.BuildFailureFeedback(feedbackPhase, feedbackOutput!)
                         : PromptBuilder.BuildFailureFeedback(feedbackPhase, feedbackOutput!);
 
                 info($"[{cmd.Id}] planning{(resumeSession is not null ? " (resumed session)" : "")}");
@@ -320,12 +331,23 @@ public sealed class TaskRunner(
 
                     // A section's commands: run sequentially; the first failure stops the sequence and
                     // its own output is the feedback (contracts/file-formats.md `.magnaflow/config.yml`).
-                    async Task<ProcessResult> RunSequentiallyAsync(IReadOnlyList<string> commands, Action<string> onOutputLine)
+                    // A path-scoped command whose paths the run did not touch is skipped, said in
+                    // the console and the section's log, and counts as passed (worker-run.md step 5).
+                    async Task<ProcessResult> RunSequentiallyAsync(
+                        string section, IReadOnlyList<CheckCommand> commands, TouchedPaths? touched, Action<string> onOutputLine)
                     {
                         var result = new ProcessResult(0, "", "", false);
-                        foreach (var command in commands)
+                        for (var i = 0; i < commands.Count; i++)
                         {
-                            result = await processes.RunShellAsync(command, projectRoot, onOutputLine, config.CommandTimeout);
+                            var command = commands[i];
+                            if (touched is not null && !touched.Runs(command))
+                            {
+                                var why = $"no change under {command.PathList}";
+                                info($"[{cmd.Id}] attempt {attemptsUsed}/{maxAttempts}: {section} {i + 1}/{commands.Count} skipped ({why})");
+                                onOutputLine($"skipped {section} {i + 1}/{commands.Count}: {command.Run} ({why})");
+                                continue;
+                            }
+                            result = await processes.RunShellAsync(command.Run, projectRoot, onOutputLine, config.CommandTimeout);
                             if (!result.Succeeded)
                                 break;
                         }
@@ -339,11 +361,14 @@ public sealed class TaskRunner(
                         buildLog.WriteAttemptHeader(attemptsUsed, maxAttempts, now);
                         testLog?.WriteAttemptHeader(attemptsUsed, maxAttempts, now);
 
-                        var prompt = feedbackPhase is null
-                            ? PromptBuilder.BuildInitial(cmd, projectRoot, conventions, rerun, hasTestGate)
+                        // The agent sees, per check, whether it would run for the changes so far.
+                        var checks = ChecksSection(await TouchedAsync());
+                        var feedback = feedbackPhase is null ? null : PromptBuilder.BuildFailureFeedback(feedbackPhase, feedbackOutput!, checks);
+                        var prompt = feedback is null
+                            ? PromptBuilder.BuildInitial(cmd, projectRoot, conventions, rerun, hasTestGate, checks)
                             : resumeSession is null
-                                ? PromptBuilder.BuildInitial(cmd, projectRoot, conventions, rerun, hasTestGate) + Environment.NewLine + PromptBuilder.BuildFailureFeedback(feedbackPhase, feedbackOutput!)
-                                : PromptBuilder.BuildFailureFeedback(feedbackPhase, feedbackOutput!);
+                                ? PromptBuilder.BuildInitial(cmd, projectRoot, conventions, rerun, hasTestGate, checks) + Environment.NewLine + feedback
+                                : feedback;
 
                         info($"[{cmd.Id}] attempt {attemptsUsed}/{maxAttempts}: agent working{(resumeSession is not null ? " (resumed session)" : "")}");
                         var agentResult = await agent.RunAsync(prompt, resumeSession, projectRoot, claudeLog.WriteLine);
@@ -359,8 +384,21 @@ public sealed class TaskRunner(
                             continue;
                         }
 
+                        // Touched files: once per attempt, right after the agent, before any check.
+                        var touched = await TouchedAsync();
+                        if (touched is not null)
+                        {
+                            foreach (var log in new[] { buildLog, testLog })
+                            {
+                                log?.WriteLine(touched.Summary());
+                                if (touched.ForcesAll)
+                                    log?.WriteLine($"{TouchedPaths.ConfigFile} changed: every command runs");
+                            }
+                            info($"[{cmd.Id}] attempt {attemptsUsed}/{maxAttempts}: {touched.Summary()}{(touched.ForcesAll ? $" — {TouchedPaths.ConfigFile} changed, every command runs" : "")}");
+                        }
+
                         info($"[{cmd.Id}] attempt {attemptsUsed}/{maxAttempts}: build");
-                        var build = await RunSequentiallyAsync(config.BuildCommands, buildLog.WriteLine);
+                        var build = await RunSequentiallyAsync("build", config.BuildCommands, touched, buildLog.WriteLine);
                         if (!build.Succeeded)
                         {
                             feedbackPhase = "build";
@@ -376,8 +414,19 @@ public sealed class TaskRunner(
                             continue;
                         }
 
+                        if (touched is not null && config.TestCommands.All(c => !touched.Runs(c)))
+                        {
+                            // Every test command is scoped elsewhere: passes like the no-gate case,
+                            // with its own line (decision 4 of prompts/0037).
+                            info($"[{cmd.Id}] attempt {attemptsUsed}/{maxAttempts}: tests: all skipped, no touched paths");
+                            await RunSequentiallyAsync("test", config.TestCommands, touched, testLog.WriteLine);
+                            testLog.WriteLine("tests: all skipped, no touched paths");
+                            succeeded = true;
+                            continue;
+                        }
+
                         info($"[{cmd.Id}] attempt {attemptsUsed}/{maxAttempts}: tests");
-                        var test = await RunSequentiallyAsync(config.TestCommands, testLog.WriteLine);
+                        var test = await RunSequentiallyAsync("test", config.TestCommands, touched, testLog.WriteLine);
                         if (!test.Succeeded)
                         {
                             feedbackPhase = "tests";

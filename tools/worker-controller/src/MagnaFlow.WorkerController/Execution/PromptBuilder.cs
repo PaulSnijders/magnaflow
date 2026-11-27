@@ -1,4 +1,5 @@
 using System.Text;
+using MagnaFlow.WorkerController.Config;
 using MagnaFlow.WorkerController.Prompts;
 
 namespace MagnaFlow.WorkerController.Execution;
@@ -70,7 +71,7 @@ public static class PromptBuilder
     /// the round has an open question — or when a pln/qa already exists and a leftover
     /// "Open questions" section has to be dropped.
     /// </summary>
-    public static string BuildPlan(CmdFile cmd, string projectRoot, string conventions, bool hasTestGate = true)
+    public static string BuildPlan(CmdFile cmd, string projectRoot, string conventions, bool hasTestGate = true, string? checks = null)
     {
         var pln = Path.GetFileName(cmd.PlnPath);
         var qa = Path.GetFileName(cmd.QaPath);
@@ -138,6 +139,7 @@ public static class PromptBuilder
         }
 
         prompt.AppendLine();
+        AppendChecks(prompt, checks);
         prompt.AppendLine(BuildConventionsAndSpecs(cmd, projectRoot, conventions));
         prompt.AppendLine($"# Command: {cmd.Title}");
         prompt.AppendLine();
@@ -151,7 +153,7 @@ public static class PromptBuilder
     /// <paramref name="rerunAfterAbort"/>: a human set an exhausted command back to ready, so the
     /// report is a new one and says so in its first line.
     /// </summary>
-    public static string BuildInitial(CmdFile cmd, string projectRoot, string conventions, bool rerunAfterAbort = false, bool hasTestGate = true)
+    public static string BuildInitial(CmdFile cmd, string projectRoot, string conventions, bool rerunAfterAbort = false, bool hasTestGate = true, string? checks = null)
     {
         var rst = Path.GetFileName(cmd.RstPath);
         var cmdFile = Path.GetFileName(cmd.FilePath);
@@ -200,12 +202,48 @@ public static class PromptBuilder
                 """);
         }
         prompt.AppendLine();
+        AppendChecks(prompt, checks);
         prompt.AppendLine(BuildConventionsAndSpecs(cmd, projectRoot, conventions));
         prompt.AppendLine($"# Command: {cmd.Title}");
         prompt.AppendLine();
         prompt.AppendLine(cmd.Body.Trim());
 
         return prompt.ToString();
+    }
+
+    private static void AppendChecks(StringBuilder prompt, string? checks)
+    {
+        if (checks is null) return;
+        prompt.AppendLine(checks.TrimEnd());
+        prompt.AppendLine();
+    }
+
+    /// <summary>
+    /// Which build/test check judges this work (prompts/0037 decision 4): per command, whether it
+    /// always runs, or runs only when the changes touch its paths — and what that means for the
+    /// changes so far. Only built when some command has `paths:`.
+    /// </summary>
+    public static string BuildChecksSection(IReadOnlyList<CheckCommand> build, IReadOnlyList<CheckCommand> test, TouchedPaths touched)
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine("# Checks after each attempt");
+        sb.AppendLine();
+        sb.AppendLine("Some checks are scoped to paths: they run only when your changes (against the start of this run, committed or not, untracked files included) touch a file under one of their paths, and a skipped check counts as passed. A change to .magnaflow/config.yml runs every check. For the changes so far:");
+        sb.AppendLine();
+        void Section(string name, IReadOnlyList<CheckCommand> commands)
+        {
+            for (var i = 0; i < commands.Count; i++)
+            {
+                var c = commands[i];
+                var when = !c.IsPathScoped
+                    ? "always runs"
+                    : $"runs only when your changes touch {c.PathList} — currently {(touched.Runs(c) ? "will run" : "will be skipped")}";
+                sb.AppendLine($"- {name} {i + 1}/{commands.Count} `{c.Run}`: {when}");
+            }
+        }
+        Section("build", build);
+        Section("test", test);
+        return sb.ToString();
     }
 
     /// <summary>
@@ -215,7 +253,7 @@ public static class PromptBuilder
     /// agent's changes. Sent alone into a resumed session, or appended to the phase's full
     /// prompt when the session cannot be resumed.
     /// </summary>
-    public static string BuildFailureFeedback(string phase, string failureOutput)
+    public static string BuildFailureFeedback(string phase, string failureOutput, string? checks = null)
     {
         var output = failureOutput.Length > MaxFeedbackChars
             ? "[...output truncated...]\n" + failureOutput[^MaxFeedbackChars..]
@@ -248,6 +286,6 @@ public static class PromptBuilder
             ```
             {output.Trim()}
             ```
-            """;
+            """ + (checks is null ? "" : Environment.NewLine + Environment.NewLine + checks.TrimEnd());
     }
 }

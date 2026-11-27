@@ -391,6 +391,27 @@ test:
     - dotnet test web/Wozzol.Tests/Wozzol.Tests.csproj
 ```
 
+**Run a check only for the part a cmd touched.** An entry can be a mapping
+with `run:` and `paths:` (repo-relative prefixes, a trailing `/` is a folder).
+It runs only when the cmd changed a file under one of them; otherwise the
+attempt log says `attempt 1/3: build 2/2 skipped (no change under topo/)` and
+the skip counts as passed. Plain string entries still always run:
+
+```yaml
+build:
+  commands:
+    - node more/cmd/mf-klaas-backend.js build    # always runs
+    - run: npm --prefix topo run build
+      paths: [topo/]
+test:
+  commands:
+    - run: node more/cmd/mf-klaas-backend.js test
+      paths: [klaas-backend/, more/cmd/mf-klaas-backend.js]
+```
+
+A worker older than this feature cannot read the mapping form (exit 2 on
+every run), so update the tools before committing it.
+
 **Project conventions** need no config: a root `CLAUDE.md` and/or
 `.specify/memory/constitution.md` (or `docs/constitution.md`) is included
 automatically when present (see [README](README.md#project-conventions)).

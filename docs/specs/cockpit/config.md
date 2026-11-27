@@ -17,8 +17,10 @@ the cockpit host. The machine config itself is never editable here.
 ## Summary
 
 A parsed, read-only view: build and test commands, max attempts
-(3 when unset), and the `run.services` names. Parsing is tolerant, so a
-file that is already broken on disk still shows something.
+(3 when unset), and the `run.services` names. A path-scoped `commands:`
+entry (`run:` + `paths:`) shows as `<run> (paths: topo/, …)`. Parsing is
+tolerant, so a file that is already broken on disk still shows
+something; validating an entry is the worker's job.
 
 ## .magnaflow/config.yml
 

@@ -92,8 +92,24 @@ public static class ProjectConfigReader
         if (!string.IsNullOrWhiteSpace(dto?.Command))
             return [dto.Command.Trim()];
         if (dto?.Commands is { Count: > 0 })
-            return dto.Commands.Select(c => c.Trim()).ToList();
+            return dto.Commands.Select(DescribeEntry).Where(c => c.Length > 0).ToList();
         return [];
+    }
+
+    /// <summary>A `commands:` entry is a string or a `{run, paths}` mapping (path-scoped, the
+    /// worker runs it only when a cmd touched those paths) — shown as "run (paths: a/, b)".
+    /// Tolerant: validating the entry is the worker's job.</summary>
+    private static string DescribeEntry(object? entry)
+    {
+        if (entry is string s)
+            return s.Trim();
+        if (entry is not IDictionary<object, object> map)
+            return "";
+        var run = map.TryGetValue("run", out var r) ? r?.ToString()?.Trim() ?? "" : "";
+        var paths = map.TryGetValue("paths", out var p) && p is IEnumerable<object> list
+            ? string.Join(", ", list.Select(x => x?.ToString()?.Trim()).Where(x => !string.IsNullOrEmpty(x)))
+            : "";
+        return paths.Length > 0 ? $"{run} (paths: {paths})" : run;
     }
 
     private static IDeserializer Deserializer() =>
@@ -110,7 +126,8 @@ public static class ProjectConfigReader
     private sealed class CommandDto
     {
         public string? Command { get; set; }
-        public List<string>? Commands { get; set; }
+        /// <summary>Strings or mappings (YamlDotNet gives a dictionary for the latter).</summary>
+        public List<object>? Commands { get; set; }
     }
 
     private sealed class DefaultsDto

@@ -27,7 +27,9 @@ Config first, then the work-branch guard, then the id lookup, then the
 run's own [preconditions](../concepts/worker-run.md#preconditions). An
 invalid or missing `.magnaflow/config.yml` therefore wins over an unknown
 id. `build` and `test` are required, each as `command:` or `commands:`
-but not both. See [machine and project config](../concepts/machine-config.md).
+but not both. An invalid path-scoped `commands:` entry (no `run`, empty
+`paths`, an absolute or `..` path, an unknown key) also makes the config
+invalid, exit 2. See [machine and project config](../concepts/machine-config.md#path-scoped-commands).
 
 ## Exit codes
 

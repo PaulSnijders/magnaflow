@@ -111,7 +111,10 @@ sections owned by different readers:
 build:
   command: dotnet build        # or commands: [..] — exactly one form
 test:                          # optional: absent = no test gate
-  commands: [dotnet test]
+  commands:
+    - dotnet test              # a string: always runs
+    - run: npm --prefix web test
+      paths: [web/]            # path-scoped: only when the cmd touched web/
 defaults:
   max_attempts: 3
   command_timeout_minutes: 30  # each build/test command
@@ -126,12 +129,50 @@ run:
 
 | Section | mf-worker | mf-run | mf-cockpit |
 |---|---|---|---|
-| `build` | required: exactly one of `command` / `commands` (non-empty) | ignored | summary card |
+| `build` | required: exactly one of `command` / `commands` (non-empty); a `commands:` entry is a string or a path-scoped mapping, see below | ignored | summary card (`<run> (paths: …)` for a mapping) |
 | `test` | optional; only an absent key means no test gate. A `test:` key that is present in any form (`commands: []`, a blank `command`, a bare `test:`, `test: null`, `test: {}`) follows the `build` rule and is malformed with the same "missing required field(s)" message | ignored | summary card |
 | `defaults` | `max_attempts`, `command_timeout_minutes`, `agent_timeout_minutes` (at least 1, else malformed: "invalid value") | ignored | `max_attempts` in summary |
 | `agent` | `command`, `args` | ignored | ignored |
 | `run.command` | the mf-run executable | ignored | ignored |
 | `run.services` | only "any services?": decides whether mf-run is spawned at all | full list, validated, see [mf-run](../run/mf-run.md#config) | service names for the Run card |
+
+### Path-scoped commands
+
+A `commands:` entry of `build` or `test` is either a string (always
+runs, as before) or a mapping:
+
+```yaml
+build:
+  commands:
+    - node more/cmd/mf-klaas-backend.js build    # no paths: always runs
+    - run: npm --prefix topo run build
+      paths: [topo/]
+test:
+  commands:
+    - run: node more/cmd/mf-klaas-backend.js test
+      paths: [klaas-backend/, more/cmd/mf-klaas-backend.js]
+```
+
+- `run` is required; `paths` is a non-empty list of repo-relative
+  prefixes. No globs.
+- A path ending in `/` is a folder and matches everything below it. A
+  path without it matches that exact file, or that name as a folder:
+  `topo` matches `topo/a.ts` but never `topology.md`.
+- `\` is read as `/`, and a leading `./` is dropped.
+- The single `command:` form stays a plain string. Actions
+  (`actions.yml`) have no `paths`.
+- **Invalid, exit 2** with `<file> has an invalid value: <entry>: …`,
+  where the entry is named like `build.commands[2]` (counted from 1):
+  - a missing or blank `run`;
+  - a missing or empty `paths`, or one that is not a list;
+  - an absolute path (`/…`, `C:…`) or a `..` segment;
+  - any key other than `run` and `paths`, so a typo such as `path:`
+    never silently turns into "always runs".
+- When the worker runs or skips such a command is in [worker
+  run](worker-run.md#path-scoped-checks).
+- **Older workers** read every entry as a string: a config with a
+  mapping entry is a YAML error there (exit 2 on every run). Roll the
+  worker out before committing the first mapping.
 
 - A missing file is fatal for mf-worker. It means "no services" for
   mf-run and "no Run card" for the cockpit.
@@ -147,5 +188,5 @@ run:
 
 DRAFT: generated from code, not human-reviewed.
 
-Code: tools/mf-watch/src/MagnaFlow.MfWatch/Config/WatchConfig.cs, tools/mf-cockpit/src/MagnaFlow.MfCockpit/Config/CockpitConfig.cs, tools/mf-cockpit/src/MagnaFlow.MfCockpit/Config/MagnaflowYmlAppender.cs, tools/mf-cockpit/src/MagnaFlow.MfCockpit/Config/ProjectConfigReader.cs, tools/worker-controller/src/MagnaFlow.WorkerController/Config/ProjectConfig.cs, tools/mf-run/src/MagnaFlow.MfRun/Config/RunConfig.cs
-Why: decisions/0012-one-machine-config.md
+Code: tools/mf-watch/src/MagnaFlow.MfWatch/Config/WatchConfig.cs, tools/mf-cockpit/src/MagnaFlow.MfCockpit/Config/CockpitConfig.cs, tools/mf-cockpit/src/MagnaFlow.MfCockpit/Config/MagnaflowYmlAppender.cs, tools/mf-cockpit/src/MagnaFlow.MfCockpit/Config/ProjectConfigReader.cs, tools/worker-controller/src/MagnaFlow.WorkerController/Config/ProjectConfig.cs, tools/worker-controller/src/MagnaFlow.WorkerController/Config/CheckCommand.cs, tools/mf-run/src/MagnaFlow.MfRun/Config/RunConfig.cs
+Why: decisions/0012-one-machine-config.md, prompts/0037-cmd-worker-path-scoped-checks.md

@@ -1,8 +1,8 @@
 ---
 title: "Worker: path-scoped build and test commands (run a check only when the cmd touched its paths)"
-status: ready
+status: done
 created: 2026-11-27
-attempts: 0
+attempts: 1
 ---
 
 ## Why

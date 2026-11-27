@@ -11,8 +11,12 @@ namespace MagnaFlow.WorkerController.Config;
 /// </summary>
 public sealed class ProjectConfig
 {
-    public required IReadOnlyList<string> BuildCommands { get; init; }
-    public required IReadOnlyList<string> TestCommands { get; init; }
+    public required IReadOnlyList<CheckCommand> BuildCommands { get; init; }
+    public required IReadOnlyList<CheckCommand> TestCommands { get; init; }
+
+    /// <summary>Whether any build/test command carries `paths:` — only then does the worker ask
+    /// git which files the run touched (docs/specs/concepts/worker-run.md step 5).</summary>
+    public bool HasPathScopedCommands => BuildCommands.Concat(TestCommands).Any(c => c.IsPathScoped);
     public int MaxAttempts { get; init; } = 3;
     /// <summary>Limit per build/test command (defaults.command_timeout_minutes).</summary>
     public TimeSpan CommandTimeout { get; init; } = TimeSpan.FromMinutes(30);
@@ -84,12 +88,15 @@ public sealed class ProjectConfig
         }
 
         var problems = new List<string>();
-        var buildCommands = ResolveCommands(dto.Build, "build", problems);
+        var invalid = new List<string>();
+        var buildCommands = ResolveCommands(dto.Build, "build", problems, invalid);
         // Only an absent key means "no test gate"; a present-but-unusable test: is malformed,
         // so a typo never switches testing off.
-        var testCommands = hasTestKey ? ResolveCommands(dto.Test, "test", problems) : [];
+        var testCommands = hasTestKey ? ResolveCommands(dto.Test, "test", problems, invalid) : [];
         if (problems.Count > 0)
             return (null, $"{path} is missing required field(s): {string.Join(", ", problems)}");
+        if (invalid.Count > 0)
+            return (null, $"{path} has an invalid value: {string.Join("; ", invalid)}");
 
         var commandTimeoutMinutes = dto.Defaults?.CommandTimeoutMinutes ?? 30;
         var agentTimeoutMinutes = dto.Defaults?.AgentTimeoutMinutes ?? commandTimeoutMinutes;
@@ -122,8 +129,9 @@ public sealed class ProjectConfig
             && root.Children.Keys.Any(k => k is YamlScalarNode { Value: var v } && v == key);
     }
 
-    /// <summary>Normalizes a section's command:/commands: to a list (contracts/file-formats.md); exactly one form is required.</summary>
-    private static List<string>? ResolveCommands(CommandDto? dto, string section, List<string> problems)
+    /// <summary>Normalizes a section's command:/commands: to a list (contracts/file-formats.md); exactly one form is required.
+    /// A `commands:` entry is a string or a `{run, paths}` mapping; the single `command:` stays a string.</summary>
+    private static List<CheckCommand>? ResolveCommands(CommandDto? dto, string section, List<string> problems, List<string> invalid)
     {
         var hasCommand = !string.IsNullOrWhiteSpace(dto?.Command);
         var hasCommands = dto?.Commands is { Count: > 0 };
@@ -136,11 +144,81 @@ public sealed class ProjectConfig
         if (hasCommand)
             return [dto!.Command!.Trim()];
         if (hasCommands)
-            return dto!.Commands!.Select(c => c.Trim()).ToList();
+        {
+            var result = new List<CheckCommand>();
+            for (var i = 0; i < dto!.Commands!.Count; i++)
+            {
+                var entry = ParseEntry(dto.Commands[i], $"{section}.commands[{i + 1}]", invalid);
+                if (entry is not null) result.Add(entry);
+            }
+            return result;
+        }
 
         problems.Add(dto?.Commands is { Count: 0 }
             ? $"{section}.commands is empty (needs at least one command)"
             : $"{section}.command or {section}.commands");
+        return null;
+    }
+
+    private static CheckCommand? ParseEntry(object? raw, string where, List<string> invalid)
+    {
+        switch (raw)
+        {
+            case string s when !string.IsNullOrWhiteSpace(s):
+                return s.Trim();
+            case IDictionary<object, object> map:
+            {
+                var unknown = map.Keys.Select(k => k?.ToString() ?? "").Where(k => k is not ("run" or "paths")).ToList();
+                if (unknown.Count > 0)
+                {
+                    invalid.Add($"{where} has unknown key(s) {string.Join(", ", unknown)} (only run and paths)");
+                    return null;
+                }
+                if (!map.TryGetValue("run", out var run) || run is not string runText || string.IsNullOrWhiteSpace(runText))
+                {
+                    invalid.Add($"{where} needs a run: command");
+                    return null;
+                }
+                if (!map.TryGetValue("paths", out var rawPaths) || rawPaths is not IList<object> list || list.Count == 0)
+                {
+                    invalid.Add($"{where}.paths must be a non-empty list (leave paths out for a command that always runs)");
+                    return null;
+                }
+                var paths = new List<string>();
+                foreach (var item in list)
+                {
+                    var problem = NormalizePath(item, out var normalized);
+                    if (problem is not null)
+                    {
+                        invalid.Add($"{where}.paths: {problem}");
+                        return null;
+                    }
+                    paths.Add(normalized!);
+                }
+                return new CheckCommand(runText.Trim(), paths);
+            }
+            default:
+                invalid.Add($"{where} must be a command string or a mapping with run: and paths:");
+                return null;
+        }
+    }
+
+    /// <summary>A repo-relative prefix: '\' becomes '/', a leading "./" is dropped; absolute
+    /// paths and ".." segments are refused — there are no globs.</summary>
+    private static string? NormalizePath(object? item, out string? normalized)
+    {
+        normalized = null;
+        if (item is not string text || string.IsNullOrWhiteSpace(text))
+            return "every entry must be a non-empty path";
+        var p = text.Trim().Replace('\\', '/');
+        if (p.StartsWith('/') || (p.Length >= 2 && char.IsLetter(p[0]) && p[1] == ':'))
+            return $"'{text}' is absolute (paths are relative to the repo root)";
+        while (p.StartsWith("./")) p = p[2..];
+        if (p.Split('/').Contains(".."))
+            return $"'{text}' contains '..'";
+        if (p.Length == 0 || p == ".")
+            return $"'{text}' names the whole repo (leave paths out instead)";
+        normalized = p;
         return null;
     }
 
@@ -156,7 +234,8 @@ public sealed class ProjectConfig
     private sealed class CommandDto
     {
         public string? Command { get; set; }
-        public List<string>? Commands { get; set; }
+        /// <summary>Each entry: a string, or a mapping (deserialized as a dictionary).</summary>
+        public List<object>? Commands { get; set; }
     }
 
     private sealed class DefaultsDto

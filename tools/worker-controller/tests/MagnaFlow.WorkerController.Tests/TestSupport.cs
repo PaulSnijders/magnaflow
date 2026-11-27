@@ -218,6 +218,17 @@ public sealed class FakeGitClient : IGitClient
         return Task.CompletedTask;
     }
 
+    /// <summary>What GetTouchedPathsAsync returns — the files the "agent" changed since the start point.
+    /// A function, so a test can change it between attempts.</summary>
+    public Func<IReadOnlyList<string>> TouchedPaths = () => [];
+    public List<string> TouchedPathStartPoints = [];
+
+    public Task<IReadOnlyList<string>> GetTouchedPathsAsync(string startCommit)
+    {
+        TouchedPathStartPoints.Add(startCommit);
+        return Task.FromResult(TouchedPaths());
+    }
+
     public IEnumerable<string> MutatingOperations =>
         Operations.Where(o => o.StartsWith("commit") || o.StartsWith("amend") || o.StartsWith("create") || o.StartsWith("stage") || o.StartsWith("checkout") || o.StartsWith("push"));
 }
@@ -306,8 +317,8 @@ public static class TestConfig
 {
     public static ProjectConfig Create(
         int maxAttempts = 3,
-        IReadOnlyList<string>? buildCommands = null,
-        IReadOnlyList<string>? testCommands = null,
+        IReadOnlyList<CheckCommand>? buildCommands = null,
+        IReadOnlyList<CheckCommand>? testCommands = null,
         bool hasRunServices = false,
         string runCommand = "mf-run",
         bool hasRunStable = false) => new()

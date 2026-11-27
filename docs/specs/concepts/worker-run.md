@@ -61,7 +61,8 @@ Checked in this order. Nothing is written or committed until all pass.
    written, and the rules line of both the plan and the implementation
    prompt tells the agent that it owns the tests (run them and make
    them pass before it finishes) instead of saying the worker will run
-   them.
+   them. Path-scoped commands may be skipped; see [path-scoped
+   checks](#path-scoped-checks).
 6. **Work commit**: `git add -A` of everything except `.magnaflow/` and
    `docs/prompts/`. In branch mode it is committed as `command <id>:
    <title>`, the work branch is pushed, and the invoking branch is
@@ -113,6 +114,49 @@ invoking branch.
   finishing the implementation; check the tree and complete it.
   `build` / `tests`: the step failed after your changes; fix it. Each
   wraps the failure output (the last 16 000 chars).
+
+## Path-scoped checks
+
+Only when some `build`/`test` entry has `paths:` ([config
+shape](machine-config.md#path-scoped-commands)). Without one the worker
+never asks git and logs nothing extra.
+
+- **Start point**: the claim commit (`mf-worker: <id> -> running`), in
+  both modes. A run resumed from `questions`, or a re-readied abort,
+  makes its own claim commit and so its own start point. Within the run
+  every attempt diffs against it, so earlier attempts' changes count.
+  In branch mode the diff runs from the claim commit on the invoking
+  branch to the work branch's tree: a reused branch's earlier commits
+  count, and a stale branch can only add paths, which runs more checks,
+  never fewer. A branchless re-run does not see earlier *runs*: their
+  work is already in the claim commit.
+- **Touched files**: `git diff --name-only --no-renames <start>`
+  (commits since, staged and unstaged changes; a rename counts as both
+  paths) plus `git ls-files --others --exclude-standard` (untracked, not
+  ignored). The cmd's own cmd/pln/qa/rst files and its `.magnaflow/<id>/`
+  evidence folder do not count. Computed once per attempt, after the
+  agent and before the first build command, so build output never
+  changes which tests run.
+- **Run or skip**: a command with `paths` runs when a touched file
+  matches one of them; otherwise it is skipped, and a skip counts as
+  passed. Commands without `paths` always run. A touched
+  `.magnaflow/config.yml` runs every command.
+- **Logs**: the console says
+  `attempt i/n: build 2/3 skipped (no change under topo/)`, and
+  `build.log` / `test.log` say `skipped build 2/3: <run> (no change
+  under topo/)`. After each attempt header both logs get one summary
+  line, `touched paths: 4 (klaas-backend/ 3, (root) 1)` (count per
+  top-level folder, root files last), plus `.magnaflow/config.yml
+  changed: every command runs` when that applies.
+- **All tests skipped**: the attempt passes, like the no-gate case, with
+  its own line `attempt i/n: tests: all skipped, no touched paths` (also
+  in `test.log`, after the skip lines). The test gate still exists, so
+  the prompt's rules line is unchanged.
+- **Prompt**: the plan prompt, the implementation prompt and the
+  build/tests failure feedback carry a `# Checks after each attempt`
+  section. It lists every command as `always runs` or `runs only when
+  your changes touch <paths> — currently will run / will be skipped`,
+  computed from the touched files at that moment.
 
 ## mf-run around the run
 
@@ -202,5 +246,5 @@ body.
 
 DRAFT: generated from code, not human-reviewed.
 
-Code: tools/worker-controller/src/MagnaFlow.WorkerController/Execution/TaskRunner.cs, tools/worker-controller/src/MagnaFlow.WorkerController/Execution/PromptBuilder.cs, tools/worker-controller/src/MagnaFlow.WorkerController/Execution/ConventionLoader.cs, tools/worker-controller/src/MagnaFlow.WorkerController/Agents/ClaudeCodeRunner.cs, tools/worker-controller/src/MagnaFlow.WorkerController/Config/ProjectConfig.cs, tools/worker-controller/src/MagnaFlow.WorkerController/Infrastructure/GitClient.cs, tools/worker-controller/src/MagnaFlow.WorkerController/Commands/CommandInfrastructure.cs
-Why: decisions/0005-worker-v0-2-direction.md, decisions/0018-stable-instance.md, prompts/0011-rst-worker-one-commit-per-run.md, prompts/0015-rst-plan-file-only-on-questions.md
+Code: tools/worker-controller/src/MagnaFlow.WorkerController/Execution/TaskRunner.cs, tools/worker-controller/src/MagnaFlow.WorkerController/Execution/PromptBuilder.cs, tools/worker-controller/src/MagnaFlow.WorkerController/Execution/ConventionLoader.cs, tools/worker-controller/src/MagnaFlow.WorkerController/Agents/ClaudeCodeRunner.cs, tools/worker-controller/src/MagnaFlow.WorkerController/Config/ProjectConfig.cs, tools/worker-controller/src/MagnaFlow.WorkerController/Infrastructure/GitClient.cs, tools/worker-controller/src/MagnaFlow.WorkerController/Execution/TouchedPaths.cs, tools/worker-controller/src/MagnaFlow.WorkerController/Config/CheckCommand.cs, tools/worker-controller/src/MagnaFlow.WorkerController/Commands/CommandInfrastructure.cs
+Why: decisions/0005-worker-v0-2-direction.md, decisions/0018-stable-instance.md, prompts/0011-rst-worker-one-commit-per-run.md, prompts/0015-rst-plan-file-only-on-questions.md, prompts/0037-cmd-worker-path-scoped-checks.md

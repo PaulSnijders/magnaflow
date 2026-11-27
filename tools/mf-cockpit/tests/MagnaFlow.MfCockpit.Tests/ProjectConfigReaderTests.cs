@@ -33,6 +33,26 @@ public class ProjectConfigReaderTests
     }
 
     [Fact]
+    public void Summarize_AcceptsPathScopedMappingEntries()
+    {
+        var summary = ProjectConfigReader.Summarize(
+            """
+            build:
+              commands:
+                - node more/cmd/mf-klaas-backend.js build
+                - run: npm --prefix topo run build
+                  paths: [topo/]
+            run:
+              services:
+                - name: web
+                  command: bin/web.exe
+            """);
+
+        Assert.Equal(["node more/cmd/mf-klaas-backend.js build", "npm --prefix topo run build (paths: topo/)"], summary.BuildCommands);
+        Assert.Equal(["web"], summary.RunServices);
+    }
+
+    [Fact]
     public void Summarize_DefaultsMaxAttemptsToThreeWhenAbsent()
     {
         var summary = ProjectConfigReader.Summarize("build:\n  command: dotnet build\n");
